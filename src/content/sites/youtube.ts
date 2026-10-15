@@ -15,6 +15,8 @@ interface YtTrack {
 export interface YtPlayerData {
   videoId: string | null;
   title: string;
+  /** The player's latest caption request with a token, if it made one before we asked. */
+  tokenUrl?: string | null;
   tracks: YtTrack[];
   defaultIndex: number | null;
   translationLanguages: { code: string; name: string }[];
@@ -25,6 +27,9 @@ const TOKEN_PARAMS = ['pot', 'potc', 'c', 'cver', 'cplayer', 'cos', 'cosver', 'c
 
 const HIDE_STYLE_ID = 'lr-hide-native-captions';
 
+/** How long a preroll ad may hold up the first caption request. */
+const AD_WAIT_MS = 5 * 60_000;
+
 export class YouTubeAdapter implements SiteAdapter {
   readonly site = 'youtube' as const;
   private tracks = new Map<string, YtTrack>();
@@ -33,21 +38,30 @@ export class YouTubeAdapter implements SiteAdapter {
   /** Token params captured from the player's own caption request, per video. */
   private tokens = new Map<string, URLSearchParams>();
   private tokenWaiters: (() => void)[] = [];
+  /** Called with the video id whenever the player makes a caption request with a token. */
+  onToken: ((videoId: string) => void) | null = null;
 
   constructor() {
     onMessageFrom(FROM_MAIN, (msg) => {
-      if (msg.type !== 'yt.timedtext' || typeof msg.url !== 'string') return;
-      try {
-        const url = new URL(msg.url);
-        const v = url.searchParams.get('v');
-        if (v && url.searchParams.has('pot')) {
-          this.tokens.set(v, url.searchParams);
-          this.tokenWaiters.splice(0).forEach((w) => w());
-        }
-      } catch {
-        // ignore malformed URLs
-      }
+      if (msg.type === 'yt.timedtext' && typeof msg.url === 'string') this.takeToken(msg.url);
     });
+  }
+
+  private takeToken(raw: string) {
+    try {
+      const url = new URL(raw);
+      const v = url.searchParams.get('v');
+      if (!v || !url.searchParams.has('pot')) return;
+      this.tokens.set(v, url.searchParams);
+      this.tokenWaiters.splice(0).forEach((w) => w());
+      this.onToken?.(v);
+    } catch {
+      // ignore malformed URLs
+    }
+  }
+
+  adShowing(): boolean {
+    return !!document.querySelector('#movie_player.ad-showing');
   }
 
   getVideo(): HTMLVideoElement | null {
@@ -110,6 +124,7 @@ export class YouTubeAdapter implements SiteAdapter {
 
   private setPlayerData(data: YtPlayerData) {
     this.videoId = data.videoId;
+    if (data.tokenUrl) this.takeToken(data.tokenUrl);
     this.translationLanguages = data.translationLanguages;
     this.tracks.clear();
     for (const t of data.tracks) this.tracks.set(t.vssId || `${t.lang}:${t.kind}`, t);
@@ -160,13 +175,17 @@ export class YouTubeAdapter implements SiteAdapter {
       return res.ok ? res.text() : '';
     };
     let body = await get();
-    if (!body.trim() && this.videoId && !this.tokens.has(this.videoId)) {
-      // Captions need the player's token: have the player load captions once.
+    const videoId = this.videoId;
+    if (!body.trim() && videoId && !this.tokens.has(videoId)) {
+      // Captions need the player's token: have the player load captions once. It fetches the
+      // video's captions only after a preroll ad, so wait that out first.
+      const deadline = Date.now() + AD_WAIT_MS;
+      while (this.adShowing() && Date.now() < deadline) await new Promise((r) => setTimeout(r, 500));
       postToMain({ type: 'yt.enableCaptions', lang: track.lang });
-      if (await this.waitForToken(this.videoId, 8000)) body = await get();
+      if (await this.waitForToken(videoId, 8000)) body = await get();
     }
     if (!body.trim()) {
-      throw new Error('YouTube did not return subtitles. Turn captions on once with the CC button, then reload.');
+      throw new Error('YouTube did not return subtitles. Press the CC button once to load them, or reload the page.');
     }
     return parseYouTubeJson3(JSON.parse(body));
   }

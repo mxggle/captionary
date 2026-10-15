@@ -87,6 +87,13 @@ export default defineContentScript({
     let currentId: string | null = null;
     let loading: Promise<void> | null = null;
 
+    // A token that turns up after a failed load (the learner pressed CC, or the player fetched
+    // captions late) is all the load was missing: try again without a reload.
+    adapter.onToken = (videoId) => {
+      const { status, originalTrackId } = getSession();
+      if (videoId === currentId && status === 'error' && originalTrackId) void controller.selectOriginalTrack(originalTrackId);
+    };
+
     const reset = () => {
       controller.attachVideo(null);
       setSession({ media: null, status: 'idle', cues: [], translations: [], tracks: [], activeIndex: -1, popup: null, menuOpen: false });
@@ -135,7 +142,7 @@ export default defineContentScript({
     ctx.setInterval(() => {
       if (!currentId) return;
       controller.attachVideo(adapter.getVideo());
-      const ad = !!document.querySelector('#movie_player.ad-showing');
+      const ad = adapter.adShowing();
       if (ad !== getSession().adShowing) setSession({ adShowing: ad, menuOpen: ad ? false : getSession().menuOpen });
     }, 1000);
   },
