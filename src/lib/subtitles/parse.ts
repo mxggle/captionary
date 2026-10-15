@@ -22,10 +22,13 @@ export function cleanCueText(text: string): string {
     .trim();
 }
 
+/** Text with something to show (Apple's filler cues hold only a zero-width space). */
+const VISIBLE = /[^\s\u200b\u2060\ufeff]/;
+
 /** Sort, drop empty cues and clip overlaps so exactly one cue is active at a time. */
 export function normalizeCues(cues: Cue[]): Cue[] {
   const sorted = cues
-    .filter((c) => c.text && Number.isFinite(c.start) && Number.isFinite(c.end) && c.end > c.start)
+    .filter((c) => VISIBLE.test(c.text) && Number.isFinite(c.start) && Number.isFinite(c.end) && c.end > c.start)
     .sort((a, b) => a.start - b.start || a.end - b.end);
   const out: Cue[] = [];
   for (const cue of sorted) {

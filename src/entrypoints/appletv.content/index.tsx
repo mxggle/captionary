@@ -70,11 +70,13 @@ export default defineContentScript({
     });
 
     let currentId: string | null = null;
+    let masterUrl: string | null = null;
     let pendingSince: number | null = null;
     let busy = false;
 
     const reset = () => {
       currentId = null;
+      masterUrl = null;
       pendingSince = null;
       controller.attachVideo(null);
       setSession({
@@ -101,7 +103,7 @@ export default defineContentScript({
           return;
         }
         controller.attachVideo(video);
-        const { master, nowPlaying } = await adapter.current();
+        const { master, nowPlaying } = await adapter.current(masterUrl);
         if (!master) {
           pendingSince ??= Date.now();
           if (!getSession().media) {
@@ -115,6 +117,8 @@ export default defineContentScript({
           return;
         }
         pendingSince = null;
+        if (master.url === masterUrl || !master.text) return;
+        masterUrl = master.url;
         const { master: parsed, tracks, defaultId } = adapter.useMaster(master.url, master.text);
         const id = parsed.adamId ?? nowPlaying?.id ?? master.url;
         if (id === currentId) return;

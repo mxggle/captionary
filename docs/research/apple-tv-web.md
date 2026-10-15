@@ -144,8 +144,9 @@ player's per-rendition requests. Reading the master playlist avoids that step.
 1. Master playlist is intercepted (hls.js uses XHR and fetch); the trailer lists 41 subtitle
    languages. Language codes are **`cmn-Hans` / `cmn-Hant`** (not `zh-Hans`), plus `yue-Hant`
    and `no`; `normalizeLang` maps `cmn-*` to Chinese and `no` to `nb`.
-2. Cue times match `video.currentTime` directly (no 10 s X-TIMESTAMP-MAP offset): our cue
+2. For trailers, cue times match `video.currentTime` directly (no 10 s X-TIMESTAMP-MAP offset): our cue
    "Okay, go ahead and have a seat." was active while the player's native cue was 4.83–7.14 s.
+   **Full episodes and films are different, see "Stitched streams" below.**
 3. The media playlist can point at several `.webvtt` files (`…-0.webvtt`, `…-1.webvtt`); all are fetched.
 4. Seeking with `MusicKit.getInstance().seekToTime()` works mid-playback without player errors.
 5. `dialog.playback-view` is modal (`:modal`, top layer), so all UI is mounted inside it.
@@ -156,3 +157,37 @@ player's per-rendition requests. Reading the master playlist avoids that step.
 7. Note for testing: Playwright's Chromium gets Widevine if `--disable-component-update` is
    removed from the default args (the CDM downloads on first run). Branded Chrome 155 ignores
    `--load-extension`.
+
+## Stitched streams: episodes and films (verified 2026-10-16, signed-in Chrome)
+
+Subscription titles are **server-stitched**: the personalized media playlists
+(`…/MZPlayLocal.woa/hls/subscription/stream/playlist.m3u8?…`, the URIs listed in the master) play
+several titles back to back on one timeline, each run after an `#EXT-X-DISCONTINUITY`:
+
+| Severance S1E1 (video playlist) | Matchbox (video playlist) |
+|---|---|
+| 0 s: Apple TV ident (8.008 s) | 0 s: Apple TV ident (8.008 s) |
+| 8.008 s: promo for another title (31.073 s) | 8.008 s: promo (31.073 s) |
+| **39.081 s: the episode** | 39.081 s: sting (6.048 s) |
+| 3473.8 s: nine 12 s post-roll slots | **45.128 s: the film** |
+
+- `video.currentTime`, `MusicKit.currentPlaybackTime` and Apple's own scrubber all use this stitched
+  clock (Apple's scrubber showed 5:03 at `currentTime` 302.7 s).
+- The title's own WebVTT files (`P…_A<feature.adam-id>_<lang>_subtitles_V2-<n>.webvtt`) count from the
+  title's own start. Every run's first frame decodes at 10.0 s (`tfdt`), matching
+  `X-TIMESTAMP-MAP=MPEGTS:900000,LOCAL:00:00:00.000`, so **cue time on the player's clock = start of the
+  title's run + cue time in the file**. Reading the files at face value put every line 39–45 s early, and
+  the promo's own subtitle file (also starting near 0 s) got mixed into the opening.
+- Filler runs use `empty-<ms>.webvtt`, holding one zero-width-space cue.
+- Take the run's start from the **video** playlist the player streams. The subtitle playlist rounds run
+  durations differently (8.126 s vs 8.008 s for the same ident; the episode started at 39.334 s there,
+  a quarter-second late).
+- Don't use the session data for this. `pre-roll.N.start/duration` (also `nowPlayingItem.hlsMetadata`)
+  and `skip.0.target` described a different promo (45.546 s in total) than the stream that played
+  (39.081 s). MusicKit fetched the master twice and the dynamic slot was filled differently each time.
+- Re-fetching a stream playlist URL returns the same layout (only `accessKey`s change).
+- The episode master is 0.5–1.2 MB, so don't post it across the bridge on every poll.
+- The adapter keeps only the runs whose file names carry the master's `feature.adam-id`, and shifts each run
+  by its start in the player's video playlist (captured in the MAIN world; it falls back to the
+  subtitle playlist's own timeline after 5 s). Live check on Matchbox with Apple's English subtitles on:
+  Captionary's line matched the player's native `activeCues` in 12 of 12 one-second samples.
