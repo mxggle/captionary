@@ -1,0 +1,39 @@
+{
+  "name": "captionary",
+  "description": "Learn languages from YouTube, Netflix and Apple TV+ with dual subtitles, a pop-up dictionary and AI vocabulary explanations.",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wxt",
+    "dev:firefox": "wxt -b firefox",
+    "build": "wxt build",
+    "zip": "wxt zip",
+    "compile": "tsc --noEmit",
+    "test": "vitest run",
+    "postinstall": "wxt prepare",
+    "format": "prettier --write src wxt.config.ts vitest.config.ts",
+    "check": "tsc --noEmit && vitest run && prettier --check src"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.133.0",
+    "idb": "^8.0.4",
+    "openai": "^7.33.0",
+    "pinyin-pro": "^3.29.5",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@wxt-dev/module-react": "^1.2.2",
+    "happy-dom": "^21.0.1",
+    "prettier": "^3.9.10",
+    "typescript": "~5.9.3",
+    "vitest": "^5.0.4",
+    "wxt": "^0.21.4"
+  }
+}
