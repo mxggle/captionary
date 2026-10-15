@@ -93,7 +93,7 @@
   gap: var(--space-2);
   height: var(--control-md);
   padding: 0 var(--space-4);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-control);
   border: 1px solid var(--line);
   background: var(--surface-raised);
   color: var(--ink);
@@ -145,7 +145,7 @@
   height: 26px;
   margin-right: -10px;
   padding: 0 6px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-control);
   background: var(--learn);
   color: var(--on-learn);
   display: inline-flex;
@@ -162,7 +162,7 @@
   justify-content: center;
   padding: 0;
   border: 0;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--ink-muted);
   flex: none;
@@ -200,7 +200,7 @@
   gap: 6px;
   height: 34px;
   padding: 0 14px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-control);
   border: 1px solid var(--line);
   background: var(--surface-raised);
   color: var(--ink-muted);
@@ -229,7 +229,7 @@
   gap: 6px;
   height: var(--control-lg);
   padding: 0 14px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-control);
   border: 1px solid var(--line);
   background: var(--surface-raised);
   color: var(--ink);
@@ -269,7 +269,7 @@
   gap: 4px;
   height: 22px;
   padding: 0 8px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-control);
   background: var(--surface-sunk);
   color: var(--ink-muted);
   font-size: 12px;
@@ -303,7 +303,7 @@
 .cap-mark {
   background: var(--learn);
   color: var(--on-learn);
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   padding: 0 3px;
 }
 .cap-dot {
@@ -406,7 +406,7 @@ textarea.cap-input {
   gap: var(--space-2);
   height: var(--control-lg);
   padding: 0 14px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-control);
   border: 1px solid var(--line-strong);
   background: var(--surface-raised);
   color: var(--ink-subtle);
@@ -433,14 +433,14 @@ textarea.cap-input {
   display: inline-flex;
   padding: 3px;
   gap: 2px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-control);
   background: var(--surface-sunk);
 }
 .cap-segment button {
   height: 30px;
   padding: 0 14px;
   border: 0;
-  border-radius: var(--radius-pill);
+  border-radius: calc(var(--radius-control) - 1px);
   background: transparent;
   color: var(--ink-muted);
   font-size: 13.5px;
@@ -475,10 +475,10 @@ textarea.cap-input {
 .cap-range__knob {
   position: absolute;
   top: 50%;
-  width: 18px;
-  height: 18px;
-  margin: -9px 0 0 -9px;
-  border-radius: 50%;
+  width: 12px;
+  height: 20px;
+  margin: -10px 0 0 -6px;
+  border-radius: var(--radius-xs);
   background: var(--surface-raised);
   border: 2px solid var(--primary);
 }
@@ -497,7 +497,7 @@ textarea.cap-input {
   height: 26px;
   padding: 0;
   border: 2px solid var(--line-strong);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-control);
   background: var(--switch-off);
   flex: none;
 }
@@ -508,7 +508,7 @@ textarea.cap-input {
   left: 4px;
   width: 14px;
   height: 14px;
-  border-radius: 50%;
+  border-radius: calc(var(--radius-control) - 1px);
   background: var(--switch-knob-off);
   transition:
     transform 0.15s,
@@ -535,7 +535,7 @@ textarea.cap-input {
   min-width: 22px;
   height: 22px;
   padding: 0 6px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--line-strong);
   border-bottom-width: 2px;
   background: var(--surface-raised);
@@ -621,7 +621,7 @@ textarea.cap-input {
   gap: 10px;
   min-height: 38px;
   padding: 0 12px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-control);
   color: var(--ink-muted);
   font-size: 14px;
 }
@@ -678,8 +678,8 @@ textarea.cap-input {
   font-family: var(--font-display);
   font-size: 40px;
   line-height: 44px;
-  font-weight: 800;
-  letter-spacing: -0.025em;
+  font-weight: 600;
+  letter-spacing: -0.02em;
   text-wrap: balance;
 }
 .cap-lead {
@@ -697,7 +697,7 @@ textarea.cap-input {
   font-family: var(--font-display);
   font-size: 18px;
   line-height: 24px;
-  font-weight: 700;
+  font-weight: 600;
 }
 .cap-h2__meta {
   font-family: var(--font-sans);
@@ -730,7 +730,7 @@ textarea.cap-input {
   min-width: 0;
   font-family: var(--font-display);
   font-size: 17px;
-  font-weight: 700;
+  font-weight: 600;
 }
 .cap-card__body {
   padding: 16px 18px;
@@ -777,7 +777,7 @@ textarea.cap-input {
   font-family: var(--font-display);
   font-size: 26px;
   line-height: 30px;
-  font-weight: 700;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 .cap-stat__label {
@@ -803,7 +803,7 @@ textarea.cap-input {
   font-family: var(--font-display);
   font-size: 24px;
   line-height: 28px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.015em;
   overflow-wrap: anywhere;
 }
@@ -908,7 +908,7 @@ textarea.cap-input {
   min-width: 0;
   height: var(--control-md);
   padding: 0 14px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-control);
   border: 1px solid var(--line-strong);
   background: var(--surface);
   color: var(--ink);
@@ -1804,19 +1804,19 @@ textarea.cap-input {
   font-family: var(--font-display);
   font-size: 56px;
   line-height: 1;
-  font-weight: 800;
-  letter-spacing: -0.03em;
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 .cap-progress {
-  height: 6px;
-  border-radius: 3px;
+  height: 3px;
+  border-radius: 0;
   background: var(--line);
   overflow: hidden;
 }
 .cap-progress > span {
   display: block;
   height: 100%;
-  border-radius: 3px;
+  border-radius: 0;
   background: var(--primary);
 }
 
@@ -1847,20 +1847,6 @@ textarea.cap-input {
 .cap-root a.cap-tile:hover {
   background: var(--state-hover);
 }
-.cap-tile__icon {
-  width: 30px;
-  height: 30px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9px;
-  background: var(--surface-raised);
-  color: var(--ink);
-}
-.cap-tile__icon--learn {
-  background: var(--learn);
-  color: var(--on-learn);
-}
 .cap-tile__title {
   font-size: 14px;
   font-weight: 600;
@@ -1876,7 +1862,7 @@ textarea.cap-input {
   height: 32px;
   margin: 0 2px;
   padding: 0 8px 0 12px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-control);
   border: 1px solid var(--line-strong);
   background: var(--surface);
   color: var(--ink);
@@ -1979,7 +1965,7 @@ textarea.cap-input {
 }
 .cap-md code {
   padding: 0 4px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: var(--surface-sunk);
   font-family: var(--font-mono);
   font-size: 0.9em;
@@ -2683,11 +2669,11 @@ div.cap-menu__item {
   background: linear-gradient(to right, var(--primary) var(--fill, 0%), var(--line) var(--fill, 0%));
 }
 .cap-range__input::-webkit-slider-thumb {
-  width: 18px;
-  height: 18px;
-  margin-top: -7px;
+  width: 12px;
+  height: 20px;
+  margin-top: -8px;
   border: 2px solid var(--primary);
-  border-radius: 50%;
+  border-radius: var(--radius-xs);
   background: var(--surface-raised);
   appearance: none;
 }
@@ -2702,10 +2688,10 @@ div.cap-menu__item {
   background: var(--primary);
 }
 .cap-range__input::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
+  width: 8px;
+  height: 16px;
   border: 2px solid var(--primary);
-  border-radius: 50%;
+  border-radius: var(--radius-xs);
   background: var(--surface-raised);
 }
 .cap-range__input:focus-visible {
@@ -2857,7 +2843,7 @@ a.cap-btn:hover {
 }
 .cap-combo__list li {
   padding: 6px 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-xs);
   font-family: var(--font-mono);
   font-size: 13px;
   white-space: nowrap;

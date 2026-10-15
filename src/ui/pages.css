@@ -18,6 +18,31 @@ body.cap-root {
   background: var(--accent-soft);
 }
 
+/* Text links are ink with a hairline underline that darkens on hover; colour alone no longer marks them. */
+.cap-root a:not([class]),
+.cap-root .cap-link {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+}
+.cap-root a:not([class]):hover,
+.cap-root .cap-link:hover {
+  text-decoration-color: currentColor;
+}
+
+/* Short labels in mono capitals (group names, stat and column labels). Never running text. */
+.cap-nav__group,
+.cap-stat__label,
+.cap-table th {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-subtle);
+}
+
 /* ---------- app shell ---------- */
 .cap-shell {
   min-height: 100vh;
@@ -80,29 +105,52 @@ body.cap-popup-page {
   line-height: 2.1;
   color: var(--ink-muted);
 }
-.cap-popup__tiles {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+.cap-golist {
+  display: flex;
+  flex-direction: column;
+  margin: 0 -18px;
+  border-bottom: 1px solid var(--line);
 }
-.cap-root button.cap-tile {
+.cap-root button.cap-go {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px;
   border: 0;
+  border-top: 1px solid var(--line);
+  background: none;
+  color: var(--ink);
   font: inherit;
   text-align: left;
   cursor: pointer;
 }
-.cap-root button.cap-tile:hover {
+.cap-root button.cap-go:hover {
   background: var(--state-hover);
 }
-.cap-tile__count {
-  font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: 700;
+.cap-root button.cap-go[disabled] {
+  opacity: 0.45;
+  cursor: default;
+}
+.cap-go > .cap-ico {
+  color: var(--ink-muted);
+}
+.cap-go__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.cap-go__title {
+  font-size: 14px;
+  font-weight: 600;
+}
+.cap-go__sub {
+  font-size: 12.5px;
+  color: var(--ink-subtle);
 }
 .cap-popup__foot {
   margin-top: auto;
-  padding-top: 14px;
-  border-top: 1px solid var(--line);
   flex-wrap: nowrap;
   font-size: 13px;
   color: var(--ink-muted);
@@ -126,7 +174,7 @@ body.cap-popup-page {
   margin: 0;
   font-family: var(--font-display);
   font-size: 19px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.015em;
 }
 
@@ -152,11 +200,12 @@ body.cap-popup-page {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
+  border-radius: var(--radius-sm);
   background: var(--primary);
   color: var(--on-primary);
-  font-family: var(--font-display);
-  font-weight: 700;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
 }
 .cap-step__body {
   flex: 1 1 400px;
@@ -183,6 +232,9 @@ body.cap-popup-page {
 }
 
 /* ---------- settings ---------- */
+.cap-card {
+  --card-inner-radius: calc(var(--radius-lg) - 1px);
+}
 .cap-preview-frame {
   position: relative;
   aspect-ratio: 16 / 6;
@@ -191,7 +243,7 @@ body.cap-popup-page {
   justify-content: center;
   overflow: hidden;
   background: #1b2333;
-  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  border-radius: 0 0 var(--card-inner-radius) var(--card-inner-radius);
 }
 .cap-preview-frame[data-theme^='youtube'] .cap-captions {
   font-family: Roboto, Arial, var(--font-host);
@@ -221,7 +273,7 @@ body.cap-popup-page {
   justify-content: center;
   border: 1px solid var(--line);
   border-bottom-width: 3px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--ink-subtle);
   font-family: var(--font-mono);
@@ -276,12 +328,12 @@ body.cap-popup-page {
   width: 100%;
   padding: 0;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: transparent;
   color: var(--ink);
   font-family: var(--font-display);
   font-size: 17px;
-  font-weight: 700;
+  font-weight: 600;
 }
 .cap-card__title-input:focus {
   outline: 2px solid transparent;
@@ -323,9 +375,6 @@ body.cap-popup-page {
 .cap-table th {
   padding: 8px 18px;
   border-bottom: 1px solid var(--line);
-  color: var(--ink-subtle);
-  font-size: 12.5px;
-  font-weight: 500;
   text-align: right;
 }
 .cap-table td {
@@ -343,7 +392,7 @@ body.cap-popup-page {
   height: 24px;
   padding: 0 8px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background: var(--accent-soft);
   color: var(--accent);
   font-family: var(--font-mono);
@@ -433,7 +482,7 @@ body.cap-popup-page {
   font-family: var(--font-display);
   font-size: 28px;
   line-height: 32px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: -0.02em;
   overflow-wrap: anywhere;
 }

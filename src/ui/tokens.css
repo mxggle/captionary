@@ -28,6 +28,7 @@
   --radius-md: 12px;
   --radius-lg: 18px;
   --radius-pill: 9999px;
+  --radius-control: 9999px;
   --control-sm: 30px;
   --control-md: 36px;
   --control-lg: 40px;
@@ -45,17 +46,17 @@
 :root,
 :host,
 [data-theme='light'] {
-  --surface: #f7f7f2;
+  --surface: #f7f7f7;
   --surface-raised: #ffffff;
-  --surface-sunk: #efefe8;
-  --line: #e2e2d9;
-  --line-strong: #8a8d94;
-  --ink: #17181b;
-  --ink-muted: #4f525a;
-  --ink-subtle: #6b6e76;
-  --state-hover: #17181b0d;
-  --row-current: #efefe8;
-  --primary: #17181b;
+  --surface-sunk: #efefef;
+  --line: #e3e3e3;
+  --line-strong: #8a8a8a;
+  --ink: #161616;
+  --ink-muted: #4d4d4d;
+  --ink-subtle: #6b6b6b;
+  --state-hover: #1616160d;
+  --row-current: #efefef;
+  --primary: #161616;
   --on-primary: #ffffff;
   --accent: #2348d8;
   --on-accent: #ffffff;
@@ -82,30 +83,30 @@
   --switch-knob-on: var(--on-primary);
   --switch-off: var(--surface-sunk);
   --switch-knob-off: var(--ink-subtle);
-  --link: var(--accent);
-  --shadow-card: 0 1px 2px #17181b0f, 0 1px 3px #17181b14;
-  --shadow-float: 0 12px 32px #17181b29, 0 2px 6px #17181b14;
-  --focus-ring: 0 0 0 2px #f7f7f2, 0 0 0 4px #2348d8;
+  --link: var(--ink);
+  --shadow-card: 0 1px 1px #1616160d, 0 1px 3px #16161612;
+  --shadow-float: 0 1px 2px #1616160f, 0 4px 8px #16161612, 0 12px 24px #16161614;
+  --focus-ring: 0 0 0 2px #f7f7f7, 0 0 0 4px #2348d8;
   --caption-shadow: none;
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
-    --surface: #111214;
-    --surface-raised: #191a1d;
-    --surface-sunk: #222327;
-    --line: #2c2d32;
-    --line-strong: #6a6d75;
-    --ink: #f3f3ee;
-    --ink-muted: #b3b5bb;
-    --ink-subtle: #8e9198;
+    --surface: #111111;
+    --surface-raised: #1a1a1a;
+    --surface-sunk: #242424;
+    --line: #2d2d2d;
+    --line-strong: #6b6b6b;
+    --ink: #f2f2f2;
+    --ink-muted: #b3b3b3;
+    --ink-subtle: #8f8f8f;
     --state-hover: #ffffff12;
-    --row-current: #222327;
-    --primary: #f3f3ee;
-    --on-primary: #17181b;
+    --row-current: #242424;
+    --primary: #f2f2f2;
+    --on-primary: #161616;
     --accent: #8ea2ff;
-    --on-accent: #111214;
+    --on-accent: #111111;
     --accent-soft: #1e2650;
     --learn-line: #d7f04a;
     --known: #5cc98f;
@@ -129,30 +130,30 @@
     --switch-knob-on: var(--on-primary);
     --switch-off: var(--surface-sunk);
     --switch-knob-off: var(--ink-subtle);
-    --link: var(--accent);
-    --shadow-card: 0 1px 3px #000000b3;
-    --shadow-float: 0 16px 40px #000000b3;
-    --focus-ring: 0 0 0 2px #111214, 0 0 0 4px #8ea2ff;
+    --link: var(--ink);
+    --shadow-card: 0 1px 2px #00000099;
+    --shadow-float: 0 2px 4px #00000066, 0 12px 28px #00000099;
+    --focus-ring: 0 0 0 2px #111111, 0 0 0 4px #8ea2ff;
     --caption-shadow: none;
     color-scheme: dark;
   }
 }
 
 [data-theme='dark'] {
-  --surface: #111214;
-  --surface-raised: #191a1d;
-  --surface-sunk: #222327;
-  --line: #2c2d32;
-  --line-strong: #6a6d75;
-  --ink: #f3f3ee;
-  --ink-muted: #b3b5bb;
-  --ink-subtle: #8e9198;
+  --surface: #111111;
+  --surface-raised: #1a1a1a;
+  --surface-sunk: #242424;
+  --line: #2d2d2d;
+  --line-strong: #6b6b6b;
+  --ink: #f2f2f2;
+  --ink-muted: #b3b3b3;
+  --ink-subtle: #8f8f8f;
   --state-hover: #ffffff12;
-  --row-current: #222327;
-  --primary: #f3f3ee;
-  --on-primary: #17181b;
+  --row-current: #242424;
+  --primary: #f2f2f2;
+  --on-primary: #161616;
   --accent: #8ea2ff;
-  --on-accent: #111214;
+  --on-accent: #111111;
   --accent-soft: #1e2650;
   --learn-line: #d7f04a;
   --known: #5cc98f;
@@ -176,12 +177,24 @@
   --switch-knob-on: var(--on-primary);
   --switch-off: var(--surface-sunk);
   --switch-knob-off: var(--ink-subtle);
-  --link: var(--accent);
-  --shadow-card: 0 1px 3px #000000b3;
-  --shadow-float: 0 16px 40px #000000b3;
-  --focus-ring: 0 0 0 2px #111214, 0 0 0 4px #8ea2ff;
+  --link: var(--ink);
+  --shadow-card: 0 1px 2px #00000099;
+  --shadow-float: 0 2px 4px #00000066, 0 12px 28px #00000099;
+  --focus-ring: 0 0 0 2px #111111, 0 0 0 4px #8ea2ff;
   --caption-shadow: none;
   color-scheme: dark;
+}
+
+/* Highlighter shape (extension pages): square shoulders after impeccable.style, 3px on controls and 6px on
+   cards. The native skins keep the radii of the shared block, so they still match each host's own menus. */
+:root,
+[data-theme='light'],
+[data-theme='dark'] {
+  --radius-xs: 2px;
+  --radius-sm: 3px;
+  --radius-md: 3px;
+  --radius-lg: 6px;
+  --radius-control: 3px;
 }
 
 [data-theme='youtube-dark'] {

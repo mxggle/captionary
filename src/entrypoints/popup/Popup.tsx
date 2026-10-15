@@ -280,63 +280,42 @@ export function Popup() {
         />
       </div>
 
-      <nav className="cap-popup__tiles" aria-label="Captionary pages">
-        <button className="cap-tile" onClick={() => open('vocab')}>
-          <span className="cap-row" style={{ justifyContent: 'space-between' }}>
-            <span className="cap-tile__icon cap-tile__icon--learn">
-              <IconBookmark className="cap-ico" strokeWidth={2.2} />
-            </span>
-            <span className="cap-tile__count">{counts.learning}</span>
-          </span>
-          <span>
-            <span className="cap-tile__title" style={{ display: 'block' }}>
-              Saved words
-            </span>
-            <span className="cap-tile__sub">
+      <nav className="cap-golist" aria-label="Captionary pages">
+        <button className="cap-go" onClick={() => open('vocab')}>
+          <IconBookmark className="cap-ico" />
+          <span className="cap-go__text">
+            <span className="cap-go__title">Saved words</span>
+            <span className="cap-go__sub">
               {counts.learning} learning · {counts.known} known
             </span>
           </span>
         </button>
-        <button className="cap-tile" onClick={() => open('vocab', 'review')}>
-          <span className="cap-tile__icon">
-            <IconCards className="cap-ico" />
-          </span>
-          <span>
-            <span className="cap-tile__title" style={{ display: 'block' }}>
-              Review
-            </span>
-            <span className="cap-tile__sub">Flashcards from your words</span>
+        <button className="cap-go" onClick={() => open('vocab', 'review')}>
+          <IconCards className="cap-ico" />
+          <span className="cap-go__text">
+            <span className="cap-go__title">Review</span>
+            <span className="cap-go__sub">Flashcards from your words</span>
           </span>
         </button>
-        <button className="cap-tile" onClick={() => open('reader')}>
-          <span className="cap-tile__icon">
-            <IconDocument className="cap-ico" />
-          </span>
-          <span>
-            <span className="cap-tile__title" style={{ display: 'block' }}>
-              Reader
-            </span>
-            <span className="cap-tile__sub">Text, files, local video</span>
+        <button className="cap-go" onClick={() => open('reader')}>
+          <IconDocument className="cap-ico" />
+          <span className="cap-go__text">
+            <span className="cap-go__title">Reader</span>
+            <span className="cap-go__sub">Text, files, local video</span>
           </span>
         </button>
         <button
-          className="cap-tile"
+          className="cap-go"
           disabled={windowId === undefined}
           // Called synchronously so the click still counts as a user gesture.
           onClick={() => void browser.sidePanel.open({ windowId: windowId! }).then(() => window.close())}
         >
-          <span className="cap-row" style={{ justifyContent: 'space-between' }}>
-            <span className="cap-tile__icon" style={{ color: 'var(--accent)' }}>
-              <IconSpark className="cap-ico" />
-            </span>
-            <span className="cap-kbd">Alt L</span>
+          <IconSpark className="cap-ico" />
+          <span className="cap-go__text">
+            <span className="cap-go__title">AI tutor</span>
+            <span className="cap-go__sub">Explain any selection</span>
           </span>
-          <span>
-            <span className="cap-tile__title" style={{ display: 'block' }}>
-              AI tutor
-            </span>
-            <span className="cap-tile__sub">Explain any selection</span>
-          </span>
+          <span className="cap-kbd">Alt L</span>
         </button>
       </nav>
 
