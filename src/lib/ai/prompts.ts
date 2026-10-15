@@ -1,4 +1,4 @@
-import { languageName } from '../languages';
+import { languageAutonym, languageName } from '../languages';
 import type { AISettings, AIJob, AITask, ChatTurn } from './types';
 
 export interface PromptVars {
@@ -17,7 +17,7 @@ export const DEFAULT_PROMPTS: Record<AITask, string> = {
 The learner clicked a word or phrase while watching a video or reading. Explain it as it is used in the given context.
 ${UNTRUSTED_NOTE}
 
-Write in {{explanationLanguage}}; quote {{targetLanguage}} words exactly as written. Use this Markdown layout, omitting a section when it adds nothing:
+Write the whole explanation in {{explanationLanguage}}, translating the bold section labels below into {{explanationLanguage}} too; quote {{targetLanguage}} words exactly as written. Use this Markdown layout, omitting a section when it adds nothing:
 
 **<the word>** · part of speech · base/dictionary form if different · pronunciation (IPA, or romanization for non-Latin scripts)
 
@@ -39,7 +39,7 @@ Stay under 180 words. Do not repeat the whole sentence back. If the text looks l
 Explain one subtitle line or sentence so the learner understands every part of it.
 ${UNTRUSTED_NOTE}
 
-Write in {{explanationLanguage}}; quote {{targetLanguage}} text exactly. Use this Markdown layout, omitting empty sections:
+Write the whole explanation in {{explanationLanguage}}, translating the bold section labels below into {{explanationLanguage}} too; quote {{targetLanguage}} text exactly. Use this Markdown layout, omitting empty sections:
 
 **Translation:** a natural {{nativeLanguage}} translation.
 
@@ -130,10 +130,11 @@ export function buildPrompt(job: AIJob, opts: PromptOptions): BuiltPrompt {
   const target = 'targetLang' in job ? job.targetLang : '';
   const nativeName = languageName(opts.nativeLanguage);
   const targetName = target ? languageName(target) : 'the target language';
+  const explainInTarget = opts.ai.explanationLanguage === 'target';
   const vars: PromptVars = {
     targetLanguage: targetName,
     nativeLanguage: nativeName,
-    explanationLanguage: opts.ai.explanationLanguage === 'target' ? targetName : nativeName,
+    explanationLanguage: explainInTarget ? targetName : nativeName,
     level: opts.level,
   };
 
@@ -155,19 +156,25 @@ export function buildPrompt(job: AIJob, opts: PromptOptions): BuiltPrompt {
   }
 
   const system = renderTemplate(opts.ai.prompts[job.task] || DEFAULT_PROMPTS[job.task], vars);
+  // Repeated beside the request: smaller models otherwise copy the English layout labels
+  // and answer in English whatever the system prompt says.
+  const autonym = languageAutonym(explainInTarget ? target : opts.nativeLanguage);
+  const answerIn = `Write your whole answer in ${vars.explanationLanguage}${
+    autonym && autonym !== vars.explanationLanguage ? ` (${autonym})` : ''
+  }, including the section labels.`;
 
   if (job.task === 'word') {
     const ctx = contextBlock(job, opts, false);
     return {
       system,
       json: false,
-      messages: [{ role: 'user', content: `Explain "${sanitizeContext(job.text)}".${ctx ? `\n${ctx}` : ''}` }],
+      messages: [{ role: 'user', content: `Explain "${sanitizeContext(job.text)}".${ctx ? `\n${ctx}` : ''}\n${answerIn}` }],
     };
   }
 
   if (job.task === 'sentence') {
     const ctx = contextBlock(job, opts, true);
-    return { system, json: false, messages: [{ role: 'user', content: `Explain this line.\n${ctx}` }] };
+    return { system, json: false, messages: [{ role: 'user', content: `Explain this line.\n${ctx}\n${answerIn}` }] };
   }
 
   // chat
@@ -223,12 +230,13 @@ export function parseTranslations(raw: string, expected: number): string[] | nul
 }
 
 const TRANSLATION_LABEL =
-  /translat|traduc|tradu|übersetz|перевод|переклад|翻|번역|tłumacz|vertaling|översättning|oversættelse|çeviri|terjemah|dịch|μετάφρ|תרגום|ترجم/i;
+  /translat|traduc|tradu|übersetz|перевод|переклад|превод|翻|译|訳|譯|번역|tłumacz|vertaling|översättning|oversættelse|oversettelse|çeviri|terjemah|dịch|μετάφρ|תרגום|ترجم|překlad|preklad|prevod|prijevod|fordítás|käännös|tõlge|tulkojum|vertim|tafsiri|salin|अनुवाद|แปล|மொழிபெயர்/i;
 
 /** Pull the "**Translation:** …" line out of a word explanation (labels may be localized). */
 export function extractTranslation(markdown: string): string | undefined {
   for (const line of markdown.split('\n')) {
-    const m = line.match(/^\s*\*\*([^*]{2,40}?):?\*\*:?\s*(.+)$/);
+    // The colon (ASCII or full-width) may sit inside or after the bold label.
+    const m = line.match(/^\s*\*\*([^*]{1,40}?)\s*(?:[:：]\s*\*\*|\*\*\s*[:：])\s*(.+)$/);
     if (m && TRANSLATION_LABEL.test(m[1])) {
       const value = m[2].replace(/\*\*/g, '').trim();
       if (value) return value.length > 160 ? `${value.slice(0, 157)}…` : value;
