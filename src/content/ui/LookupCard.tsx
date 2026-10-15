@@ -22,6 +22,7 @@ import { TokenizedText, type WordSelection } from '@/ui/TokenizedText';
 import { rankBand, useLookup } from '@/ui/useLookup';
 import { useVocabIndex } from '@/ui/vocab-index';
 import type { AnchorRect, PopupTarget } from '../store';
+import { useContainWheel } from './wheel';
 
 /** Where the card goes: absolute inside `bounds` (or fixed to the viewport), with its pointer. */
 export interface Placement {
@@ -100,6 +101,7 @@ export function LookupCard(props: LookupCardProps) {
   const [question, setQuestion] = useState('');
   const ref = useRef<HTMLElement>(null);
   const index = useVocabIndex(vocab, target.lang);
+  useContainWheel(ref);
 
   // Dismiss on a click anywhere else (the look-up lives in a shadow root, so compare composed paths).
   useEffect(() => {

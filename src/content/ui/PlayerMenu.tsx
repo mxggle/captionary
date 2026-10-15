@@ -18,6 +18,7 @@ import {
   TranslationChoices,
 } from './menus';
 import { sourceKey, translationChoices, translationValue } from './subtitles';
+import { useContainWheel } from './wheel';
 
 type Page = 'main' | 'original' | 'translation';
 
@@ -81,6 +82,7 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
     window.addEventListener('pointerdown', onDown, true);
     return () => window.removeEventListener('pointerdown', onDown, true);
   }, [s.menuOpen, controller]);
+  useContainWheel(ref, s.menuOpen);
 
   if (!s.menuOpen) return null;
   const bounds = boundsRef.current?.getBoundingClientRect();

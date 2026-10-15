@@ -6,6 +6,7 @@ import { useVocabIndex } from '@/ui/vocab-index';
 import { drawerAnchor, keyName, type SessionController } from '../controller';
 import { setSession } from '../store';
 import { languagePair, useFollowPlayback, useSubtitleData } from './subtitles';
+import { useContainWheel } from './wheel';
 
 /**
  * The subtitle list as a right-edge drawer over a fullscreen video, read like song lyrics
@@ -22,6 +23,7 @@ export function SubtitleDrawer({ controller, width }: { controller: SessionContr
   const follow = useFollowPlayback(listRef, current, settings.sidebar.autoScroll, 'center');
   const keys = settings.shortcuts;
   const close = () => setSession({ drawerOpen: false });
+  useContainWheel(ref);
 
   useEffect(() => {
     drawerAnchor.get = () => {
