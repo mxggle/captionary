@@ -2,12 +2,15 @@ import '@/ui/styles.css';
 import { defineContentScript } from '#imports';
 import { useEffect, useState } from 'react';
 import { SessionController } from '@/content/controller';
+import { listenToPopup, watchHost } from '@/content/host';
 import { mountShadowUi } from '@/content/mount';
 import { YouTubeAdapter } from '@/content/sites/youtube';
 import { getSession, setSession, useSession } from '@/content/store';
+import { HostRoot } from '@/content/ui/HostRoot';
 import { Overlay } from '@/content/ui/Overlay';
-import { Sidebar } from '@/content/ui/Sidebar';
-import { watchSettings } from '@/lib/settings';
+import { PlayerButton } from '@/content/ui/PlayerButton';
+import { SubtitlePanel } from '@/content/ui/SubtitlePanel';
+import { updateSettings, watchSettings } from '@/lib/settings';
 
 function useActive() {
   return useSession((s) => s.settings.enabled && s.settings.sites.youtube && !!s.media);
@@ -17,10 +20,20 @@ function OverlayGate({ controller }: { controller: SessionController }) {
   return useActive() ? <Overlay controller={controller} /> : null;
 }
 
-/** Subtitle list in YouTube's right-hand column, as tall as the player. */
-function SidebarGate({ controller }: { controller: SessionController }) {
+const sizeFrom = () => [
+  document.querySelector('#movie_player .ytp-subtitles-button'),
+  document.querySelector('#movie_player .ytp-settings-button'),
+  document.querySelector('#movie_player .ytp-fullscreen-button'),
+];
+
+function ButtonGate({ controller }: { controller: SessionController }) {
+  return useActive() ? <PlayerButton controller={controller} sizeFrom={sizeFrom} /> : null;
+}
+
+/** Subtitle list at the top of YouTube's right-hand column, as tall as the player. */
+function PanelGate({ controller }: { controller: SessionController }) {
   const active = useActive();
-  const open = useSession((s) => s.settings.sidebar.open);
+  const open = useSession((s) => s.settings.sidebar.open && !s.off);
   const [height, setHeight] = useState(480);
   useEffect(() => {
     const player = document.querySelector('#movie_player');
@@ -31,9 +44,9 @@ function SidebarGate({ controller }: { controller: SessionController }) {
   }, [active]);
   if (!active || !open) return null;
   return (
-    <div style={{ height, marginBottom: 12 }}>
-      <Sidebar controller={controller} />
-    </div>
+    <HostRoot style={{ height, marginBottom: 16 }}>
+      <SubtitlePanel controller={controller} onClose={() => void updateSettings((s) => void (s.sidebar.open = false))} />
+    </HostRoot>
   );
 }
 
@@ -46,6 +59,8 @@ export default defineContentScript({
     const controller = new SessionController(adapter);
     await controller.init();
     ctx.onInvalidated(() => controller.destroy());
+    watchHost(ctx, 'youtube', () => document.querySelector('#movie_player'));
+    listenToPopup(ctx, controller);
 
     await mountShadowUi(ctx, {
       name: 'captionary-overlay',
@@ -55,11 +70,18 @@ export default defineContentScript({
       render: () => <OverlayGate controller={controller} />,
     });
     await mountShadowUi(ctx, {
-      name: 'captionary-sidebar',
+      name: 'captionary-panel',
       anchor: 'ytd-watch-flexy #secondary',
       append: 'first',
       hostStyle: 'display:block;',
-      render: () => <SidebarGate controller={controller} />,
+      render: () => <PanelGate controller={controller} />,
+    });
+    // The Captionary button sits in the player's own control bar, left of its captions button.
+    await mountShadowUi(ctx, {
+      name: 'captionary-button',
+      anchor: '#movie_player .ytp-right-controls .ytp-subtitles-button',
+      append: 'before',
+      render: () => <ButtonGate controller={controller} />,
     });
 
     let currentId: string | null = null;
@@ -67,7 +89,7 @@ export default defineContentScript({
 
     const reset = () => {
       controller.attachVideo(null);
-      setSession({ media: null, status: 'idle', cues: [], translations: [], tracks: [], activeIndex: -1, popup: null });
+      setSession({ media: null, status: 'idle', cues: [], translations: [], tracks: [], activeIndex: -1, popup: null, menuOpen: false });
     };
 
     const load = async () => {
@@ -114,7 +136,7 @@ export default defineContentScript({
       if (!currentId) return;
       controller.attachVideo(adapter.getVideo());
       const ad = !!document.querySelector('#movie_player.ad-showing');
-      if (ad !== getSession().adShowing) setSession({ adShowing: ad });
+      if (ad !== getSession().adShowing) setSession({ adShowing: ad, menuOpen: ad ? false : getSession().menuOpen });
     }, 1000);
   },
 });

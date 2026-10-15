@@ -1,16 +1,21 @@
 import '@/ui/styles.css';
 import { defineContentScript } from '#imports';
-import { useEffect } from 'react';
 import { FROM_MAIN, onMessageFrom } from '@/content/bridge';
 import { SessionController } from '@/content/controller';
+import { listenToPopup, watchHost } from '@/content/host';
 import { mountShadowUi } from '@/content/mount';
 import { AppleTvAdapter, PLAYER_DIALOG } from '@/content/sites/appletv';
 import { getSession, setSession, useSession } from '@/content/store';
 import { Overlay } from '@/content/ui/Overlay';
-import { Sidebar } from '@/content/ui/Sidebar';
-import { updateSettings, watchSettings } from '@/lib/settings';
+import { PlayerButton } from '@/content/ui/PlayerButton';
+import { watchSettings } from '@/lib/settings';
 
-const SIDEBAR_STYLE_ID = 'lr-appletv-sidebar-space';
+/**
+ * Apple's captions control in the player's control bar; Captionary's button goes right after it.
+ * The controls are `amp-*` custom elements; if this one moves into a shadow root, the fallback
+ * button in the overlay takes over.
+ */
+const CAPTIONS_CONTROL = `${PLAYER_DIALOG} amp-captions-control`;
 
 function useActive() {
   return useSession((s) => s.settings.enabled && s.settings.sites.appletv && !!s.media);
@@ -20,28 +25,10 @@ function OverlayGate({ controller }: { controller: SessionController }) {
   return useActive() ? <Overlay controller={controller} /> : null;
 }
 
-function SidebarGate({ controller }: { controller: SessionController }) {
-  const active = useActive();
-  const open = useSession((s) => s.settings.sidebar.open);
-  const width = useSession((s) => s.settings.sidebar.width);
-  const fullscreen = useSession((s) => s.fullscreen);
-  const show = active && open && !fullscreen;
-  // Narrow the player so the list sits beside the picture instead of over it.
-  useEffect(() => {
-    let style = document.getElementById(SIDEBAR_STYLE_ID);
-    if (!style) {
-      style = document.createElement('style');
-      style.id = SIDEBAR_STYLE_ID;
-      document.head.append(style);
-    }
-    style.textContent = show ? `${PLAYER_DIALOG} .video-player { width: calc(100% - ${width}px) !important; }` : '';
-  }, [show, width]);
-  if (!show) return null;
-  return (
-    <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width, padding: 6, background: '#0b0c10' }}>
-      <Sidebar controller={controller} onClose={() => void updateSettings((s) => void (s.sidebar.open = false))} />
-    </div>
-  );
+const sizeFrom = () => [document.querySelector(CAPTIONS_CONTROL)];
+
+function ButtonGate({ controller }: { controller: SessionController }) {
+  return useActive() ? <PlayerButton controller={controller} sizeFrom={sizeFrom} /> : null;
 }
 
 /** Where the overlay lives: the fullscreen element when the player is fullscreen, else the player. */
@@ -63,10 +50,12 @@ export default defineContentScript({
     const controller = new SessionController(adapter);
     await controller.init();
     ctx.onInvalidated(() => controller.destroy());
+    watchHost(ctx, 'appletv', () => document.querySelector(`${PLAYER_DIALOG} .video-player`) ?? document.querySelector(PLAYER_DIALOG));
+    listenToPopup(ctx, controller);
 
-    // The player is a <dialog>; when it is modal (top layer) anything outside it is
-    // hidden behind it, so both UIs are mounted inside the dialog.
-    const overlay = await mountShadowUi(ctx, {
+    // The player is a <dialog>; when it is modal (top layer) anything outside it is hidden behind it,
+    // so the overlay (captions, look-up, menu and the subtitle drawer) is mounted inside the dialog.
+    await mountShadowUi(ctx, {
       name: 'captionary-overlay',
       anchor: overlayAnchor,
       append: 'last',
@@ -74,19 +63,10 @@ export default defineContentScript({
       render: () => <OverlayGate controller={controller} />,
     });
     await mountShadowUi(ctx, {
-      name: 'captionary-sidebar',
-      anchor: PLAYER_DIALOG,
-      append: 'last',
-      hostStyle: 'position:fixed;top:0;right:0;bottom:0;z-index:2147483647;',
-      render: () => <SidebarGate controller={controller} />,
-    });
-    ctx.addEventListener(document, 'fullscreenchange', () => {
-      const anchor = overlayAnchor();
-      const host = document.querySelector('captionary-overlay');
-      if (anchor && host && !anchor.contains(host)) {
-        overlay.remove();
-        overlay.mount();
-      }
+      name: 'captionary-button',
+      anchor: CAPTIONS_CONTROL,
+      append: 'after',
+      render: () => <ButtonGate controller={controller} />,
     });
 
     let currentId: string | null = null;
@@ -97,7 +77,17 @@ export default defineContentScript({
       currentId = null;
       pendingSince = null;
       controller.attachVideo(null);
-      setSession({ media: null, status: 'idle', cues: [], translations: [], tracks: [], activeIndex: -1, popup: null });
+      setSession({
+        media: null,
+        status: 'idle',
+        cues: [],
+        translations: [],
+        tracks: [],
+        activeIndex: -1,
+        popup: null,
+        menuOpen: false,
+        drawerOpen: false,
+      });
     };
 
     const sync = async () => {

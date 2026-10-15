@@ -20,17 +20,20 @@ export const SHORTCUT_LABELS: Record<ShortcutAction, string> = {
   nextLine: 'Next subtitle',
   repeatLine: 'Repeat current subtitle',
   togglePlay: 'Play / pause',
-  toggleAutoPause: 'Toggle auto-pause',
+  toggleAutoPause: 'Pause after each line',
   toggleTranslation: 'Show / hide translation',
   toggleOriginal: 'Show / hide original subtitle',
   toggleSidebar: 'Show / hide subtitle list',
   slower: 'Slower playback',
   faster: 'Faster playback',
-  explainLine: 'Explain current subtitle with AI',
-  saveLine: 'Save current subtitle as phrase',
+  explainLine: 'Explain current subtitle with the tutor',
+  saveLine: 'Save current subtitle as a phrase',
 };
 
 export type WordStatusHighlight = 'learning' | 'all' | 'none';
+
+/** Colour scheme of the extension's own pages; video sites always follow the site. */
+export type PageTheme = 'system' | 'light' | 'dark';
 
 export interface Settings {
   enabled: boolean;
@@ -40,6 +43,7 @@ export interface Settings {
   /** The learner's language (translations, explanations). */
   nativeLanguage: string;
   learnerLevel: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
+  pageTheme: PageTheme;
   subtitles: {
     showOriginal: boolean;
     showTranslation: boolean;
@@ -100,6 +104,7 @@ export const DEFAULT_SETTINGS: Settings = {
   targetLanguage: 'auto',
   nativeLanguage: defaultNativeLanguage(),
   learnerLevel: 'B1',
+  pageTheme: 'system',
   subtitles: {
     showOriginal: true,
     showTranslation: true,
@@ -175,10 +180,13 @@ export const DEFAULT_AI_SETTINGS: AISettings = {
 };
 
 export const TASK_LABELS: Record<AITask, { name: string; description: string }> = {
-  word: { name: 'Word look-up', description: 'Explains a clicked word or phrase in its context.' },
-  sentence: { name: 'Sentence breakdown', description: 'Translates a subtitle line and explains its grammar.' },
-  chat: { name: 'Follow-up chat', description: 'Answers your follow-up questions in the pop-up or side panel.' },
-  translate: { name: 'Subtitle translation', description: 'Machine-translates whole subtitle tracks when the site has none.' },
+  word: { name: 'Word look-up', description: 'Explains a clicked word or phrase in its sentence.' },
+  sentence: { name: 'Sentence breakdown', description: 'Translates a line and explains its grammar.' },
+  chat: { name: 'Follow-up chat', description: 'Answers your questions in the look-up card and the side panel.' },
+  translate: {
+    name: 'Subtitle translation',
+    description: 'Translates whole subtitle tracks when the site has none in your language. Long videos make many requests.',
+  },
 };
 
 function defaultNativeLanguage(): string {

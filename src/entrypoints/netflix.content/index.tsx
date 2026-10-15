@@ -1,15 +1,16 @@
 import '@/ui/styles.css';
 import { defineContentScript } from '#imports';
-import { useEffect } from 'react';
 import { SessionController } from '@/content/controller';
+import { listenToPopup, watchHost } from '@/content/host';
 import { mountShadowUi } from '@/content/mount';
 import { NetflixAdapter } from '@/content/sites/netflix';
 import { getSession, setSession, useSession } from '@/content/store';
 import { Overlay } from '@/content/ui/Overlay';
-import { Sidebar } from '@/content/ui/Sidebar';
-import { updateSettings, watchSettings } from '@/lib/settings';
+import { PlayerButton } from '@/content/ui/PlayerButton';
+import { watchSettings } from '@/lib/settings';
 
-const SIDEBAR_STYLE_ID = 'lr-netflix-sidebar-space';
+/** Netflix's "Audio & Subtitles" button; Captionary's button goes right after it. */
+const AUDIO_SUBTITLES = '.watch-video [data-uia="control-audio-subtitle"]';
 
 function useActive() {
   return useSession((s) => s.settings.enabled && s.settings.sites.netflix && !!s.media);
@@ -19,27 +20,19 @@ function OverlayGate({ controller }: { controller: SessionController }) {
   return useActive() ? <Overlay controller={controller} /> : null;
 }
 
-function SidebarGate({ controller }: { controller: SessionController }) {
-  const active = useActive();
-  const open = useSession((s) => s.settings.sidebar.open);
-  const width = useSession((s) => s.settings.sidebar.width);
-  const show = active && open;
-  // Make room for the panel by narrowing the player.
-  useEffect(() => {
-    let style = document.getElementById(SIDEBAR_STYLE_ID);
-    if (!style) {
-      style = document.createElement('style');
-      style.id = SIDEBAR_STYLE_ID;
-      document.head.append(style);
-    }
-    style.textContent = show ? `.watch-video--player-view { width: calc(100% - ${width}px) !important; }` : '';
-  }, [show, width]);
-  if (!show) return null;
-  return (
-    <div style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width, padding: 6, background: '#0b0c10' }}>
-      <Sidebar controller={controller} onClose={() => void updateSettings((s) => void (s.sidebar.open = false))} />
-    </div>
-  );
+const sizeFrom = () => [document.querySelector(AUDIO_SUBTITLES)];
+
+/** The gap Netflix leaves between its control buttons (a spacer element before each wrapper). */
+function controlGap(): number {
+  const wrapper = document.querySelector(AUDIO_SUBTITLES)?.parentElement;
+  const spacer = wrapper?.previousElementSibling;
+  const w = spacer && !spacer.querySelector('button') ? spacer.getBoundingClientRect().width : 0;
+  return w > 0 && w < 80 ? w : 24;
+}
+
+function ButtonGate({ controller }: { controller: SessionController }) {
+  if (!useActive()) return null;
+  return <PlayerButton controller={controller} sizeFrom={sizeFrom} style={{ marginLeft: controlGap() }} />;
 }
 
 export default defineContentScript({
@@ -51,7 +44,10 @@ export default defineContentScript({
     const controller = new SessionController(adapter);
     await controller.init();
     ctx.onInvalidated(() => controller.destroy());
+    watchHost(ctx, 'netflix', () => document.querySelector('.watch-video'));
+    listenToPopup(ctx, controller);
 
+    // The subtitle list is a drawer inside the overlay (Netflix is always a fullscreen-style player).
     await mountShadowUi(ctx, {
       name: 'captionary-overlay',
       anchor: '.watch-video--player-view',
@@ -59,12 +55,13 @@ export default defineContentScript({
       hostStyle: 'position:absolute;inset:0;pointer-events:none;z-index:2;',
       render: () => <OverlayGate controller={controller} />,
     });
+    // Netflix renders its control bar only while the controls show; the button comes and goes with it.
     await mountShadowUi(ctx, {
-      name: 'captionary-sidebar',
-      anchor: '.watch-video',
-      append: 'last',
-      hostStyle: 'position:absolute;inset:0 0 0 auto;z-index:3;',
-      render: () => <SidebarGate controller={controller} />,
+      name: 'captionary-button',
+      anchor: AUDIO_SUBTITLES,
+      append: (anchor, host) => (anchor.parentElement ?? anchor).after(host),
+      placed: (anchor, host) => (anchor.parentElement ?? anchor).nextElementSibling === host,
+      render: () => <ButtonGate controller={controller} />,
     });
 
     let currentId: string | null = null;
@@ -74,7 +71,16 @@ export default defineContentScript({
       if (!settings.enabled || !settings.sites.netflix || !id) {
         currentId = null;
         controller.attachVideo(null);
-        setSession({ media: null, status: 'idle', cues: [], translations: [], tracks: [], popup: null });
+        setSession({
+          media: null,
+          status: 'idle',
+          cues: [],
+          translations: [],
+          tracks: [],
+          popup: null,
+          menuOpen: false,
+          drawerOpen: false,
+        });
         return;
       }
       if (id === currentId) return;

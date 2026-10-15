@@ -10,7 +10,12 @@ using the AI provider of your choice.
 - Dual subtitles on the video: the original line plus a translation (blur-until-hover option).
 - Translation sources, in order of preference: a human subtitle track in your language → YouTube
   auto-translate → Chrome's on-device translator → your AI provider.
-- Subtitle list next to the video: follows playback, click a timestamp to jump, search, copy,
+- Captionary's button sits in the player's own control bar (left of the captions button on YouTube)
+  and opens a menu shaped like the site's settings menu: original track, translation source,
+  pause after each line, blur, subtitle list. Captions, menus and the look-up card take each
+  site's own look and font.
+- Subtitle list in YouTube's side column, or as a drawer over the video in fullscreen and on
+  Netflix and Apple TV+ (`W`): follows playback, click a timestamp to jump, search, copy,
   download `.srt` with both languages, choose the original track and the translation source.
 - Romanization line under the original: pinyin with tone marks for Chinese (context-aware via
   `pinyin-pro`), romaji for Japanese kana, and romanized Korean, Russian, Ukrainian, Bulgarian,
@@ -101,7 +106,8 @@ src/
   content/                     session store, playback controller, site adapters, shared UI
   lib/ai/                      provider registry, adapters, gateway, prompts, cache, usage, secrets
   lib/subtitles/ lib/text/     parsers (json3, WebVTT, SRT, TTML), alignment, tokenizer, detection
-  ui/                          word pop-up, tokenized text, markdown, forms, styles
+  ui/                          design tokens (tokens.css), components.css, page shell, look-up logic and cards,
+                               controls, fonts.css (extension pages only; video sites never load fonts)
 ```
 
 ### Notes on the sites
