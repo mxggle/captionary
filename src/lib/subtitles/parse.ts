@@ -55,16 +55,31 @@ interface Json3Event {
   dDurationMs?: number;
   segs?: { utf8?: string }[];
   aAppend?: number;
+  /** Window the event writes a line into (roll-up ASR tracks); absent on standalone events. */
+  wWinId?: number;
 }
 
+/**
+ * Standalone events (uploaded tracks) last for their own dDurationMs. Automatic tracks write lines
+ * into a roll-up window, where dDurationMs is display timing, not speech: a line whose words have
+ * no end times gets a 3 s placeholder. A line in a window lasts until the window's next line, as in
+ * YouTube's own WebVTT export.
+ */
 export function parseYouTubeJson3(json: { events?: Json3Event[] }): Cue[] {
   const cues: Cue[] = [];
+  const lastLine = new Map<number, Cue>();
   for (const ev of json.events ?? []) {
     if (!ev.segs || ev.aAppend) continue;
     const text = cleanCueText(ev.segs.map((s) => s.utf8 ?? '').join(''));
     if (!text) continue;
     const start = (ev.tStartMs ?? 0) / 1000;
-    cues.push({ start, end: start + (ev.dDurationMs ?? 2000) / 1000, text });
+    const cue = { start, end: start + (ev.dDurationMs ?? 2000) / 1000, text };
+    if (ev.wWinId !== undefined) {
+      const prev = lastLine.get(ev.wWinId);
+      if (prev) prev.end = Math.max(prev.end, start); // overlaps are clipped by normalizeCues
+      lastLine.set(ev.wWinId, cue);
+    }
+    cues.push(cue);
   }
   return normalizeCues(cues);
 }

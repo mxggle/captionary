@@ -1,0 +1,100 @@
+{
+  "wireMagic": "pb3",
+  "pens": [{}],
+  "wsWinStyles": [{}, { "mhModeHint": 2, "juJustifCode": 0, "sdScrollDir": 3 }],
+  "wpWinPositions": [{}, { "apPoint": 6, "ahHorPos": 20, "avVerPos": 100, "rcRows": 2, "ccCols": 40 }],
+  "events": [
+    { "tStartMs": 0, "dDurationMs": 93240, "id": 1, "wpWinPosId": 1, "wsWinStyleId": 1 },
+    {
+      "tStartMs": 1079,
+      "dDurationMs": 3000,
+      "wWinId": 1,
+      "segs": [
+        {
+          "utf8": "武氏は当農林部会長や農水副大臣を務めたこの分野専門家で予算委員会の途中での交代という政権にとって危機的な状況の中で戦力を重視した形です。",
+          "acAsrConf": 0
+        }
+      ]
+    },
+    { "tStartMs": 16070, "wWinId": 1, "aAppend": 1, "segs": [{ "utf8": "\n" }] },
+    {
+      "tStartMs": 16080,
+      "dDurationMs": 3000,
+      "wWinId": 1,
+      "segs": [
+        { "utf8": "農林水産業行政にとって大変重要な局面を迎えているという風に思っております。", "acAsrConf": 0, "isSpeakerChange": 1 }
+      ]
+    },
+    { "tStartMs": 20870, "wWinId": 1, "aAppend": 1, "segs": [{ "utf8": "\n" }] },
+    {
+      "tStartMs": 20880,
+      "dDurationMs": 3000,
+      "wWinId": 1,
+      "segs": [
+        { "utf8": "部会長もやってるし、副大臣もやってるので、え、全部あの頭に入ってるはずだからしっかりやってくださいと。", "acAsrConf": 0 }
+      ]
+    },
+    { "tStartMs": 32109, "wWinId": 1, "aAppend": 1, "segs": [{ "utf8": "\n" }] },
+    {
+      "tStartMs": 32119,
+      "dDurationMs": 2120,
+      "wWinId": 1,
+      "segs": [{ "utf8": "一方、執からわずか", "acAsrConf": 0, "isSpeakerChange": 1 }]
+    },
+    { "tStartMs": 33990, "dDurationMs": 249, "wWinId": 1, "aAppend": 1, "segs": [{ "utf8": "\n" }] },
+    { "tStartMs": 34000, "dDurationMs": 3239, "wWinId": 1, "segs": [{ "utf8": "1", "acAsrConf": 0 }] },
+    { "tStartMs": 34229, "dDurationMs": 3010, "wWinId": 1, "aAppend": 1, "segs": [{ "utf8": "\n" }] },
+    {
+      "tStartMs": 34239,
+      "dDurationMs": 3000,
+      "wWinId": 1,
+      "segs": [{ "utf8": "ヶ月で閣僚が辞任に追い込まれたことに、今朝政権幹部の", "acAsrConf": 0 }]
+    },
+    { "tStartMs": 38670, "wWinId": 1, "aAppend": 1, "segs": [{ "utf8": "\n" }] },
+    {
+      "tStartMs": 38680,
+      "dDurationMs": 3120,
+      "wWinId": 1,
+      "segs": [
+        { "utf8": "1", "acAsrConf": 0 },
+        { "utf8": "人は衝撃だと危機感を現わにしました。", "tOffsetMs": 120, "acAsrConf": 0 }
+      ]
+    },
+    { "tStartMs": 43670, "wWinId": 1, "aAppend": 1, "segs": [{ "utf8": "\n" }] },
+    {
+      "tStartMs": 43680,
+      "dDurationMs": 6719,
+      "wWinId": 1,
+      "segs": [
+        { "utf8": "矢", "acAsrConf": 0 },
+        { "utf8": "は", "tOffsetMs": 280, "acAsrConf": 0 },
+        { "utf8": "高一", "tOffsetMs": 640, "acAsrConf": 0 },
+        { "utf8": "総理", "tOffsetMs": 1039, "acAsrConf": 0 },
+        { "utf8": "と", "tOffsetMs": 1280, "acAsrConf": 0 },
+        { "utf8": "政治", "tOffsetMs": 1600, "acAsrConf": 0 },
+        { "utf8": "信場", "tOffsetMs": 2000, "acAsrConf": 0 },
+        { "utf8": "が", "tOffsetMs": 2320, "acAsrConf": 0 },
+        { "utf8": "近い", "tOffsetMs": 2559, "acAsrConf": 0 },
+        { "utf8": "上", "tOffsetMs": 2879, "acAsrConf": 0 }
+      ]
+    },
+    { "tStartMs": 47229, "dDurationMs": 3170, "wWinId": 1, "aAppend": 1, "segs": [{ "utf8": "\n" }] },
+    {
+      "tStartMs": 47239,
+      "dDurationMs": 6761,
+      "wWinId": 1,
+      "segs": [
+        { "utf8": "アンケート", "acAsrConf": 0 },
+        { "utf8": "で", "tOffsetMs": 441, "acAsrConf": 0 },
+        { "utf8": "総理", "tOffsetMs": 840, "acAsrConf": 0 },
+        { "utf8": "自身", "tOffsetMs": 1160, "acAsrConf": 0 },
+        { "utf8": "が", "tOffsetMs": 1441, "acAsrConf": 0 },
+        { "utf8": "その", "tOffsetMs": 1800, "acAsrConf": 0 },
+        { "utf8": "実力", "tOffsetMs": 2081, "acAsrConf": 0 },
+        { "utf8": "と", "tOffsetMs": 2441, "acAsrConf": 0 },
+        { "utf8": "熱意", "tOffsetMs": 2681, "acAsrConf": 0 },
+        { "utf8": "を", "tOffsetMs": 3000, "acAsrConf": 0 }
+      ]
+    }
+  ]
+}
