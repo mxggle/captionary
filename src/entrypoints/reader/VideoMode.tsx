@@ -1,13 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
-import { normalizeLang } from '@/lib/languages';
+import { languageName, normalizeLang } from '@/lib/languages';
 import { parseSubtitleFile } from '@/lib/subtitles/parse';
 import type { Cue, TrackInfo } from '@/lib/subtitles/types';
 import { detectLanguage } from '@/lib/translate';
-import { SessionController, type SiteAdapter } from '@/content/controller';
-import { setSession } from '@/content/store';
+import { keyName, SessionController, type SiteAdapter } from '@/content/controller';
+import { setSession, useSession } from '@/content/store';
 import { Overlay } from '@/content/ui/Overlay';
-import { Sidebar } from '@/content/ui/Sidebar';
+import { SubtitlePanel } from '@/content/ui/SubtitlePanel';
+import { Note } from '@/ui/controls';
 import { LanguageSelect, useSettings } from '@/ui/form';
+import { BrandMark, IconCaptions, IconFilm, IconNext, IconPrev, IconRepeat, IconSettings, IconSpark } from '@/ui/icons';
+import { ModeSwitch, type ReaderMode } from './mode';
 
 /** Plays a local video file with subtitle files the user picked. */
 class LocalAdapter implements SiteAdapter {
@@ -48,7 +51,8 @@ async function readSubtitle(file: File, fallbackLang: string): Promise<SubFile> 
   return { name: file.name, cues, lang: normalizeLang(lang) };
 }
 
-export function VideoMode() {
+/** The reader's local video: the same captions, list, keys and look-ups as on the video sites. */
+export function VideoMode({ onMode }: { onMode: (m: ReaderMode) => void }) {
   const [settings] = useSettings();
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoName, setVideoName] = useState('');
@@ -59,10 +63,14 @@ export function VideoMode() {
   const controllerRef = useRef<SessionController | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
+  const autoPause = useSession((s) => s.settings.playback.autoPause);
+  const listOpen = useSession((s) => s.settings.sidebar.open);
 
   useEffect(() => {
     const controller = new SessionController(adapter.current);
     controllerRef.current = controller;
+    // Captions on the reader's video use the page's fonts and theme.
+    setSession({ hostFont: 'var(--font-sans)', theme: undefined });
     void controller.init().then(() => setReady(true));
     return () => {
       controller.destroy();
@@ -100,12 +108,13 @@ export function VideoMode() {
   if (!settings) return null;
   const fallbackLang = settings.targetLanguage !== 'auto' ? settings.targetLanguage : 'en';
   const controller = controllerRef.current;
+  const keys = settings.shortcuts;
 
   const pickSub = async (file: File | undefined, which: 'original' | 'translation') => {
     if (!file) return;
     try {
       const sub = await readSubtitle(file, which === 'original' ? fallbackLang : settings.nativeLanguage);
-      if (!sub.cues.length) throw new Error(`No subtitles found in ${file.name}`);
+      if (!sub.cues.length) throw new Error(`There are no subtitles in ${file.name}.`);
       if (which === 'original') setOriginal(sub);
       else setTranslation(sub);
       setError(null);
@@ -113,17 +122,33 @@ export function VideoMode() {
       setError((err as Error).message);
     }
   };
+  const k = (key: string) => keyName(key) && <span className="cap-kbd">{keyName(key)}</span>;
 
   return (
-    <>
-      <div className="lr-card">
-        <div className="lr-row">
-          <label className="lr-btn primary">
-            {videoName ? 'Change video' : 'Choose video file'}
+    <div className="cap-video-page">
+      <div className="cap-row" style={{ gap: 12 }}>
+        <a href="/reader.html" className="cap-row" style={{ gap: 10, color: 'var(--ink)', textDecoration: 'none' }}>
+          <BrandMark />
+          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 19 }}>Reader</span>
+        </a>
+        <ModeSwitch mode="video" onMode={onMode} />
+        <span className="cap-spacer" />
+        <a className="cap-btn cap-btn--ghost" href="/vocab.html">
+          Saved words
+        </a>
+        <a className="cap-iconbtn" href="/options.html#subtitles" aria-label="Settings" title="Settings">
+          <IconSettings className="cap-ico" />
+        </a>
+      </div>
+
+      <div className="cap-card" style={{ padding: '12px 14px' }}>
+        <div className="cap-row" style={{ gap: 10 }}>
+          <label className="cap-btn cap-file-btn">
+            <IconFilm className="cap-ico" />
+            {videoName || 'Choose a video file'}
             <input
               type="file"
               accept="video/*,audio/*,.mkv"
-              hidden
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (!file) return;
@@ -132,48 +157,92 @@ export function VideoMode() {
               }}
             />
           </label>
-          <label className="lr-btn">
-            {original ? `Subtitles: ${original.name}` : 'Subtitles (.srt / .vtt)'}
-            <input type="file" accept=".srt,.vtt,.ttml,.dfxp,.xml" hidden onChange={(e) => void pickSub(e.target.files?.[0], 'original')} />
+          <label className="cap-btn cap-file-btn">
+            <IconCaptions className="cap-ico" />
+            {original ? original.name : 'Subtitles (.srt, .vtt)'}
+            <input type="file" accept=".srt,.vtt,.ttml,.dfxp,.xml" onChange={(e) => void pickSub(e.target.files?.[0], 'original')} />
           </label>
-          {original && <LanguageSelect value={original.lang} onChange={(lang) => setOriginal({ ...original, lang })} />}
-          <label className="lr-btn">
-            {translation ? `Translation: ${translation.name}` : 'Translation subtitles (optional)'}
-            <input
-              type="file"
-              accept=".srt,.vtt,.ttml,.dfxp,.xml"
-              hidden
-              onChange={(e) => void pickSub(e.target.files?.[0], 'translation')}
+          {original && (
+            <LanguageSelect
+              variant="button"
+              className="cap-btn--sm"
+              label="Language of the subtitles"
+              value={original.lang}
+              onChange={(lang) => setOriginal({ ...original, lang })}
+              style={{ height: 36 }}
             />
+          )}
+          <label className="cap-btn cap-btn--ghost cap-file-btn">
+            <IconCaptions className="cap-ico" />
+            {translation ? translation.name : 'Translation subtitles (optional)'}
+            <input type="file" accept=".srt,.vtt,.ttml,.dfxp,.xml" onChange={(e) => void pickSub(e.target.files?.[0], 'translation')} />
           </label>
+          <span className="cap-spacer" />
+          <span className="cap-help">
+            Files stay on this computer. Without a translation file, lines are translated into {languageName(settings.nativeLanguage)}{' '}
+            on-device or by the tutor.
+          </span>
         </div>
-        {error && (
-          <div className="lr-error" style={{ marginTop: 8 }}>
-            {error}
-          </div>
-        )}
-        {!videoUrl && (
-          <p className="lr-status" style={{ marginBottom: 0 }}>
-            Files stay on your computer. Without a translation file, subtitles are translated on-device or with your AI provider.
-          </p>
-        )}
       </div>
-      {videoUrl && controller && (
-        <div className="lr-video-layout">
-          <div className="lr-video-wrap" ref={wrapRef}>
-            <video
-              src={videoUrl}
-              controls
-              ref={(el) => {
-                adapter.current.video = el;
-                controller.attachVideo(el);
-              }}
-            />
-            <Overlay controller={controller} />
+      {error && <Note tone="danger">{error}</Note>}
+
+      {videoUrl && controller ? (
+        <div className="cap-video-layout">
+          <div className="cap-video-stage">
+            <div className="cap-video-frame" ref={wrapRef}>
+              <video
+                src={videoUrl}
+                controls
+                ref={(el) => {
+                  adapter.current.video = el;
+                  controller.attachVideo(el);
+                }}
+              />
+              <Overlay controller={controller} />
+            </div>
+            <div className="cap-row" style={{ marginTop: 12, gap: 8 }}>
+              <button className="cap-btn" onClick={() => controller.prev()}>
+                <IconPrev className="cap-ico" />
+                Previous{k(keys.prevLine)}
+              </button>
+              <button className="cap-btn" onClick={() => controller.repeat()}>
+                <IconRepeat className="cap-ico" />
+                Repeat{k(keys.repeatLine)}
+              </button>
+              <button className="cap-btn" onClick={() => controller.next()}>
+                <IconNext className="cap-ico" />
+                Next{k(keys.nextLine)}
+              </button>
+              <button
+                className="cap-chip cap-chip--sm"
+                aria-pressed={autoPause}
+                style={{ height: 36 }}
+                onClick={() => controller.runAction('toggleAutoPause')}
+              >
+                Pause after each line{keyName(keys.toggleAutoPause) && <span className="cap-chip__n">{keyName(keys.toggleAutoPause)}</span>}
+              </button>
+              <span className="cap-spacer" />
+              <button className="cap-btn cap-btn--primary" onClick={() => controller.explainCurrentLine()}>
+                <IconSpark className="cap-ico" />
+                Break down the line{k(keys.explainLine)}
+              </button>
+            </div>
           </div>
-          <Sidebar controller={controller} onClose={() => undefined} />
+          {listOpen && (
+            <div className="cap-video-side">
+              <SubtitlePanel
+                controller={controller}
+                variant="page"
+                subtitle={original ? `${original.name} · ${original.cues.length} lines` : undefined}
+              />
+            </div>
+          )}
         </div>
+      ) : (
+        <p className="cap-help" style={{ margin: 0 }}>
+          Choose a video and its subtitle file. Every line becomes clickable, with the same keys as on YouTube.
+        </p>
       )}
-    </>
+    </div>
   );
 }

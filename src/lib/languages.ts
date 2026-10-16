@@ -98,6 +98,12 @@ export function languageName(code: string): string {
   }
 }
 
+/** The language's name in itself ("简体中文" for zh-CN), when it is one of LANGUAGES. */
+export function languageAutonym(code: string): string | undefined {
+  const norm = normalizeLang(code);
+  return LANGUAGES.find((l) => l.code === norm)?.native;
+}
+
 /** Scripts written without spaces between words; tokenization relies on Intl.Segmenter. */
 export function isSpaceless(code: string): boolean {
   const n = normalizeLang(code);

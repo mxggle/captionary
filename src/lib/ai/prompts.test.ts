@@ -88,6 +88,20 @@ describe('buildPrompt', () => {
     expect(p.messages[2].content).toBe('Plural?');
   });
 
+  it('asks for the answer in the explanation language, labels included', () => {
+    const native = buildPrompt({ ...wordJob, targetLang: 'en', text: 'Chaoma' }, { ...opts(), nativeLanguage: 'zh-CN' });
+    expect(native.system).toContain('whole explanation in Chinese (Simplified), translating the bold section labels');
+    expect(native.messages[0].content).toMatch(
+      /Write your whole answer in Chinese \(Simplified\) \(简体中文\), including the section labels\.$/,
+    );
+
+    const immersion = buildPrompt(wordJob, opts({ explanationLanguage: 'target' }));
+    expect(immersion.messages[0].content).toContain('Write your whole answer in Spanish (Español)');
+
+    const english = buildPrompt({ task: 'sentence', sentence: 'El gato duerme.', targetLang: 'es' }, opts());
+    expect(english.messages[0].content).toContain('Write your whole answer in English, including');
+  });
+
   it('asks for JSON when translating', () => {
     const p = buildPrompt({ task: 'translate', lines: ['Hola', 'Adiós'], sourceLang: 'es', targetLang: 'de' }, opts());
     expect(p.json).toBe(true);
@@ -134,7 +148,12 @@ describe('extractTranslation', () => {
   it('finds the translation line in English or localized labels', () => {
     expect(extractTranslation('**gato** · noun\n\n**Translation:** cat, tomcat\n\n**Usage:** x')).toBe('cat, tomcat');
     expect(extractTranslation('**Traducción:** gato')).toBe('gato');
-    expect(extractTranslation('**翻译：** 猫'.replace('：', ':'))).toBe('猫');
+    expect(extractTranslation('**翻译：** 猫')).toBe('猫');
+    expect(extractTranslation('**译文**：混沌之流')).toBe('混沌之流');
     expect(extractTranslation('**In this context:** a pet')).toBeUndefined();
+  });
+
+  it('ignores the headline when the word itself means "translation"', () => {
+    expect(extractTranslation('**translation** · noun · /trænsˈleɪʃən/')).toBeUndefined();
   });
 });

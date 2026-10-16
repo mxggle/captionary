@@ -24,16 +24,43 @@ export interface SiteAdapter {
 /** Seconds before a cue's end at which auto-pause triggers (one animation frame of slack). */
 const AUTO_PAUSE_LEAD = 0.06;
 
+/** A short confirmation over the video (`VideoToast`); one at a time, a new one replaces the old. */
+export interface ToastMessage {
+  text: string;
+  /** The key that triggered the change, shown after the text. */
+  key?: string;
+  /** A dot before the text: the highlighter for something switched on, warn for a problem. */
+  tone?: 'learn' | 'warn';
+}
+
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
-export const toastListeners = new Set<(text: string | null) => void>();
-export function toast(text: string) {
-  toastListeners.forEach((l) => l(text));
+export const toastListeners = new Set<(message: ToastMessage | null) => void>();
+export function toast(text: string, opts: Omit<ToastMessage, 'text'> = {}) {
+  const message = { text, ...opts };
+  toastListeners.forEach((l) => l(message));
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toastListeners.forEach((l) => l(null)), 2200);
+  toastTimer = setTimeout(() => toastListeners.forEach((l) => l(null)), 1600);
+}
+
+/** What the toolbar pop-up shows under "On this tab". */
+export interface TabStatus {
+  site: SiteAdapter['site'];
+  /** Captionary is on, globally and for this site. */
+  enabled: boolean;
+  title: string | null;
+  status: 'idle' | 'loading' | 'ready' | 'none' | 'error';
+  message?: string;
+  lines: number;
+  off: boolean;
+  listOpen: boolean;
+  autoPause: boolean;
 }
 
 /** Provides the on-screen rectangle of the current subtitle line (set by the overlay). */
 export const lineAnchor: { get: (() => AnchorRect | null) | null } = { get: null };
+
+/** Provides the on-screen rectangle of the subtitle drawer while it is open (set by the drawer). */
+export const drawerAnchor: { get: (() => AnchorRect | null) | null } = { get: null };
 
 export class SessionController {
   private video: HTMLVideoElement | null = null;
@@ -50,12 +77,12 @@ export class SessionController {
   async init(): Promise<void> {
     const settings = await getSettings();
     setSession({ settings, site: this.adapter.site });
-    this.adapter.setNativeSubtitlesHidden(settings.enabled && settings.subtitles.hideNativeSubtitles);
+    this.applyNativeHidden();
     this.cleanups.push(
       watchSettings((next) => {
         const prev = getSession().settings;
         setSession({ settings: next });
-        this.adapter.setNativeSubtitlesHidden(next.enabled && next.subtitles.hideNativeSubtitles);
+        this.applyNativeHidden();
         if (
           prev.nativeLanguage !== next.nativeLanguage ||
           prev.targetLanguage !== next.targetLanguage ||
@@ -261,6 +288,69 @@ export class SessionController {
     if (this.video && !this.video.paused) this.adapter.pause();
   }
 
+  // ---------- Captionary on/off for this video, the player menu, the subtitle list ----------
+
+  /** Hide the site's own captions while Captionary draws its own. */
+  applyNativeHidden() {
+    const { settings, off } = getSession();
+    this.adapter.setNativeSubtitlesHidden(settings.enabled && !off && settings.subtitles.hideNativeSubtitles);
+  }
+
+  /** Turn Captionary off (or back on) for the video being watched; off restores the host's captions. */
+  setOff(off: boolean) {
+    setSession({ off, popup: null, drawerOpen: off ? false : getSession().drawerOpen });
+    this.applyNativeHidden();
+  }
+
+  openMenu(anchor: AnchorRect | null) {
+    setSession({ menuOpen: true, menuAnchor: anchor, popup: null });
+  }
+
+  closeMenu() {
+    if (getSession().menuOpen) setSession({ menuOpen: false });
+  }
+
+  toggleMenu(anchor: AnchorRect | null) {
+    if (getSession().menuOpen) this.closeMenu();
+    else this.openMenu(anchor);
+  }
+
+  /**
+   * Where the subtitle list lives right now: YouTube's side column (and the reader's), or a drawer
+   * over the video in fullscreen and on Netflix and Apple TV+.
+   */
+  listMode(): 'panel' | 'drawer' {
+    const { site, fullscreen } = getSession();
+    if (site === 'local') return 'panel';
+    return site === 'youtube' && !fullscreen ? 'panel' : 'drawer';
+  }
+
+  isListOpen(): boolean {
+    const { settings, drawerOpen } = getSession();
+    return this.listMode() === 'panel' ? settings.sidebar.open : drawerOpen;
+  }
+
+  toggleList() {
+    if (this.listMode() === 'panel') void updateSettings((s) => void (s.sidebar.open = !s.sidebar.open));
+    else setSession({ drawerOpen: !getSession().drawerOpen, popup: null });
+  }
+
+  tabStatus(): TabStatus {
+    const { settings, media, status, message, cues, off } = getSession();
+    const site = this.adapter.site;
+    return {
+      site,
+      enabled: settings.enabled && (site === 'local' || settings.sites[site]),
+      title: media?.title ?? null,
+      status,
+      message,
+      lines: cues.length,
+      off,
+      listOpen: this.isListOpen(),
+      autoPause: settings.playback.autoPause,
+    };
+  }
+
   // ---------- pop-up ----------
 
   openPopup(target: Omit<PopupTarget, 'lang' | 'before' | 'after' | 'sentence' | 'translation' | 'time'> & Partial<PopupTarget>) {
@@ -269,6 +359,7 @@ export class SessionController {
     const cue = cues[i];
     this.keepPaused();
     setSession({
+      menuOpen: false,
       popup: {
         lang,
         sentence: cue?.text ?? target.text,
@@ -305,8 +396,12 @@ export class SessionController {
   }
 
   async saveCurrentLine() {
-    const i = this.currentCueIndex();
-    const { cues, translations, lang, media } = getSession();
+    await this.saveLine(this.currentCueIndex());
+  }
+
+  /** Save a subtitle line as a phrase. */
+  async saveLine(i: number) {
+    const { cues, translations, lang, media, settings } = getSession();
     const cue = cues[i];
     if (!cue || !lang) return;
     await saveVocab({
@@ -315,7 +410,14 @@ export class SessionController {
       translation: translations[i],
       context: this.contextFor(i, media),
     });
-    toast('Saved subtitle as a phrase');
+    toast('Line saved', { key: keyName(settings.shortcuts.saveLine), tone: 'learn' });
+  }
+
+  /** Load the subtitles again after an error. */
+  retry() {
+    const { originalTrackId } = getSession();
+    if (originalTrackId) void this.selectOriginalTrack(originalTrackId);
+    else location.reload();
   }
 
   contextFor(i: number, media: MediaInfo | null) {
@@ -335,9 +437,13 @@ export class SessionController {
   private onKeyDown(e: KeyboardEvent) {
     const { settings, cues } = getSession();
     if (!settings.enabled || e.ctrlKey || e.metaKey || e.altKey) return;
-    // Esc closes the pop-up even while typing a follow-up question in it.
-    if (e.key === 'Escape' && getSession().popup) {
-      this.closePopup();
+    // Esc closes the look-up (even while typing a follow-up question in it), then the menu, then the drawer.
+    if (e.key === 'Escape') {
+      const { popup, menuOpen, drawerOpen } = getSession();
+      if (popup) this.closePopup();
+      else if (menuOpen) this.closeMenu();
+      else if (drawerOpen) setSession({ drawerOpen: false });
+      else return;
       e.stopPropagation();
       return;
     }
@@ -348,6 +454,8 @@ export class SessionController {
     if (!action) return;
     // Subtitle navigation only makes sense once subtitles are loaded.
     if (!cues.length && ['prevLine', 'nextLine', 'repeatLine', 'explainLine', 'saveLine'].includes(action)) return;
+    // While Captionary is off for this video, only the key that shows the list still works.
+    if (getSession().off && action !== 'toggleSidebar') return;
     e.preventDefault();
     e.stopImmediatePropagation();
     this.runAction(action);
@@ -356,6 +464,7 @@ export class SessionController {
   runAction(action: ShortcutAction) {
     const { settings } = getSession();
     const patchSettings = (fn: (s: Settings) => void) => void updateSettings(fn);
+    const key = keyName(settings.shortcuts[action]);
     switch (action) {
       case 'prevLine':
         return this.prev();
@@ -365,15 +474,20 @@ export class SessionController {
         return this.repeat();
       case 'togglePlay':
         return this.togglePlay();
-      case 'toggleAutoPause':
-        toast(`Auto-pause ${settings.playback.autoPause ? 'off' : 'on'}`);
-        return patchSettings((s) => void (s.playback.autoPause = !s.playback.autoPause));
+      case 'toggleAutoPause': {
+        const on = !settings.playback.autoPause;
+        toast(`Pause after each line is ${on ? 'on' : 'off'}`, { key, tone: on ? 'learn' : undefined });
+        return patchSettings((s) => void (s.playback.autoPause = on));
+      }
       case 'toggleTranslation':
+        toast(settings.subtitles.showTranslation ? 'Translation hidden' : 'Translation shown', { key });
         return patchSettings((s) => void (s.subtitles.showTranslation = !s.subtitles.showTranslation));
       case 'toggleOriginal':
+        toast(settings.subtitles.showOriginal ? 'Original hidden' : 'Original shown', { key });
         return patchSettings((s) => void (s.subtitles.showOriginal = !s.subtitles.showOriginal));
       case 'toggleSidebar':
-        return patchSettings((s) => void (s.sidebar.open = !s.sidebar.open));
+        if (getSession().off) this.setOff(false);
+        return this.toggleList();
       case 'slower':
         return this.setRate((this.video?.playbackRate ?? 1) - settings.playback.rateStep);
       case 'faster':
@@ -417,10 +531,12 @@ export class SessionController {
       activeIndex: -1,
       lastIndex: -1,
       popup: null,
+      off: false,
       translationStatus: 'idle',
       translationMessage: undefined,
       translationSource: { type: 'none' },
     });
+    this.applyNativeHidden();
     const track = this.pickOriginalTrack(tracks, defaultTrackId, settings);
     if (!track) {
       setSession({ status: 'none', message: 'This video has no subtitles.', originalTrackId: null, lang: '' });
@@ -500,11 +616,12 @@ export class SessionController {
     if (!lang || sameLang(lang, native)) return { type: 'none' };
     const engine = settings.subtitles.translationEngine;
     if (engine === 'none') return { type: 'none' };
-    if (engine === 'ai') return { type: 'ai', lang: native };
-    if (engine === 'chrome') return { type: 'chrome', lang: native };
-    // 'platform': human track → platform MT → on-device → AI
+    // A human subtitle track in the learner's language always comes first.
     const human = tracks.find((t) => !t.forced && !t.auto && t.id !== originalTrackId && sameLang(t.lang, native));
     if (human) return { type: 'track', trackId: human.id };
+    if (engine === 'ai') return { type: 'ai', lang: native };
+    if (engine === 'chrome') return { type: 'chrome', lang: native };
+    // 'platform': platform MT → on-device → AI
     if (this.adapter.loadPlatformTranslation) return { type: 'platform-mt', lang: native };
     // Only when the language pack is already on the device: downloading one needs a click.
     if ((await chromeTranslatorState(lang, native)) === 'available') return { type: 'chrome', lang: native };
@@ -577,4 +694,10 @@ export class SessionController {
     if (!lang) return;
     await saveVocab({ lang, text, status, ...extra, context: cueIndex >= 0 ? this.contextFor(cueIndex, media) : undefined });
   }
+}
+
+/** A shortcut key as it is shown next to a label ("Q", "Space"); empty when unassigned. */
+export function keyName(key: string | undefined): string | undefined {
+  if (!key) return undefined;
+  return key === ' ' ? 'Space' : key.toUpperCase();
 }

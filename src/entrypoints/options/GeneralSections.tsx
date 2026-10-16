@@ -1,5 +1,5 @@
 import { browser } from '#imports';
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import {
   aiSettingsItem,
   DEFAULT_SETTINGS,
@@ -13,207 +13,382 @@ import {
   type ShortcutAction,
 } from '@/lib/settings';
 import { importVocab, listVocab, toAnkiTsv, toCsv, type VocabItem } from '@/lib/vocab';
-import { Field, LanguageSelect, NumberInput, Toggle, useSettings } from '@/ui/form';
+import { useVocabCount } from '@/ui/AppShell';
+import { keyLabel, Note, PageHead, Range, Segment, Select, SettingRow, SettingsCard, Switch, type Choice } from '@/ui/controls';
+import { LanguageSelect, useSettings } from '@/ui/form';
+import { IconExternal, IconUpload } from '@/ui/icons';
+
+type Update = (fn: (s: Settings) => void) => void;
+
+function useSet(): [Settings | null, Update] {
+  const [s, update] = useSettings();
+  return [s, (fn) => void update(fn)];
+}
+
+const LEVELS: Choice<Settings['learnerLevel']>[] = (['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const).map((l) => ({ value: l, label: l }));
 
 export function GeneralSection() {
-  const [s, update] = useSettings();
+  const [s, set] = useSet();
   if (!s) return null;
-  const set = (fn: (st: Settings) => void) => void update(fn);
   return (
     <>
-      <h1>General</h1>
-      <p className="lr-lead">Your languages and where Captionary runs.</p>
-      <div className="lr-card">
-        <Field label="Extension enabled">
-          <Toggle label="Enabled" checked={s.enabled} onChange={(v) => set((st) => void (st.enabled = v))} />
-        </Field>
-        <Field label="I am learning" htmlFor="target" help="“Automatic” uses each video's original language.">
-          <LanguageSelect id="target" allowAuto value={s.targetLanguage} onChange={(v) => set((st) => void (st.targetLanguage = v))} />
-        </Field>
-        <Field label="My language" htmlFor="native" help="Translations and explanations are shown in this language.">
-          <LanguageSelect id="native" value={s.nativeLanguage} onChange={(v) => set((st) => void (st.nativeLanguage = v))} />
-        </Field>
-        <Field label="My level" help="AI explanations are pitched at this level.">
-          <select
-            className="lr-select"
-            value={s.learnerLevel}
-            onChange={(e) => set((st) => void (st.learnerLevel = e.target.value as Settings['learnerLevel']))}
-          >
-            {(['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const).map((l) => (
-              <option key={l} value={l}>
-                {l} —{' '}
-                {{ A1: 'beginner', A2: 'elementary', B1: 'intermediate', B2: 'upper intermediate', C1: 'advanced', C2: 'proficient' }[l]}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="YouTube">
-          <Toggle label="YouTube" checked={s.sites.youtube} onChange={(v) => set((st) => void (st.sites.youtube = v))} />
-        </Field>
-        <Field label="Netflix">
-          <Toggle label="Netflix" checked={s.sites.netflix} onChange={(v) => set((st) => void (st.sites.netflix = v))} />
-        </Field>
-        <Field label="Apple TV+" help="tv.apple.com in the browser (Apple TV+ subscription titles).">
-          <Toggle label="Apple TV+" checked={s.sites.appletv} onChange={(v) => set((st) => void (st.sites.appletv = v))} />
-        </Field>
-      </div>
+      <PageHead title="General" lead="Your languages, where Captionary runs, and how look-ups work." />
+      <SettingsCard title="Languages">
+        <SettingRow title="I’m learning" help="“Each video’s language” follows the original audio of whatever you watch.">
+          {(id) => (
+            <LanguageSelect
+              labelledBy={id}
+              allowAuto
+              value={s.targetLanguage}
+              onChange={(v) => set((st) => void (st.targetLanguage = v))}
+            />
+          )}
+        </SettingRow>
+        <SettingRow title="My language" help="Translations and explanations are written in this language.">
+          {(id) => <LanguageSelect labelledBy={id} value={s.nativeLanguage} onChange={(v) => set((st) => void (st.nativeLanguage = v))} />}
+        </SettingRow>
+        <SettingRow title="My level" help="The tutor pitches explanations at this level.">
+          {(id) => (
+            <Segment labelledBy={id} value={s.learnerLevel} options={LEVELS} onChange={(v) => set((st) => void (st.learnerLevel = v))} />
+          )}
+        </SettingRow>
+      </SettingsCard>
+
+      <SettingsCard
+        title="Where Captionary runs"
+        action={<Switch label="Captionary on everywhere" checked={s.enabled} onChange={(v) => set((st) => void (st.enabled = v))} />}
+      >
+        <SettingRow title="YouTube">
+          {(id) => <Switch labelledBy={id} checked={s.sites.youtube} onChange={(v) => set((st) => void (st.sites.youtube = v))} />}
+        </SettingRow>
+        <SettingRow title="Netflix">
+          {(id) => <Switch labelledBy={id} checked={s.sites.netflix} onChange={(v) => set((st) => void (st.sites.netflix = v))} />}
+        </SettingRow>
+        <SettingRow title="Apple TV+" help="The player on tv.apple.com. Purchases and rentals don’t play on the web.">
+          {(id) => <Switch labelledBy={id} checked={s.sites.appletv} onChange={(v) => set((st) => void (st.sites.appletv = v))} />}
+        </SettingRow>
+      </SettingsCard>
+
+      <SettingsCard title="Look-ups">
+        <SettingRow title="Instant translation" help="Translate clicked words on this computer with Chrome’s built-in translator.">
+          {(id) => (
+            <Switch
+              labelledBy={id}
+              checked={s.dictionary.quickTranslate}
+              onChange={(v) => set((st) => void (st.dictionary.quickTranslate = v))}
+            />
+          )}
+        </SettingRow>
+        <SettingRow title="Wiktionary definitions" help="Free dictionary entries under More. Definitions are in English.">
+          {(id) => (
+            <Switch labelledBy={id} checked={s.dictionary.wiktionary} onChange={(v) => set((st) => void (st.dictionary.wiktionary = v))} />
+          )}
+        </SettingRow>
+        <SettingRow title="Pronunciation speed">
+          <Range
+            label="Pronunciation speed"
+            min={0.5}
+            max={1.5}
+            step={0.05}
+            value={s.dictionary.speechRate}
+            format={(v) => `${Number(v.toFixed(2))}×`}
+            onChange={(v) => set((st) => void (st.dictionary.speechRate = v))}
+          />
+        </SettingRow>
+      </SettingsCard>
+
+      <SettingsCard title="Appearance">
+        <SettingRow title="Extension pages" help="On video sites Captionary always follows the site’s own look.">
+          {(id) => (
+            <Segment
+              labelledBy={id}
+              value={s.pageTheme}
+              options={[
+                { value: 'system', label: 'System' },
+                { value: 'light', label: 'Light' },
+                { value: 'dark', label: 'Dark' },
+              ]}
+              onChange={(v) => set((st) => void (st.pageTheme = v))}
+            />
+          )}
+        </SettingRow>
+      </SettingsCard>
     </>
   );
 }
 
-export function SubtitlesSection() {
-  const [s, update] = useSettings();
-  if (!s) return null;
-  const set = (fn: (st: Settings) => void) => void update(fn);
+const PREVIEW = {
+  text: ['No sé si vamos a llegar a tiempo, pero hay que ', 'intentarlo', '.'],
+  translation: 'I don’t know if we’ll make it in time, but we have to try.',
+};
+
+/** A live preview of the caption settings in each host's caption style. */
+function CaptionPreview({ s }: { s: Settings }) {
+  const [host, setHost] = useState<'youtube-dark' | 'netflix' | 'appletv'>('youtube-dark');
   const sub = s.subtitles;
+  // The frame is about 760px wide; captions are tuned for a 1000px player.
+  const size = Math.round(sub.fontSize * 0.85);
+  const captions: CSSProperties = {
+    position: 'absolute',
+    left: '50%',
+    bottom: `${sub.bottomOffset}%`,
+    transform: 'translateX(-50%)',
+    width: 'max-content',
+    maxWidth: '92%',
+  };
+  return (
+    <SettingsCard
+      title="Preview"
+      style={{ overflow: 'hidden' }}
+      action={
+        <Segment
+          label="Preview as"
+          value={host}
+          options={[
+            { value: 'youtube-dark', label: 'YouTube' },
+            { value: 'netflix', label: 'Netflix' },
+            { value: 'appletv', label: 'Apple TV+' },
+          ]}
+          onChange={setHost}
+        />
+      }
+    >
+      <div className="cap-preview-frame" data-theme={host} aria-hidden="true">
+        <div className="cap-captions" style={captions}>
+          {sub.showOriginal && (
+            <div className="cap-cap" style={{ fontSize: size }}>
+              {PREVIEW.text[0]}
+              <span className={sub.highlight === 'none' ? 'cap-w' : 'cap-w is-learn'}>{PREVIEW.text[1]}</span>
+              {PREVIEW.text[2]}
+            </div>
+          )}
+          {sub.showTranslation && (
+            <div
+              className={`cap-cap cap-cap--tr${sub.blurTranslation ? ' is-blurred' : ''}`}
+              style={{ fontSize: Math.round(size * sub.translationScale) }}
+            >
+              {PREVIEW.translation}
+            </div>
+          )}
+        </div>
+      </div>
+    </SettingsCard>
+  );
+}
+
+const ENGINE_OPTIONS = [
+  {
+    value: 'platform',
+    label: 'The site’s auto-translate',
+    meta: 'then on-device',
+    text: 'The site’s auto-translate, then on-device, then the tutor',
+  },
+  { value: 'chrome', label: 'On-device translation', meta: 'Chrome', text: 'On-device translation (Chrome)' },
+  { value: 'ai', label: 'The tutor', meta: 'uses requests', text: 'The tutor (AI provider, uses requests)' },
+  { value: 'none', label: 'No translation' },
+] as const;
+
+export function SubtitlesSection() {
+  const [s, set] = useSet();
+  if (!s) return null;
+  const sub = s.subtitles;
+  const keys = s.shortcuts;
+  const steps = [0.1, 0.25].includes(s.playback.rateStep) ? [0.1, 0.25] : [0.1, 0.25, s.playback.rateStep].sort((a, b) => a - b);
+  const k = (key: string) => key && <span className="cap-kbd">{keyLabel(key)}</span>;
   return (
     <>
-      <h1>Subtitles &amp; playback</h1>
-      <div className="lr-card">
-        <Field label="Show original subtitle">
-          <Toggle checked={sub.showOriginal} onChange={(v) => set((st) => void (st.subtitles.showOriginal = v))} />
-        </Field>
-        <Field label="Show translation">
-          <Toggle checked={sub.showTranslation} onChange={(v) => set((st) => void (st.subtitles.showTranslation = v))} />
-        </Field>
-        <Field
-          label="Show romanization"
-          help="Pinyin for Chinese, romaji for Japanese kana, and romanized Korean, Russian, Ukrainian, Greek…"
-        >
-          <Toggle checked={sub.showRomanization} onChange={(v) => set((st) => void (st.subtitles.showRomanization = v))} />
-        </Field>
-        <Field
-          label="Color words by frequency"
+      <PageHead title="Subtitles & playback" lead="How captions look on the video and how playback helps you follow along." />
+      <CaptionPreview s={s} />
+
+      <SettingsCard title="On the video">
+        <SettingRow title={<>Original subtitle {k(keys.toggleOriginal)}</>}>
+          {(id) => (
+            <Switch labelledBy={id} checked={sub.showOriginal} onChange={(v) => set((st) => void (st.subtitles.showOriginal = v))} />
+          )}
+        </SettingRow>
+        <SettingRow title={<>Translation {k(keys.toggleTranslation)}</>}>
+          {(id) => (
+            <Switch labelledBy={id} checked={sub.showTranslation} onChange={(v) => set((st) => void (st.subtitles.showTranslation = v))} />
+          )}
+        </SettingRow>
+        <SettingRow title="Romanization" help="Pinyin, romaji or Latin letters under Chinese, Japanese, Korean, Russian, Greek and more.">
+          {(id) => (
+            <Switch
+              labelledBy={id}
+              checked={sub.showRomanization}
+              onChange={(v) => set((st) => void (st.subtitles.showRomanization = v))}
+            />
+          )}
+        </SettingRow>
+        <SettingRow title="Blur translation until hover" help="Try to understand first, then check.">
+          {(id) => (
+            <Switch labelledBy={id} checked={sub.blurTranslation} onChange={(v) => set((st) => void (st.subtitles.blurTranslation = v))} />
+          )}
+        </SettingRow>
+        <SettingRow title="Underline saved words">
+          {(id) => (
+            <Segment
+              labelledBy={id}
+              value={sub.highlight}
+              options={[
+                { value: 'learning', label: 'Learning' },
+                { value: 'all', label: 'All saved' },
+                { value: 'none', label: 'None' },
+              ]}
+              onChange={(v) => set((st) => void (st.subtitles.highlight = v))}
+            />
+          )}
+        </SettingRow>
+        <SettingRow
+          title="Colour words by frequency"
           help={
             <>
-              Underlines less common words (blue 2k–8k, violet 8k–20k, orange rarer) using{' '}
-              <a className="lr-link" href="https://github.com/hermitdave/FrequencyWords" target="_blank" rel="noopener noreferrer">
+              Underlines rarer words in three colours. Downloads a word list once per language from the{' '}
+              <a href="https://github.com/hermitdave/FrequencyWords" target="_blank" rel="noopener noreferrer">
                 OpenSubtitles frequency lists
               </a>
-              . A ~600 KB list is downloaded once per language.
+              .
             </>
           }
         >
-          <Toggle checked={sub.frequencyColors} onChange={(v) => set((st) => void (st.subtitles.frequencyColors = v))} />
-        </Field>
-        <Field label="Blur translation" help="Hover to reveal — try to understand first.">
-          <Toggle checked={sub.blurTranslation} onChange={(v) => set((st) => void (st.subtitles.blurTranslation = v))} />
-        </Field>
-        <Field
-          label="Translation source"
-          help="Automatic: a human subtitle track in your language, else the site's machine translation, else on-device translation, else your AI provider."
-        >
-          <select
-            className="lr-select"
-            value={sub.translationEngine}
-            onChange={(e) =>
-              set((st) => void (st.subtitles.translationEngine = e.target.value as Settings['subtitles']['translationEngine']))
-            }
-          >
-            <option value="platform">Automatic (recommended)</option>
-            <option value="chrome">On-device Chrome translation</option>
-            <option value="ai">AI provider (uses requests)</option>
-            <option value="none">No translation</option>
-          </select>
-        </Field>
-        <Field label="Highlight saved words">
-          <select
-            className="lr-select"
-            value={sub.highlight}
-            onChange={(e) => set((st) => void (st.subtitles.highlight = e.target.value as Settings['subtitles']['highlight']))}
-          >
-            <option value="learning">Words I'm learning</option>
-            <option value="all">Learning and known words</option>
-            <option value="none">Don't highlight</option>
-          </select>
-        </Field>
-        <Field label="Font size">
-          <input
-            type="range"
+          {(id) => (
+            <Switch labelledBy={id} checked={sub.frequencyColors} onChange={(v) => set((st) => void (st.subtitles.frequencyColors = v))} />
+          )}
+        </SettingRow>
+      </SettingsCard>
+
+      <SettingsCard title="Size and position">
+        <SettingRow title="Text size" help="At a 1000-pixel-wide player; scales with the player.">
+          <Range
+            label="Text size"
             min={14}
             max={48}
             value={sub.fontSize}
-            onChange={(e) => set((st) => void (st.subtitles.fontSize = Number(e.target.value)))}
+            format={(v) => `${v} px`}
+            onChange={(v) => set((st) => void (st.subtitles.fontSize = v))}
           />
-          <span className="lr-kbd">{sub.fontSize}px</span>
-        </Field>
-        <Field label="Translation size">
-          <input
-            type="range"
+        </SettingRow>
+        <SettingRow title="Translation size">
+          <Range
+            label="Translation size"
             min={0.5}
             max={1.2}
             step={0.05}
             value={sub.translationScale}
-            onChange={(e) => set((st) => void (st.subtitles.translationScale = Number(e.target.value)))}
+            format={(v) => `${Math.round(v * 100)}%`}
+            onChange={(v) => set((st) => void (st.subtitles.translationScale = v))}
           />
-          <span className="lr-kbd">{Math.round(sub.translationScale * 100)}%</span>
-        </Field>
-        <Field label="Distance from bottom">
-          <input
-            type="range"
+        </SettingRow>
+        <SettingRow title="Distance from the bottom">
+          <Range
+            label="Distance from the bottom"
             min={2}
             max={40}
             value={sub.bottomOffset}
-            onChange={(e) => set((st) => void (st.subtitles.bottomOffset = Number(e.target.value)))}
+            format={(v) => `${v}%`}
+            onChange={(v) => set((st) => void (st.subtitles.bottomOffset = v))}
           />
-          <span className="lr-kbd">{sub.bottomOffset}%</span>
-        </Field>
-        <Field label="Hide the site's own subtitles">
-          <Toggle checked={sub.hideNativeSubtitles} onChange={(v) => set((st) => void (st.subtitles.hideNativeSubtitles = v))} />
-        </Field>
-      </div>
-      <div className="lr-card">
-        <Field label="Auto-pause" help="Pause at the end of every subtitle so you can read and repeat.">
-          <Toggle checked={s.playback.autoPause} onChange={(v) => set((st) => void (st.playback.autoPause = v))} />
-        </Field>
-        <Field label="Pause while hovering subtitles">
-          <Toggle checked={s.playback.pauseOnHover} onChange={(v) => set((st) => void (st.playback.pauseOnHover = v))} />
-        </Field>
-        <Field label="Speed step" help="How much the slower/faster keys change the speed.">
-          <NumberInput
-            value={s.playback.rateStep}
-            min={0.05}
-            max={0.5}
-            step={0.05}
-            onCommit={(v) => set((st) => void (st.playback.rateStep = v))}
-          />
-        </Field>
-        <Field label="Show subtitle list">
-          <Toggle checked={s.sidebar.open} onChange={(v) => set((st) => void (st.sidebar.open = v))} />
-        </Field>
-        <Field label="Follow playback in the list">
-          <Toggle checked={s.sidebar.autoScroll} onChange={(v) => set((st) => void (st.sidebar.autoScroll = v))} />
-        </Field>
-      </div>
-      <div className="lr-card">
-        <Field label="Wiktionary definitions" help="Free dictionary entries (definitions are in English).">
-          <Toggle checked={s.dictionary.wiktionary} onChange={(v) => set((st) => void (st.dictionary.wiktionary = v))} />
-        </Field>
-        <Field label="Instant translation" help="Translate clicked words on-device with Chrome's built-in translator, when available.">
-          <Toggle checked={s.dictionary.quickTranslate} onChange={(v) => set((st) => void (st.dictionary.quickTranslate = v))} />
-        </Field>
-        <Field label="Pronunciation speed">
-          <input
-            type="range"
-            min={0.5}
-            max={1.2}
-            step={0.05}
-            value={s.dictionary.speechRate}
-            onChange={(e) => set((st) => void (st.dictionary.speechRate = Number(e.target.value)))}
-          />
-          <span className="lr-kbd">{s.dictionary.speechRate.toFixed(2)}×</span>
-        </Field>
-      </div>
+        </SettingRow>
+        <SettingRow title="Hide the site’s own subtitles">
+          {(id) => (
+            <Switch
+              labelledBy={id}
+              checked={sub.hideNativeSubtitles}
+              onChange={(v) => set((st) => void (st.subtitles.hideNativeSubtitles = v))}
+            />
+          )}
+        </SettingRow>
+      </SettingsCard>
+
+      <SettingsCard title="Translation">
+        <SettingRow
+          title="When the video has no subtitles in your language"
+          help="A human subtitle track is always used first when there is one."
+        >
+          {(id) => (
+            <Select
+              labelledBy={id}
+              style={{ minWidth: 260 }}
+              value={sub.translationEngine}
+              options={[...ENGINE_OPTIONS]}
+              onChange={(v) => set((st) => void (st.subtitles.translationEngine = v))}
+            />
+          )}
+        </SettingRow>
+      </SettingsCard>
+
+      <SettingsCard title="Playback and the subtitle list">
+        <SettingRow
+          title={<>Pause after each line {k(keys.toggleAutoPause)}</>}
+          help="Stops at the end of every subtitle so you can read and repeat."
+        >
+          {(id) => (
+            <Switch labelledBy={id} checked={s.playback.autoPause} onChange={(v) => set((st) => void (st.playback.autoPause = v))} />
+          )}
+        </SettingRow>
+        <SettingRow title="Pause while the pointer is on the subtitles">
+          {(id) => (
+            <Switch labelledBy={id} checked={s.playback.pauseOnHover} onChange={(v) => set((st) => void (st.playback.pauseOnHover = v))} />
+          )}
+        </SettingRow>
+        <SettingRow
+          title={
+            <>
+              Speed step {k(keys.slower)} {k(keys.faster)}
+            </>
+          }
+        >
+          {(id) => (
+            <Segment
+              labelledBy={id}
+              value={s.playback.rateStep}
+              options={steps.map((v) => ({ value: v, label: `${v}×` }))}
+              onChange={(v) => set((st) => void (st.playback.rateStep = v))}
+            />
+          )}
+        </SettingRow>
+        <SettingRow
+          title={<>Show the subtitle list {k(keys.toggleSidebar)}</>}
+          help="In YouTube’s side column. In fullscreen, on Netflix and on Apple TV+ it opens as a drawer with the same key."
+        >
+          {(id) => <Switch labelledBy={id} checked={s.sidebar.open} onChange={(v) => set((st) => void (st.sidebar.open = v))} />}
+        </SettingRow>
+        <SettingRow title="Follow playback in the list">
+          {(id) => (
+            <Switch labelledBy={id} checked={s.sidebar.autoScroll} onChange={(v) => set((st) => void (st.sidebar.autoScroll = v))} />
+          )}
+        </SettingRow>
+      </SettingsCard>
     </>
   );
 }
 
-function KeyInput({ value, onChange }: { value: string; onChange: (k: string) => void }) {
+/** Keys the sites use themselves (YouTube and Netflix); Captionary leaves them alone by default. */
+const SITE_KEYS = new Set(['t', 'f', 'j', 'k', 'l', 'c', 'm', 'i', ' ']);
+const KEY_ROWS = [
+  ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']'],
+  ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
+  ['z', 'x', 'c', 'v', 'b', 'n', 'm'],
+];
+
+function KeyButton({
+  action,
+  value,
+  clashWith,
+  onChange,
+}: {
+  action: ShortcutAction;
+  value: string;
+  clashWith?: ShortcutAction;
+  onChange: (k: string) => void;
+}) {
   const [listening, setListening] = useState(false);
+  const label = SHORTCUT_LABELS[action];
+  const state = value ? `${keyLabel(value)}${clashWith ? `, clashes with ${SHORTCUT_LABELS[clashWith]}` : ''}` : 'unassigned';
   return (
     <button
-      className={`lr-btn${listening ? ' active' : ''}`}
-      style={{ minWidth: 120, justifyContent: 'center' }}
+      className={`cap-kbd cap-kbd--lg${listening ? ' is-listening' : ''}${clashWith ? ' is-clash' : ''}${value ? '' : ' is-empty'}`}
+      aria-label={`${label}: ${state}. Press to change`}
       onClick={() => setListening(true)}
       onBlur={() => setListening(false)}
       onKeyDown={(e) => {
@@ -225,49 +400,94 @@ function KeyInput({ value, onChange }: { value: string; onChange: (k: string) =>
         setListening(false);
       }}
     >
-      {listening ? (
-        'Press a key…'
-      ) : value ? (
-        <span className="lr-kbd">{value === ' ' ? 'Space' : value.toUpperCase()}</span>
-      ) : (
-        <span className="lr-status">Not set</span>
-      )}
+      {listening ? 'Press a key…' : value ? keyLabel(value) : '—'}
     </button>
   );
 }
 
+const KEY_GROUPS: { title: string; rows: (ShortcutAction | [ShortcutAction, ShortcutAction])[] }[] = [
+  { title: 'Moving between lines', rows: ['prevLine', 'repeatLine', 'nextLine', 'toggleAutoPause', 'togglePlay', ['slower', 'faster']] },
+  { title: 'What you see', rows: ['toggleTranslation', 'toggleOriginal', 'toggleSidebar'] },
+  { title: 'Learning', rows: ['explainLine', 'saveLine'] },
+];
+
 export function ShortcutsSection() {
-  const [s, update] = useSettings();
+  const [s, set] = useSet();
   if (!s) return null;
   const used = new Map<string, ShortcutAction[]>();
   for (const [a, k] of Object.entries(s.shortcuts) as [ShortcutAction, string][]) if (k) used.set(k, [...(used.get(k) ?? []), a]);
+  const clash = (a: ShortcutAction) => {
+    const key = s.shortcuts[a];
+    return key ? used.get(key)?.find((other) => other !== a) : undefined;
+  };
+  const assign = (a: ShortcutAction) => (k: string) => set((st) => void (st.shortcuts[a] = k));
   return (
     <>
-      <h1>Keyboard shortcuts</h1>
-      <p className="lr-lead">Single keys used while watching. Click a key, then press the new key (Backspace to clear).</p>
-      <div className="lr-card">
-        {(Object.keys(SHORTCUT_LABELS) as ShortcutAction[]).map((action) => {
-          const key = s.shortcuts[action];
-          const clash = key && (used.get(key)?.length ?? 0) > 1;
-          return (
-            <Field
-              key={action}
-              label={SHORTCUT_LABELS[action]}
-              help={clash ? <span className="lr-error">Used by more than one action.</span> : undefined}
-            >
-              <KeyInput value={key} onChange={(k) => void update((st) => void (st.shortcuts[action] = k))} />
-            </Field>
-          );
-        })}
-        <div className="lr-row" style={{ marginTop: 10 }}>
-          <button className="lr-btn" onClick={() => void update((st) => void (st.shortcuts = { ...DEFAULT_SHORTCUTS }))}>
-            Restore defaults
-          </button>
-          <span className="lr-status">
-            Esc closes the pop-up. Alt+L opens the AI side panel (change it at chrome://extensions/shortcuts).
+      <PageHead
+        title="Keyboard shortcuts"
+        lead="Single keys that work while a video plays. Click a key, then press the new one; Backspace clears it."
+      >
+        <button className="cap-btn cap-btn--lg" onClick={() => set((st) => void (st.shortcuts = { ...DEFAULT_SHORTCUTS }))}>
+          Restore defaults
+        </button>
+      </PageHead>
+
+      <section className="cap-card" aria-label="Keys in use" style={{ overflowX: 'auto' }}>
+        <div className="cap-keymap" aria-hidden="true">
+          {KEY_ROWS.map((row, i) => (
+            <div key={i} className="cap-keymap__row" style={{ paddingLeft: i * 16 }}>
+              {row.map((key) => (
+                <span key={key} className={`cap-key${used.has(key) ? ' is-on' : SITE_KEYS.has(key) ? ' is-site' : ''}`}>
+                  {key.toUpperCase()}
+                </span>
+              ))}
+            </div>
+          ))}
+        </div>
+        <div className="cap-row" style={{ gap: 16, padding: '0 18px 14px', fontSize: 12.5, color: 'var(--ink-subtle)' }}>
+          <span className="cap-row" style={{ gap: 6 }}>
+            <span className="cap-key cap-key--legend is-on" />
+            Captionary
+          </span>
+          <span className="cap-row" style={{ gap: 6 }}>
+            <span className="cap-key cap-key--legend is-site" />
+            Kept free for the site’s own keys
           </span>
         </div>
-      </div>
+      </section>
+
+      {KEY_GROUPS.map((group) => (
+        <SettingsCard key={group.title} title={group.title}>
+          {group.rows.map((row) => {
+            if (Array.isArray(row)) {
+              const [a, b] = row;
+              return (
+                <SettingRow key={a} title="Slower · faster">
+                  <KeyButton action={a} value={s.shortcuts[a]} clashWith={clash(a)} onChange={assign(a)} />
+                  <KeyButton action={b} value={s.shortcuts[b]} clashWith={clash(b)} onChange={assign(b)} />
+                </SettingRow>
+              );
+            }
+            const other = clash(row);
+            const help = other ? (
+              <span style={{ color: 'var(--danger)' }}>
+                {keyLabel(s.shortcuts[row])} is already {SHORTCUT_LABELS[other]}. Pick another key.
+              </span>
+            ) : row === 'togglePlay' && !s.shortcuts[row] ? (
+              'Unassigned: the site’s Space and K already do this.'
+            ) : undefined;
+            return (
+              <SettingRow key={row} title={SHORTCUT_LABELS[row]} help={help}>
+                <KeyButton action={row} value={s.shortcuts[row]} clashWith={other} onChange={assign(row)} />
+              </SettingRow>
+            );
+          })}
+        </SettingsCard>
+      ))}
+
+      <p className="cap-help" style={{ margin: 0 }}>
+        Esc closes the look-up. Alt+L opens the AI tutor; change it at chrome://extensions/shortcuts.
+      </p>
     </>
   );
 }
@@ -281,7 +501,7 @@ function download(name: string, content: string, type: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function pickFile(accept: string): Promise<string | null> {
+function pickFile(accept: string): Promise<{ name: string; text: string } | null> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -289,14 +509,16 @@ function pickFile(accept: string): Promise<string | null> {
     input.onchange = () => {
       const file = input.files?.[0];
       if (!file) return resolve(null);
-      void file.text().then(resolve);
+      void file.text().then((text) => resolve({ name: file.name, text }));
     };
     input.click();
   });
 }
 
 export function DataSection() {
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const count = useVocabCount();
   const stamp = new Date().toISOString().slice(0, 10);
 
   const exportSettings = async () => {
@@ -306,128 +528,247 @@ export function DataSection() {
     download(`captionary-settings-${stamp}.json`, JSON.stringify(data, null, 2), 'application/json');
   };
   const importSettings = async () => {
-    const text = await pickFile('.json,application/json');
-    if (!text) return;
+    const file = await pickFile('.json,application/json');
+    if (!file) return;
     try {
-      const data = JSON.parse(text) as { app?: string; settings?: unknown; ai?: unknown };
+      const data = JSON.parse(file.text) as { app?: string; settings?: unknown; ai?: unknown };
       // 'language-react' is the app id of backups made before the rename to Captionary.
-      if (data.app !== 'captionary' && data.app !== 'language-react') throw new Error('Not a Captionary settings file');
+      if (data.app !== 'captionary' && data.app !== 'language-react') throw new Error('This is not a Captionary settings file.');
       if (data.settings) await settingsItem.setValue(mergeDefaults(DEFAULT_SETTINGS, data.settings));
       if (data.ai) await aiSettingsItem.setValue(mergeDefaults(await getAISettings(), data.ai));
-      setMessage('Settings imported. Re-enter API keys for imported providers — keys are never exported.');
+      setMessage({
+        ok: true,
+        text: `Imported settings from ${file.name}. Enter the API keys again under AI providers: exports never contain them.`,
+      });
     } catch (err) {
-      setMessage(`Import failed: ${(err as Error).message}`);
+      setMessage({ ok: false, text: `The import failed: ${(err as Error).message}` });
     }
   };
   const exportVocab = async (format: 'csv' | 'anki' | 'json') => {
     const items = await listVocab();
-    if (format === 'csv') download(`captionary-words-${stamp}.csv`, `\ufeff${toCsv(items)}`, 'text/csv');
+    if (format === 'csv') download(`captionary-words-${stamp}.csv`, `﻿${toCsv(items)}`, 'text/csv');
     else if (format === 'anki') download(`captionary-anki-${stamp}.txt`, toAnkiTsv(items), 'text/plain');
     else download(`captionary-words-${stamp}.json`, JSON.stringify(items, null, 2), 'application/json');
   };
   const importWords = async () => {
-    const text = await pickFile('.json,application/json');
-    if (!text) return;
+    const file = await pickFile('.json,application/json');
+    if (!file) return;
     try {
-      const n = await importVocab(JSON.parse(text) as VocabItem[]);
-      setMessage(`Imported ${n} words.`);
+      const n = await importVocab(JSON.parse(file.text) as VocabItem[]);
+      setMessage({ ok: true, text: `Imported ${n} words from ${file.name}.` });
     } catch (err) {
-      setMessage(`Import failed: ${(err as Error).message}`);
+      setMessage({ ok: false, text: `The import failed: ${(err as Error).message}` });
     }
   };
   const resetAll = async () => {
-    if (!confirm('Delete all settings, AI providers, API keys and saved words? This cannot be undone.')) return;
     await browser.storage.local.clear();
-    setMessage('Everything was reset.');
+    setConfirming(false);
+    setMessage({ ok: true, text: 'Everything was deleted. Captionary starts fresh.' });
   };
 
   return (
     <>
-      <h1>Data</h1>
-      <p className="lr-lead">Back up or move your settings and saved words.</p>
-      <div className="lr-card">
-        <Field label="Settings" help="Exports never contain API keys.">
-          <button className="lr-btn" onClick={() => void exportSettings()}>
-            Export
-          </button>
-          <button className="lr-btn" onClick={() => void importSettings()}>
-            Import
-          </button>
-        </Field>
-        <Field label="Saved words" help="Anki: File → Import the .txt file; fields are separated by tabs and contain HTML.">
-          <button className="lr-btn" onClick={() => void exportVocab('csv')}>
+      <PageHead
+        title="Data & backup"
+        lead="Everything Captionary keeps lives in this browser. Back it up or move it to another computer."
+      />
+      <SettingsCard title="Saved words" action={count !== null && <span className="cap-tag">{count} items</span>}>
+        <SettingRow
+          title="Export"
+          help="Anki: File → Import the .txt file. Fields are separated by tabs and the sentence has the word in bold."
+        >
+          <button className="cap-btn" onClick={() => void exportVocab('csv')}>
             CSV
           </button>
-          <button className="lr-btn" onClick={() => void exportVocab('anki')}>
+          <button className="cap-btn" onClick={() => void exportVocab('anki')}>
             Anki
           </button>
-          <button className="lr-btn" onClick={() => void exportVocab('json')}>
+          <button className="cap-btn" onClick={() => void exportVocab('json')}>
             JSON backup
           </button>
-          <button className="lr-btn" onClick={() => void importWords()}>
-            Import JSON
+        </SettingRow>
+        <SettingRow title="Import a JSON backup" help="Words in the file replace saved copies of the same words; everything else is kept.">
+          <button className="cap-btn" onClick={() => void importWords()}>
+            <IconUpload className="cap-ico" />
+            Choose file
           </button>
-        </Field>
-        <Field label="Reset">
-          <button className="lr-btn" style={{ color: 'var(--lr-danger)' }} onClick={() => void resetAll()}>
-            Delete everything
+        </SettingRow>
+      </SettingsCard>
+
+      {message && <Note tone={message.ok ? 'success' : 'danger'}>{message.text}</Note>}
+
+      <SettingsCard title="Settings">
+        <SettingRow
+          title="Export or import settings"
+          help="Includes providers and prompts but never API keys; enter keys again after importing."
+        >
+          <button className="cap-btn" onClick={() => void exportSettings()}>
+            Export
           </button>
-        </Field>
-      </div>
-      {message && <div className="lr-note">{message}</div>}
+          <button className="cap-btn" onClick={() => void importSettings()}>
+            Import
+          </button>
+        </SettingRow>
+      </SettingsCard>
+
+      <SettingsCard title="Start over" style={confirming ? { borderColor: 'var(--danger)' } : undefined}>
+        {confirming ? (
+          <div className="cap-card__body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <p style={{ margin: 0 }}>
+              Delete all settings, AI providers, API keys and <strong>{count ?? 0} saved words</strong> from this browser? This can’t be
+              undone. Export a backup first if you might want them back.
+            </p>
+            <div className="cap-row">
+              <button className="cap-btn cap-btn--danger-fill" onClick={() => void resetAll()}>
+                Delete everything
+              </button>
+              <button className="cap-btn cap-btn--ghost" onClick={() => setConfirming(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <SettingRow title="Delete everything" help="Settings, AI providers, API keys and saved words.">
+            <button className="cap-btn cap-btn--danger" onClick={() => setConfirming(true)}>
+              Delete everything…
+            </button>
+          </SettingRow>
+        )}
+      </SettingsCard>
     </>
   );
 }
 
 export function WelcomeSection({ go }: { go: (hash: string) => void }) {
-  const [s, update] = useSettings();
+  const [s, set] = useSet();
   if (!s) return null;
+  const keys = s.shortcuts;
+  const key = (k: string) => <span className="cap-kbd">{keyLabel(k)}</span>;
   return (
     <>
-      <h1>Welcome to Captionary</h1>
-      <p className="lr-lead">Learn languages from the videos you already watch. Three quick steps:</p>
-      <div className="lr-card">
-        <div className="lr-card-head">
-          <div className="title">1. Your languages</div>
-        </div>
-        <Field label="I am learning">
-          <LanguageSelect allowAuto value={s.targetLanguage} onChange={(v) => void update((st) => void (st.targetLanguage = v))} />
-        </Field>
-        <Field label="My language">
-          <LanguageSelect value={s.nativeLanguage} onChange={(v) => void update((st) => void (st.nativeLanguage = v))} />
-        </Field>
-      </div>
-      <div className="lr-card">
-        <div className="lr-card-head">
-          <div className="title">2. Connect an AI provider (optional)</div>
-          <button className="lr-btn primary" onClick={() => go('ai')}>
-            Set up AI
-          </button>
-        </div>
-        <p className="lr-status" style={{ margin: 0 }}>
-          The dictionary and translations work without AI. With a provider, every word gets an explanation of what it means in that exact
-          sentence, plus grammar breakdowns and a tutor you can ask follow-up questions.
-        </p>
-      </div>
-      <div className="lr-card">
-        <div className="lr-card-head">
-          <div className="title">3. Open a video</div>
-          <a
-            className="lr-btn"
-            href="https://www.youtube.com/results?search_query=easy+spanish+street+interviews"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Try YouTube
-          </a>
-        </div>
-        <p className="lr-status" style={{ margin: 0 }}>
-          Dual subtitles appear on the video and the full transcript in the side list. Click any word to look it up; drag across words to
-          select a phrase. Keys: <span className="lr-kbd">A</span> previous line, <span className="lr-kbd">S</span> repeat,{' '}
-          <span className="lr-kbd">D</span> next, <span className="lr-kbd">Q</span> auto-pause, <span className="lr-kbd">E</span> explain
-          the line.
-        </p>
-      </div>
+      <PageHead
+        title="Welcome to Captionary"
+        lead="Learn a language from the films and series you already watch. Three steps, about a minute."
+      />
+      <ol className="cap-card cap-steps">
+        <li className="cap-step">
+          <span className="cap-step__num" aria-hidden="true">
+            1
+          </span>
+          <div className="cap-step__body" style={{ gap: 14 }}>
+            <h2 className="cap-h2">Your languages</h2>
+            <div className="cap-popup__sentence" style={{ fontSize: 16, lineHeight: 2.2 }}>
+              I’m learning{' '}
+              <LanguageSelect
+                variant="sentence"
+                label="I’m learning"
+                allowAuto
+                value={s.targetLanguage}
+                onChange={(v) => set((st) => void (st.targetLanguage = v))}
+              />{' '}
+              and I speak{' '}
+              <LanguageSelect
+                variant="sentence"
+                label="I speak"
+                value={s.nativeLanguage}
+                onChange={(v) => set((st) => void (st.nativeLanguage = v))}
+              />
+            </div>
+            <SettingRowless title="My level">
+              {(id) => (
+                <Segment
+                  labelledBy={id}
+                  value={s.learnerLevel}
+                  options={LEVELS}
+                  onChange={(v) => set((st) => void (st.learnerLevel = v))}
+                />
+              )}
+            </SettingRowless>
+            <span className="cap-help">
+              The tutor pitches its explanations at this level. “Learning” can also follow each video’s own language.
+            </span>
+          </div>
+        </li>
+        <li className="cap-step">
+          <span className="cap-step__num" aria-hidden="true">
+            2
+          </span>
+          <div className="cap-step__body">
+            <h2 className="cap-h2">
+              Connect an AI tutor <span className="cap-h2__meta">optional</span>
+            </h2>
+            <p className="cap-step__text">
+              Dictionary and translations work without it. With a tutor, every word you click can be explained in its exact sentence, lines
+              get grammar breakdowns, and you can ask follow-up questions.
+            </p>
+            <div className="cap-row">
+              <button className="cap-btn cap-btn--primary cap-btn--lg" onClick={() => go('ai')}>
+                Set up the tutor
+              </button>
+              <span className="cap-help">Chrome’s built-in AI and Ollama need no account.</span>
+            </div>
+          </div>
+        </li>
+        <li className="cap-step">
+          <span className="cap-step__num" aria-hidden="true">
+            3
+          </span>
+          <div className="cap-step__body" style={{ flexBasis: 300 }}>
+            <h2 className="cap-h2">Open a video</h2>
+            <p className="cap-step__text">
+              Captions show both languages. Click a word to look it up; drag across words for a phrase. Find Captionary in the player’s
+              control bar.
+            </p>
+            <div className="cap-row" style={{ gap: '6px 12px', fontSize: 13.5, color: 'var(--ink-muted)' }}>
+              <span className="cap-row" style={{ gap: 4 }}>
+                {key(keys.prevLine)}
+                {key(keys.repeatLine)}
+                {key(keys.nextLine)} previous · repeat · next
+              </span>
+              <span className="cap-row" style={{ gap: 4 }}>
+                {key(keys.toggleAutoPause)} pause after each line
+              </span>
+              <span className="cap-row" style={{ gap: 4 }}>
+                {key(keys.explainLine)} explain the line
+              </span>
+            </div>
+            <div className="cap-row">
+              <a
+                className="cap-btn"
+                href="https://www.youtube.com/results?search_query=easy+spanish+street+interviews"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Try a YouTube video
+                <IconExternal className="cap-ico" />
+              </a>
+            </div>
+          </div>
+          <div className="cap-step__preview" aria-hidden="true">
+            <div className="cap-captions" data-theme="youtube-dark" style={{ gap: 2 }}>
+              <div className="cap-cap" style={{ fontSize: 13 }}>
+                Pues vámonos <span className="cap-w is-learn">ya</span>.
+              </div>
+              <div className="cap-cap cap-cap--tr" style={{ fontSize: 11 }}>
+                Then let’s go now.
+              </div>
+            </div>
+          </div>
+        </li>
+      </ol>
     </>
+  );
+}
+
+/** A labelled control without the row chrome (inside the welcome steps). */
+function SettingRowless({ title, children }: { title: string; children: (id: string) => React.ReactNode }) {
+  const id = `f-${title.replace(/\W+/g, '-').toLowerCase()}`;
+  return (
+    <div className="cap-field">
+      <span className="cap-label" id={id}>
+        {title}
+      </span>
+      {children(id)}
+    </div>
   );
 }

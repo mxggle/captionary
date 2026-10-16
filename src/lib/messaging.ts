@@ -32,7 +32,17 @@ export type BgRequest =
   | { type: 'freq.list'; lang: string }
   | { type: 'fetch.text'; url: string }
   | { type: 'open.page'; page: 'options' | 'vocab' | 'reader'; hash?: string }
-  | { type: 'sidepanel.open'; payload: SidePanelPayload };
+  | { type: 'sidepanel.open'; payload: SidePanelPayload }
+  | { type: 'reader.import'; doc: ReaderDocument }
+  | { type: 'reader.openTab'; tabId: number };
+
+/** Text handed to the reader page (a transcript, or a page's article). */
+export interface ReaderDocument {
+  title: string;
+  url: string;
+  text: string;
+  lang: string;
+}
 
 export type BgResponse<T> = { ok: true; data: T } | { ok: false; error: AIErrorInfo };
 
@@ -47,6 +57,8 @@ export interface BgResponseMap {
   'fetch.text': string;
   'open.page': void;
   'sidepanel.open': void;
+  'reader.import': void;
+  'reader.openTab': void;
 }
 
 /** Send a request to the background and unwrap the response envelope. */

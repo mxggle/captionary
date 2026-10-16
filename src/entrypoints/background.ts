@@ -96,6 +96,12 @@ async function handle(msg: BgRequest, sender: { tab?: { id?: number; windowId?: 
     }
     case 'sidepanel.open':
       return openSidePanel(msg.payload, sender.tab?.id, sender.tab?.windowId);
+    case 'reader.import':
+      return openInReader({ ...msg.doc, text: msg.doc.text.slice(0, 200_000) });
+    case 'reader.openTab':
+      // Only from the toolbar pop-up (an extension page), which holds the activeTab grant for that tab.
+      if (sender.tab) throw new AIError('bad_request', 'Not allowed from a web page');
+      return openPageInReader(msg.tabId);
   }
 }
 
@@ -194,6 +200,10 @@ async function openPageInReader(tabId: number) {
   });
   const page = res?.result as { title: string; url: string; text: string; lang: string } | undefined;
   if (!page?.text) return;
-  await readerImport.setValue({ ...page, text: page.text.slice(0, 200_000) });
+  await openInReader({ ...page, text: page.text.slice(0, 200_000) });
+}
+
+async function openInReader(doc: { title: string; url: string; text: string; lang: string }) {
+  await readerImport.setValue(doc);
   await browser.tabs.create({ url: `${browser.runtime.getURL('/reader.html')}#import` });
 }

@@ -12,12 +12,14 @@ export function ModelPicker({
   onCommit,
   placeholder,
   label,
+  labelledBy,
 }: {
   value: string;
   models: string[];
   onCommit: (v: string) => void;
   placeholder?: string;
   label: string;
+  labelledBy?: string;
 }) {
   const id = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -58,12 +60,13 @@ export function ModelPicker({
   };
 
   return (
-    <div className="lr-combo">
+    <div className="cap-combo">
       <input
         ref={inputRef}
-        className="lr-input"
+        className="cap-input"
         role="combobox"
-        aria-label={label}
+        aria-label={labelledBy ? undefined : label}
+        aria-labelledby={labelledBy}
         aria-autocomplete="list"
         aria-expanded={expanded}
         aria-controls={`${id}-list`}
@@ -103,7 +106,7 @@ export function ModelPicker({
       {models.length > 0 && (
         <button
           type="button"
-          className="lr-icon-btn lr-combo-toggle"
+          className="cap-iconbtn cap-iconbtn--sm cap-combo__toggle"
           tabIndex={-1}
           aria-label={`Show all ${models.length} models`}
           title={`Show all ${models.length} models`}
@@ -114,7 +117,7 @@ export function ModelPicker({
             showAll();
           }}
         >
-          <IconChevronDown />
+          <IconChevronDown className="cap-ico" />
         </button>
       )}
       {expanded && (
@@ -123,7 +126,7 @@ export function ModelPicker({
           id={`${id}-list`}
           role="listbox"
           aria-label={label}
-          className="lr-combo-list"
+          className="cap-combo__list"
           onMouseDown={(e) => e.preventDefault()}
         >
           {shown.map((m, i) => (
@@ -132,7 +135,7 @@ export function ModelPicker({
               id={`${id}-${i}`}
               role="option"
               aria-selected={m === value}
-              className={i === active ? 'active' : undefined}
+              className={i === active ? 'is-active' : undefined}
               title={m}
               onClick={() => pick(m)}
             >

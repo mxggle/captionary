@@ -12,6 +12,18 @@ interface YtPlayer extends HTMLElement {
 
 const text = (v: any): string => v?.simpleText ?? v?.runs?.map((r: any) => r.text).join('') ?? '';
 
+/**
+ * The player's latest caption request URL with a proof-of-origin token, per video. The player may
+ * fetch captions before the isolated script listens, so the token also travels with the player data.
+ */
+const tokenUrls = new Map<string, string>();
+
+function rememberToken(url: string) {
+  const u = new URL(url);
+  const v = u.searchParams.get('v');
+  if (v && u.searchParams.has('pot')) tokenUrls.set(v, url);
+}
+
 function readPlayerData(player: YtPlayer | null) {
   const resp = player?.getPlayerResponse?.() ?? (window as any).ytInitialPlayerResponse;
   const details = resp?.videoDetails;
@@ -20,6 +32,7 @@ function readPlayerData(player: YtPlayer | null) {
   return {
     videoId: details?.videoId ?? null,
     title: details?.title ?? document.title,
+    tokenUrl: tokenUrls.get(details?.videoId) ?? null,
     tracks: (renderer?.captionTracks ?? []).map((t: any) => ({
       baseUrl: String(t.baseUrl ?? ''),
       lang: String(t.languageCode ?? ''),
@@ -48,7 +61,10 @@ export default defineContentScript({
   main() {
     const isTimedText = (u: string) => u.includes('/api/timedtext');
     const absolute = (u: string) => new URL(u, location.origin).toString();
-    const report = (url: string, body: string) => postToIsolated({ type: 'yt.timedtext', url: absolute(url), body });
+    const report = (url: string, body: string) => {
+      rememberToken(absolute(url));
+      postToIsolated({ type: 'yt.timedtext', url: absolute(url), body });
+    };
 
     const origOpen = XMLHttpRequest.prototype.open;
     XMLHttpRequest.prototype.open = function (this: XMLHttpRequest, method: string, url: string | URL, ...rest: any[]) {

@@ -1,0 +1,15 @@
+{
+  "wireMagic": "pb3",
+  "pens": [{}],
+  "wsWinStyles": [{}],
+  "wpWinPositions": [{}],
+  "events": [
+    { "tStartMs": 0, "dDurationMs": 7000, "segs": [{ "utf8": "デッキチェアに座って、落ち着いたところでした" }] },
+    { "tStartMs": 9500, "dDurationMs": 7500, "segs": [{ "utf8": "ウェーターが来たので、飲み物を頼んで" }] },
+    { "tStartMs": 17000, "dDurationMs": 2000, "segs": [{ "utf8": "2つずつ持ってきてくれたので" }] },
+    { "tStartMs": 22000, "dDurationMs": 3000, "segs": [{ "utf8": "それを少しずつ飲んでたんです" }] },
+    { "tStartMs": 25000, "dDurationMs": 3000, "segs": [{ "utf8": "持ち物を整理して" }] },
+    { "tStartMs": 28000, "dDurationMs": 4000, "segs": [{ "utf8": "パラソルの下にビーチドレスを下げたり" }] },
+    { "tStartMs": 37000, "dDurationMs": 3000, "segs": [{ "utf8": "それから横になって" }] }
+  ]
+}

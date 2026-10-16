@@ -1,0 +1,81 @@
+{
+  "wireMagic": "pb3",
+  "pens": [{}],
+  "wsWinStyles": [{}, { "mhModeHint": 2, "juJustifCode": 0, "sdScrollDir": 3 }],
+  "wpWinPositions": [{}, { "apPoint": 6, "ahHorPos": 20, "avVerPos": 100, "rcRows": 2, "ccCols": 40 }],
+  "events": [
+    { "tStartMs": 0, "dDurationMs": 349080, "id": 1, "wpWinPosId": 1, "wsWinStyleId": 1 },
+    {
+      "tStartMs": 1680,
+      "dDurationMs": 3000,
+      "wWinId": 1,
+      "segs": [
+        {
+          "utf8": "父は偉大なるイエスマンです。農水大臣の公認にた部新田議員が選ばれました。親子で脳水大臣を任される竹議員。その人物像に迫ります。",
+          "acAsrConf": 0
+        }
+      ]
+    },
+    { "tStartMs": 17429, "wWinId": 1, "aAppend": 1, "segs": [{ "utf8": "\n" }] },
+    {
+      "tStartMs": 17439,
+      "dDurationMs": 2921,
+      "wWinId": 1,
+      "segs": [
+        {
+          "utf8": "今日はす々しい朝を迎えることができまして、我が同士竹田君が、え、農林水産大臣に、ま、なったわけでありましておめでとうございます。",
+          "acAsrConf": 0
+        }
+      ]
+    },
+    { "tStartMs": 18330, "dDurationMs": 2030, "wWinId": 1, "aAppend": 1, "segs": [{ "utf8": "\n" }] },
+    { "tStartMs": 18340, "dDurationMs": 2020, "wWinId": 1, "segs": [{ "utf8": "[拍手]" }] },
+    { "tStartMs": 30120, "wWinId": 1, "aAppend": 1, "segs": [{ "utf8": "\n" }] },
+    { "tStartMs": 30130, "dDurationMs": 2020, "wWinId": 1, "segs": [{ "utf8": "[拍手]" }] },
+    { "tStartMs": 32670, "wWinId": 1, "aAppend": 1, "segs": [{ "utf8": "\n" }] },
+    { "tStartMs": 32680, "dDurationMs": 5080, "wWinId": 1, "segs": [{ "utf8": "あの、ですね、", "acAsrConf": 0, "isSpeakerChange": 1 }] },
+    { "tStartMs": 34750, "dDurationMs": 3010, "wWinId": 1, "aAppend": 1, "segs": [{ "utf8": "\n" }] },
+    {
+      "tStartMs": 34760,
+      "dDurationMs": 3000,
+      "wWinId": 1,
+      "segs": [
+        { "utf8": "新たに農林水産行政の式を取ることになったのは偉大なるイエスマンの息子です。", "acAsrConf": 0, "isSpeakerChange": 1 }
+      ]
+    },
+    { "tStartMs": 41910, "wWinId": 1, "aAppend": 1, "segs": [{ "utf8": "\n" }] },
+    { "tStartMs": 41920, "dDurationMs": 3040, "wWinId": 1, "segs": [{ "utf8": "[拍手]" }] },
+    { "tStartMs": 43830, "dDurationMs": 1130, "wWinId": 1, "aAppend": 1, "segs": [{ "utf8": "\n" }] },
+    { "tStartMs": 43840, "dDurationMs": 4120, "wWinId": 1, "segs": [{ "utf8": "それでは", "acAsrConf": 0 }] },
+    { "tStartMs": 44950, "dDurationMs": 3010, "wWinId": 1, "aAppend": 1, "segs": [{ "utf8": "\n" }] },
+    {
+      "tStartMs": 44960,
+      "dDurationMs": 3000,
+      "wWinId": 1,
+      "segs": [
+        {
+          "utf8": "大変な局面にある中に、え、大臣というお仕事をさせていただくことになりました。現在は自民党の成長副会長を務める竹田市",
+          "acAsrConf": 0,
+          "isSpeakerChange": 1
+        }
+      ]
+    },
+    { "tStartMs": 58389, "wWinId": 1, "aAppend": 1, "segs": [{ "utf8": "\n" }] },
+    {
+      "tStartMs": 58399,
+      "dDurationMs": 3761,
+      "wWinId": 1,
+      "segs": [
+        { "utf8": "56", "acAsrConf": 0 },
+        { "utf8": "歳。", "tOffsetMs": 761, "acAsrConf": 0 }
+      ]
+    },
+    { "tStartMs": 62549, "wWinId": 1, "aAppend": 1, "segs": [{ "utf8": "\n" }] },
+    {
+      "tStartMs": 62559,
+      "dDurationMs": 3000,
+      "wWinId": 1,
+      "segs": [{ "utf8": "え、総理に、え、自称を提出したところです。", "acAsrConf": 0, "isSpeakerChange": 1 }]
+    }
+  ]
+}

@@ -4,19 +4,19 @@ import { bg } from '@/lib/messaging';
 import { frequencyRank } from '@/lib/text/frequency-map';
 import { normalizeWord } from '@/lib/text/tokenize';
 import { removeVocab, vocabKey } from '@/lib/vocab';
-import { WordPopup } from '@/ui/WordPopup';
-import type { SessionController } from '../controller';
-import { useSession, type Surface } from '../store';
+import { drawerAnchor, lineAnchor, type SessionController } from '../controller';
+import { useSession, type AnchorRect, type Surface } from '../store';
+import { LookupCard, placeCard } from './LookupCard';
 
 interface Props {
   controller: SessionController;
-  surface: Surface;
-  /** Element the pop-up is absolutely positioned in; omitted = fixed to the viewport. */
+  surfaces: Surface[];
+  /** Element the card is absolutely positioned in; omitted = fixed to the viewport. */
   hostRef?: RefObject<HTMLElement | null>;
 }
 
-/** Connects the shared WordPopup to the session store for one UI surface. */
-export function PopupHost({ controller, surface, hostRef }: Props) {
+/** Connects the native look-up card to the session store for the surfaces drawn in one shadow root. */
+export function LookupHost({ controller, surfaces, hostRef }: Props) {
   const { popup, settings, aiStatus, vocab, media, frequency } = useSession(
     useShallow((s) => ({
       popup: s.popup,
@@ -28,23 +28,28 @@ export function PopupHost({ controller, surface, hostRef }: Props) {
     })),
   );
   const close = useCallback(() => controller.closePopup(), [controller]);
-  if (!popup || popup.surface !== surface) return null;
+  if (!popup || !surfaces.includes(popup.surface)) return null;
 
   const host = hostRef?.current?.getBoundingClientRect();
-  const bounds = host
+  const bounds: AnchorRect = host
     ? { left: host.left, top: host.top, width: host.width, height: host.height }
     : { left: 0, top: 0, width: innerWidth, height: innerHeight };
+  // Over the video the card must never cover the caption line; elsewhere it only avoids the word.
+  const avoid = popup.surface === 'overlay' ? (lineAnchor.get?.() ?? popup.rect) : popup.rect;
+  const side = popup.surface === 'drawer' ? (drawerAnchor.get?.() ?? null) : null;
+  const surface = popup.surface;
 
   return (
-    <WordPopup
+    <LookupCard
       key={`${popup.kind}:${popup.text}:${popup.cueIndex}`}
       target={popup}
       settings={settings}
       aiStatus={aiStatus}
       vocab={vocab}
-      bounds={bounds}
+      place={(width) => placeCard(width, { anchor: popup.rect, avoid, bounds, side })}
       fixed={!host}
       mediaTitle={media?.title}
+      rankKnown={!!frequency}
       rank={popup.kind === 'word' && frequency ? frequencyRank(frequency, normalizeWord(popup.text, popup.lang)) : undefined}
       onClose={close}
       onSave={(status, extra) => {
@@ -52,7 +57,9 @@ export function PopupHost({ controller, surface, hostRef }: Props) {
         else void removeVocab(vocabKey(popup.text, popup.lang).id);
       }}
       onPlayLine={popup.cueIndex >= 0 ? () => controller.playCue(popup.cueIndex) : undefined}
-      onSelectWord={(sel) => controller.openPopup({ kind: 'word', text: sel.text, cueIndex: popup.cueIndex, rect: sel.rect, surface })}
+      onSelectWord={(sel) =>
+        controller.openPopup({ kind: 'word', text: sel.text, cueIndex: popup.cueIndex, rect: sel.rect, surface, tokenRange: sel.range })
+      }
       onOpenSidePanel={() =>
         void bg({
           type: 'sidepanel.open',

@@ -1,16 +1,41 @@
 import { browser } from '#imports';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { builtinOptions, getLanguageModel } from '@/lib/ai/providers/chrome';
 import { newConnection, originPattern, PROVIDER_ORDER, PROVIDERS, validateBaseUrl } from '@/lib/ai/registry';
 import { getApiKey, maskKey, removeApiKey, setApiKey } from '@/lib/ai/secrets';
 import type { AISettings, ProviderConnection, ProviderKind } from '@/lib/ai/types';
 import { bg } from '@/lib/messaging';
 import type { TestResult } from '@/lib/ai/gateway';
-import { CommitInput, Field, useAISettings } from '@/ui/form';
-import { IconExternal, IconTrash } from '@/ui/icons';
+import { Note, PageHead } from '@/ui/controls';
+import { CommitInput, useAISettings } from '@/ui/form';
+import { IconTrash } from '@/ui/icons';
 import { ModelPicker } from '@/ui/ModelPicker';
 
 type UpdateAI = (fn: (s: AISettings) => void) => Promise<unknown>;
+
+/** Names and one-line notes in the "Add a provider" grid. */
+const PICKS: Record<ProviderKind, { name: string; note: string }> = {
+  openai: { name: 'OpenAI', note: 'API key' },
+  anthropic: { name: 'Anthropic (Claude)', note: 'API key' },
+  gemini: { name: 'Google Gemini', note: 'API key' },
+  openrouter: { name: 'OpenRouter', note: 'API key · many models' },
+  deepseek: { name: 'DeepSeek', note: 'API key' },
+  groq: { name: 'Groq', note: 'API key · very fast' },
+  mistral: { name: 'Mistral', note: 'API key' },
+  xai: { name: 'xAI (Grok)', note: 'API key' },
+  ollama: { name: 'Ollama', note: 'On this computer · free' },
+  lmstudio: { name: 'LM Studio', note: 'On this computer · free' },
+  'openai-compatible': { name: 'OpenAI-compatible', note: 'Your own endpoint' },
+  'chrome-builtin': { name: 'Chrome built-in AI', note: 'Gemini Nano · no account' },
+};
+
+function hostOf(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return 'this server';
+  }
+}
 
 async function requestOrigin(conn: Pick<ProviderConnection, 'kind' | 'baseUrl'>): Promise<boolean> {
   const origin = originPattern(conn);
@@ -41,6 +66,7 @@ function useHostPermission(conn: ProviderConnection): [boolean | null, () => Pro
 
 function ApiKeyField({ conn }: { conn: ProviderConnection }) {
   const info = PROVIDERS[conn.kind];
+  const id = useId();
   const [stored, setStored] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [editing, setEditing] = useState(false);
@@ -60,26 +86,22 @@ function ApiKeyField({ conn }: { conn: ProviderConnection }) {
     setShow(false);
   };
   return (
-    <Field
-      label={`API key${info.requiresKey ? '' : ' (optional)'}`}
-      help={
-        <>
-          Stored only on this device, never synced or exported, and sent only to {info.name}.
-          {info.keyUrl && (
-            <>
-              {' '}
-              <a className="lr-link" href={info.keyUrl} target="_blank" rel="noopener noreferrer">
-                Get a key <IconExternal style={{ width: 11, height: 11 }} />
-              </a>
-            </>
-          )}
-        </>
-      }
-    >
+    <div className="cap-field">
+      <div className="cap-row" style={{ justifyContent: 'space-between' }}>
+        <label className="cap-label" htmlFor={id}>
+          API key{info.requiresKey ? '' : ' (optional)'}
+        </label>
+        {info.keyUrl && (
+          <a href={info.keyUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13 }}>
+            Get a key
+          </a>
+        )}
+      </div>
       {editing ? (
-        <>
+        <div className="cap-row" style={{ flexWrap: 'nowrap' }}>
           <input
-            className="lr-input wide"
+            id={id}
+            className="cap-input cap-input--mono"
             type={show ? 'text' : 'password'}
             placeholder={info.keyPlaceholder ?? 'Paste your API key'}
             value={draft}
@@ -88,26 +110,26 @@ function ApiKeyField({ conn }: { conn: ProviderConnection }) {
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && void save()}
           />
-          <button className="lr-btn" onClick={() => setShow(!show)}>
+          <button className="cap-btn" onClick={() => setShow(!show)}>
             {show ? 'Hide' : 'Show'}
           </button>
-          <button className="lr-btn primary" disabled={!draft.trim()} onClick={() => void save()}>
+          <button className="cap-btn cap-btn--primary" disabled={!draft.trim()} onClick={() => void save()}>
             Save key
           </button>
           {stored && (
-            <button className="lr-btn" onClick={() => setEditing(false)}>
+            <button className="cap-btn cap-btn--ghost" onClick={() => setEditing(false)}>
               Cancel
             </button>
           )}
-        </>
+        </div>
       ) : (
-        <>
-          <code className="lr-kbd">{maskKey(stored)}</code>
-          <button className="lr-btn" onClick={() => setEditing(true)}>
+        <div className="cap-row" style={{ flexWrap: 'nowrap' }}>
+          <input id={id} className="cap-input cap-input--mono" readOnly value={maskKey(stored)} />
+          <button className="cap-btn" onClick={() => setEditing(true)}>
             Replace
           </button>
           <button
-            className="lr-btn"
+            className="cap-btn cap-btn--ghost cap-btn--danger"
             onClick={async () => {
               await removeApiKey(conn.id);
               setStored('');
@@ -116,9 +138,10 @@ function ApiKeyField({ conn }: { conn: ProviderConnection }) {
           >
             Remove
           </button>
-        </>
+        </div>
       )}
-    </Field>
+      <span className="cap-help">Stored only on this computer, never synced or exported, and sent only to {info.name}.</span>
+    </div>
   );
 }
 
@@ -149,33 +172,43 @@ function ChromeBuiltinStatus() {
     }
   };
   return (
-    <Field
-      label="On-device model"
-      help="Gemini Nano runs locally in Chrome. Quality is lower than cloud models but it is free and private."
-    >
-      {state === 'available' && <span className="lr-ok">Ready</span>}
-      {state === 'unsupported' && <span className="lr-status">Not available in this browser (requires a recent desktop Chrome).</span>}
-      {state === 'unavailable' && <span className="lr-status">This device does not meet the hardware requirements.</span>}
+    <div className="cap-field">
+      <span className="cap-label">On-device model</span>
+      {state === 'available' && (
+        <span className="cap-tag cap-tag--known" style={{ alignSelf: 'flex-start' }}>
+          Ready
+        </span>
+      )}
+      {state === 'unsupported' && <Note tone="warn">Not available in this browser. It needs a recent desktop Chrome.</Note>}
+      {state === 'unavailable' && <Note tone="warn">This computer does not meet Chrome’s hardware requirements for Gemini Nano.</Note>}
       {(state === 'downloadable' || state === 'downloading') && (
-        <>
-          <button className="lr-btn primary" disabled={state === 'downloading'} onClick={() => void download()}>
+        <div className="cap-row">
+          <button className="cap-btn cap-btn--primary" disabled={state === 'downloading'} onClick={() => void download()}>
             {state === 'downloading' ? 'Downloading…' : 'Download model'}
           </button>
-          {progress !== null && <span className="lr-status">{Math.round(progress * 100)}%</span>}
-        </>
+          {progress !== null && <span className="cap-help">{Math.round(progress * 100)}%</span>}
+        </div>
       )}
-      {state.startsWith('error') && <span className="lr-error">{state}</span>}
-    </Field>
+      {state.startsWith('error') && <Note tone="danger">{state.replace(/^error: /, '')}</Note>}
+      <span className="cap-help">
+        Gemini Nano runs inside Chrome. Answers are weaker than cloud models, but it is free and nothing leaves this computer.
+      </span>
+    </div>
   );
 }
 
 function ConnectionCard({ conn, ai, updateAI }: { conn: ProviderConnection; ai: AISettings; updateAI: UpdateAI }) {
   const info = PROVIDERS[conn.kind];
+  const titleId = useId();
+  const modelId = useId();
+  const urlId = useId();
   const [granted, grant] = useHostPermission(conn);
   const [busy, setBusy] = useState<'models' | 'test' | null>(null);
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
+  const [urlError, setUrlError] = useState<string | null>(null);
   const isDefault = (ai.defaultConnectionId ?? ai.connections[0]?.id) === conn.id;
   const models = conn.models.length ? conn.models : info.suggestedModels;
+  const host = hostOf(conn.baseUrl);
   const patch = (fn: (c: ProviderConnection) => void) =>
     updateAI((s) => {
       const c = s.connections.find((x) => x.id === conn.id);
@@ -205,9 +238,11 @@ function ConnectionCard({ conn, ai, updateAI }: { conn: ProviderConnection; ai: 
         r.ok
           ? {
               ok: true,
-              text: `Connected in ${r.latencyMs} ms${r.models ? ` · ${r.models.length} models available` : r.reply ? ` · replied “${r.reply}”` : ''}.`,
+              text: `Connected in ${r.latencyMs} ms${r.models ? ` · ${r.models.length} models available` : r.reply ? ` · replied “${r.reply}”` : ''}.${
+                info.protocol !== 'chrome' && granted ? ` Network access to ${host} is granted.` : ''
+              }`,
             }
-          : { ok: false, text: r.error ?? 'Failed' },
+          : { ok: false, text: r.error ?? 'The test failed.' },
       );
     } catch (err) {
       setResult({ ok: false, text: (err as Error).message });
@@ -217,7 +252,7 @@ function ConnectionCard({ conn, ai, updateAI }: { conn: ProviderConnection; ai: 
   };
 
   const remove = async () => {
-    if (!confirm(`Remove ${conn.label}? Its API key will be deleted from this device.`)) return;
+    if (!confirm(`Remove ${conn.label}? Its API key will be deleted from this computer.`)) return;
     await removeApiKey(conn.id);
     await updateAI((s) => {
       s.connections = s.connections.filter((c) => c.id !== conn.id);
@@ -232,125 +267,136 @@ function ConnectionCard({ conn, ai, updateAI }: { conn: ProviderConnection; ai: 
     });
   };
 
+  const where =
+    info.protocol === 'chrome'
+      ? 'Runs inside Chrome · free · private'
+      : info.local
+        ? 'Runs on this computer · free · private'
+        : `${info.name} · ${host}`;
+
   return (
-    <div className="lr-card">
-      <div className="lr-card-head">
-        <div className="title">
-          <CommitInput
-            value={conn.label}
-            onCommit={(v) => void patch((c) => void (c.label = v.trim() || info.name))}
-            style={{ fontWeight: 600, fontSize: 15, background: 'transparent', border: 'none', padding: 0, width: '100%' }}
-            aria-label="Provider name"
-          />
-          <div className="lr-status">
-            {info.name}
-            {info.local ? ' · runs locally' : ''}
-          </div>
+    <section className="cap-card" aria-labelledby={titleId}>
+      <div className="cap-card__head">
+        <div className="cap-spacer" style={{ minWidth: 0 }}>
+          <h2 className="cap-card__title" id={titleId} style={{ display: 'block' }}>
+            <CommitInput
+              className="cap-card__title-input"
+              value={conn.label}
+              onCommit={(v) => void patch((c) => void (c.label = v.trim() || info.name))}
+              aria-label="Provider name"
+            />
+          </h2>
+          <div className="cap-help">{where}</div>
         </div>
         {isDefault ? (
-          <span className="lr-chip known">Default</span>
+          <span className="cap-tag cap-tag--accent">Default</span>
         ) : (
-          <button className="lr-btn" onClick={() => void updateAI((s) => void (s.defaultConnectionId = conn.id))}>
+          <button className="cap-btn cap-btn--sm" onClick={() => void updateAI((s) => void (s.defaultConnectionId = conn.id))}>
             Make default
           </button>
         )}
-        <button className="lr-icon-btn" title="Remove provider" onClick={() => void remove()}>
-          <IconTrash />
+        <button className="cap-iconbtn" aria-label={`Remove ${conn.label}`} title="Remove" onClick={() => void remove()}>
+          <IconTrash className="cap-ico" />
         </button>
       </div>
+      <div className="cap-card__body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {info.hint && conn.kind !== 'anthropic' && <Note tone="plain">{info.hint}</Note>}
+        {info.protocol !== 'chrome' && (
+          <>
+            {(info.editableBaseUrl || conn.baseUrl !== info.defaultBaseUrl) && (
+              <div className="cap-field">
+                <label className="cap-label" htmlFor={urlId}>
+                  {info.local ? 'Server address' : 'Base URL'}
+                </label>
+                <CommitInput
+                  id={urlId}
+                  className={`cap-input cap-input--mono${urlError ? ' is-invalid' : ''}`}
+                  style={{ maxWidth: 360 }}
+                  value={conn.baseUrl}
+                  spellCheck={false}
+                  onCommit={(v) => {
+                    const error = validateBaseUrl(v.trim());
+                    setUrlError(error);
+                    if (error) return;
+                    void patch((c) => {
+                      c.baseUrl = v.trim().replace(/\/+$/, '');
+                      c.models = [];
+                    });
+                  }}
+                />
+                <span className="cap-help" style={urlError ? { color: 'var(--danger)' } : undefined}>
+                  {urlError ?? 'HTTPS is required except for servers on this computer.'}
+                </span>
+              </div>
+            )}
+            <ApiKeyField conn={conn} />
+            {granted === false && (
+              <Note
+                tone="warn"
+                action={
+                  <button className="cap-btn cap-btn--sm cap-btn--primary" onClick={() => void grant()}>
+                    Grant access
+                  </button>
+                }
+              >
+                Chrome asks you once to let Captionary contact {host}. No other site is accessible.
+              </Note>
+            )}
+          </>
+        )}
+        {info.protocol === 'chrome' && <ChromeBuiltinStatus />}
 
-      {info.hint && <div className="lr-note">{info.hint}</div>}
-
-      {info.protocol !== 'chrome' && (
-        <>
-          {(info.editableBaseUrl || conn.baseUrl !== info.defaultBaseUrl) && (
-            <Field label="Base URL" help="HTTPS is required except for servers on this computer.">
-              <CommitInput
-                className="lr-input wide"
-                value={conn.baseUrl}
-                spellCheck={false}
-                onCommit={(v) => {
-                  const error = validateBaseUrl(v.trim());
-                  if (error) return alert(error);
-                  void patch((c) => {
-                    c.baseUrl = v.trim().replace(/\/+$/, '');
-                    c.models = [];
-                  });
-                }}
-              />
-            </Field>
-          )}
-          <ApiKeyField conn={conn} />
-          <Field
-            label="Network access"
-            help={`Chrome asks you once to let Captionary contact ${(() => {
-              try {
-                return new URL(conn.baseUrl).host;
-              } catch {
-                return 'this server';
-              }
-            })()}. No other site is accessible.`}
-          >
-            {granted === null ? null : granted ? (
-              <span className="lr-ok">Granted</span>
-            ) : (
-              <button className="lr-btn primary" onClick={() => void grant()}>
-                Grant access
+        <div className="cap-field">
+          <span className="cap-label" id={modelId}>
+            Default model
+          </span>
+          <div className="cap-row">
+            <ModelPicker
+              label="Default model"
+              labelledBy={modelId}
+              value={conn.defaultModel}
+              models={models}
+              placeholder={info.defaultModel || 'model id'}
+              onCommit={(v) => void patch((c) => void (c.defaultModel = v))}
+            />
+            {info.protocol !== 'chrome' && (
+              <button className="cap-btn" disabled={busy !== null} onClick={() => void fetchModels()}>
+                {busy === 'models' ? 'Loading…' : conn.modelsFetchedAt ? 'Refresh list' : 'Fetch models'}
               </button>
             )}
-          </Field>
-        </>
-      )}
-      {info.protocol === 'chrome' && <ChromeBuiltinStatus />}
-
-      <Field label="Default model" help="Used for every task unless a task picks its own model.">
-        <ModelPicker
-          label="Default model"
-          value={conn.defaultModel}
-          models={models}
-          placeholder={info.defaultModel || 'model id'}
-          onCommit={(v) => void patch((c) => void (c.defaultModel = v))}
-        />
-        <button className="lr-btn" disabled={busy !== null} onClick={() => void fetchModels()}>
-          {busy === 'models' ? 'Loading…' : 'Fetch models'}
-        </button>
-        <button className="lr-btn" disabled={busy !== null} onClick={() => void test()}>
-          {busy === 'test' ? 'Testing…' : 'Test connection'}
-        </button>
-      </Field>
-      {conn.modelsFetchedAt && (
-        <div className="lr-status" style={{ marginLeft: 216 }}>
-          Model list updated {new Date(conn.modelsFetchedAt).toLocaleString()} ({conn.models.length} models)
+            <button className="cap-btn cap-btn--primary" disabled={busy !== null} onClick={() => void test()}>
+              {busy === 'test' ? 'Testing…' : 'Test connection'}
+            </button>
+          </div>
+          <span className="cap-help">
+            Used for every task unless a task picks its own.
+            {conn.kind === 'anthropic' && info.hint ? ` ${info.hint}` : ''}
+            {conn.modelsFetchedAt
+              ? ` Model list updated ${new Date(conn.modelsFetchedAt).toLocaleString()} (${conn.models.length} models).`
+              : ''}
+          </span>
         </div>
-      )}
-      {result && (
-        <div className={result.ok ? 'lr-note' : 'lr-note warn'}>
-          <span className={result.ok ? 'lr-ok' : 'lr-error'}>{result.ok ? '✓ ' : '✗ '}</span>
-          {result.text}
-        </div>
-      )}
-    </div>
+        {result && <Note tone={result.ok ? 'success' : 'danger'}>{result.text}</Note>}
+      </div>
+    </section>
   );
 }
 
 function AddProvider({ onAdd }: { onAdd: (kind: ProviderKind) => void }) {
   return (
-    <div className="lr-card">
-      <div className="lr-card-head">
-        <div className="title">Add a provider</div>
+    <section className="cap-card" aria-label="Add a provider">
+      <div className="cap-card__head">
+        <h2 className="cap-card__title">Add a provider</h2>
       </div>
-      <div className="lr-grid-2">
-        {PROVIDER_ORDER.map((kind) => {
-          const info = PROVIDERS[kind];
-          return (
-            <button key={kind} className="lr-provider-pick" onClick={() => onAdd(kind)}>
-              {info.name}
-              <small>{info.local ? 'Local · free · private' : info.requiresKey ? 'API key required' : 'Custom endpoint'}</small>
-            </button>
-          );
-        })}
+      <div className="cap-card__body cap-pick-grid">
+        {PROVIDER_ORDER.map((kind) => (
+          <button key={kind} className="cap-provider-pick" onClick={() => onAdd(kind)}>
+            {PICKS[kind]?.name ?? PROVIDERS[kind].name}
+            <small>{PICKS[kind]?.note}</small>
+          </button>
+        ))}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -371,22 +417,17 @@ export function AIProvidersSection() {
 
   return (
     <>
-      <h1>AI providers</h1>
-      <p className="lr-lead">
-        Connect the AI service that explains vocabulary for you. You can add several and route each task to a different model (for example a
-        fast, cheap model for word look-ups and a stronger one for grammar).
-      </p>
-      <div className="lr-note">
-        <b>How your data and keys are handled.</b> Requests go directly from your browser to the provider you choose — there is no Language
-        React server. Keys are kept in this browser's local extension storage, are only read by the extension's background worker, and are
-        never synced, logged or included in exports. Only the text you look up (and the context you allow under{' '}
-        <a className="lr-link" href="#ai-privacy">
-          Privacy &amp; cost
-        </a>
-        ) is sent.
-      </div>
+      <PageHead
+        title="AI providers"
+        lead="Connect the service that powers the tutor. Add several and give each task its own model under Models per task."
+      />
+      <Note>
+        Requests go straight from your browser to the provider you pick; there is no Captionary server. Keys stay on this computer, only the
+        extension’s background worker reads them, and they are never synced or exported. Only the text you look up, and the context you
+        allow under <a href="#ai-privacy">Privacy &amp; cost</a>, is sent.
+      </Note>
       {ai.connections.length === 0 && (
-        <div className="lr-note warn">No provider yet. Pick one below — Chrome built-in AI and Ollama need no account.</div>
+        <Note tone="warn">No provider yet. Pick one below: Chrome’s built-in AI and Ollama need no account.</Note>
       )}
       {ai.connections.map((c) => (
         <ConnectionCard key={c.id} conn={c} ai={ai} updateAI={updateAI} />

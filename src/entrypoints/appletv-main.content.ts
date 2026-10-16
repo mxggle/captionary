@@ -1,5 +1,6 @@
 import { defineContentScript } from '#imports';
 import { FROM_ISOLATED, onMessageFrom, postToIsolated } from '@/content/bridge';
+import { parseMediaPlaylist, timelineDomains, type TimelineDomain } from '@/lib/subtitles/hls';
 
 interface Master {
   url: string;
@@ -15,6 +16,15 @@ interface HlsLike {
 const isMaster = (text: unknown): text is string =>
   typeof text === 'string' && text.startsWith('#EXTM3U') && text.includes('TYPE=SUBTITLES');
 
+/** A video media playlist (segments named `…_video_…`); its timeline is the player's clock. */
+const isVideoPlaylist = (text: string) => text.startsWith('#EXTM3U') && text.includes('#EXTINF') && text.includes('_video_');
+
+function xhrBody(xhr: XMLHttpRequest): string {
+  if (xhr.responseType === '' || xhr.responseType === 'text') return xhr.responseText;
+  if (xhr.responseType === 'arraybuffer' && xhr.response) return new TextDecoder().decode(xhr.response);
+  return '';
+}
+
 function musicKit(): any {
   try {
     return (window as any).MusicKit?.getInstance?.() ?? null;
@@ -26,6 +36,8 @@ function musicKit(): any {
 /**
  * Runs in tv.apple.com's page world:
  *  - keeps the HLS master playlists the player loads (subtitle renditions are listed there);
+ *  - keeps the timeline of the video playlist the player streams: episodes are stitched after
+ *    an ident and a promo, so subtitle cues have to be moved onto that timeline;
  *  - remembers which hls.js instance plays which <video>, so the master of the main player
  *    is not confused with the muted hero trailer on show pages;
  *  - plays, pauses and seeks through MusicKit, the player's own API.
@@ -37,9 +49,15 @@ export default defineContentScript({
   main() {
     const masters: Master[] = [];
     const players = new Set<HlsLike>();
+    let videoTimeline: TimelineDomain[] | null = null;
 
     const remember = (url: string, text: string) => {
       const abs = new URL(url, location.href).toString();
+      if (isVideoPlaylist(text)) {
+        videoTimeline = timelineDomains(parseMediaPlaylist(text, abs)).map(({ start, duration, asset }) => ({ start, duration, asset }));
+        return;
+      }
+      if (!isMaster(text)) return;
       const existing = masters.findIndex((m) => m.url === abs);
       if (existing >= 0) masters.splice(existing, 1);
       masters.push({ url: abs, text, at: Date.now() });
@@ -53,8 +71,7 @@ export default defineContentScript({
       if (u.includes('.m3u8')) {
         this.addEventListener('load', () => {
           try {
-            const body = this.responseType === '' || this.responseType === 'text' ? this.responseText : '';
-            if (isMaster(body)) remember(this.responseURL || u, body);
+            remember(this.responseURL || u, xhrBody(this));
           } catch {
             // ignore
           }
@@ -74,7 +91,7 @@ export default defineContentScript({
               r
                 .clone()
                 .text()
-                .then((body) => isMaster(body) && remember(r.url || u, body)),
+                .then((body) => remember(r.url || u, body)),
             )
             .catch(() => undefined);
         }
@@ -144,8 +161,16 @@ export default defineContentScript({
             postToIsolated({
               type: 'atv.reply',
               reqId: msg.reqId,
-              data: { master, nowPlaying: item ? { id: String(item.id ?? ''), title: String(item.title ?? '') } : null },
+              data: {
+                // Episode masters are ~500 KB; don't resend one the isolated world already has.
+                master: master && { url: master.url, text: master.url === msg.knownUrl ? '' : master.text },
+                nowPlaying: item ? { id: String(item.id ?? ''), title: String(item.title ?? '') } : null,
+              },
             });
+            break;
+          }
+          case 'atv.getTimeline': {
+            postToIsolated({ type: 'atv.reply', reqId: msg.reqId, data: videoTimeline });
             break;
           }
           case 'atv.seek': {

@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import type { AISettings } from '@/lib/ai/types';
 import { LANGUAGES } from '@/lib/languages';
 import {
@@ -10,6 +10,7 @@ import {
   watchSettings,
   type Settings,
 } from '@/lib/settings';
+import { Select, type SelectOption } from './controls';
 
 export function useSettings(): [Settings | null, (fn: (s: Settings) => void) => Promise<unknown>] {
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -29,60 +30,42 @@ export function useAISettings(): [AISettings | null, (fn: (s: AISettings) => voi
   return [settings, (fn) => updateAISettings(fn).then(setSettings)];
 }
 
-export function Field({ label, help, children, htmlFor }: { label: ReactNode; help?: ReactNode; children: ReactNode; htmlFor?: string }) {
-  return (
-    <div className="lr-field">
-      <label htmlFor={htmlFor}>{label}</label>
-      <div className="control">{children}</div>
-      {help && <div className="help">{help}</div>}
-    </div>
-  );
-}
-
-export function Toggle({
-  checked,
-  onChange,
-  id,
-  label,
-}: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  id?: string;
-  label?: string;
-}) {
-  return (
-    <input
-      id={id}
-      type="checkbox"
-      role="switch"
-      aria-label={label}
-      className="lr-toggle"
-      checked={checked}
-      onChange={(e) => onChange(e.target.checked)}
-    />
-  );
-}
+const LANGUAGE_OPTIONS: SelectOption<string>[] = LANGUAGES.map((l) => ({ value: l.code, label: l.name, text: `${l.name} — ${l.native}` }));
+const AUTO_OPTION: SelectOption<string> = { value: 'auto', label: 'Each video’s language', text: 'Each video’s language (automatic)' };
 
 export function LanguageSelect({
   value,
   onChange,
   allowAuto,
-  id,
+  label,
+  labelledBy,
+  variant = 'field',
+  style,
+  className,
 }: {
   value: string;
   onChange: (v: string) => void;
   allowAuto?: boolean;
-  id?: string;
+  label?: string;
+  labelledBy?: string;
+  variant?: 'field' | 'sentence' | 'chip' | 'button';
+  style?: CSSProperties;
+  className?: string;
 }) {
+  const options = allowAuto ? [AUTO_OPTION, ...LANGUAGE_OPTIONS] : LANGUAGE_OPTIONS;
+  // Keep codes we have no name for (a detected language outside the list) selectable.
+  const all = options.some((o) => o.value === value) ? options : [...options, { value, label: value }];
   return (
-    <select id={id} className="lr-select" value={value} onChange={(e) => onChange(e.target.value)}>
-      {allowAuto && <option value="auto">Auto (the video's language)</option>}
-      {LANGUAGES.map((l) => (
-        <option key={l.code} value={l.code}>
-          {l.name} — {l.native}
-        </option>
-      ))}
-    </select>
+    <Select
+      value={value}
+      options={all}
+      onChange={onChange}
+      label={label}
+      labelledBy={labelledBy}
+      variant={variant}
+      style={style}
+      className={className}
+    />
   );
 }
 
@@ -93,7 +76,7 @@ export function LanguageSelect({
 export function CommitInput({
   value,
   onCommit,
-  className = 'lr-input',
+  className = 'cap-input',
   ...rest
 }: { value: string; onCommit: (v: string) => void; className?: string } & Omit<
   React.InputHTMLAttributes<HTMLInputElement>,
@@ -121,7 +104,9 @@ export function NumberInput({
   min,
   max,
   step = 1,
-  width = 90,
+  width = 96,
+  label,
+  id,
 }: {
   value: number;
   onCommit: (v: number) => void;
@@ -129,6 +114,8 @@ export function NumberInput({
   max?: number;
   step?: number;
   width?: number;
+  label?: string;
+  id?: string;
 }) {
   const [draft, setDraft] = useState(String(value));
   useEffect(() => setDraft(String(value)), [value]);
@@ -142,8 +129,11 @@ export function NumberInput({
   };
   return (
     <input
+      id={id}
       type="number"
-      className="lr-input"
+      inputMode="numeric"
+      className="cap-input"
+      aria-label={id ? undefined : label}
       style={{ width, minWidth: 0 }}
       value={draft}
       min={min}

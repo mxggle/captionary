@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import asrSentences from './fixtures/youtube-asr-89RmgQfxPHo.json';
+import asrSoundTags from './fixtures/youtube-asr-rfm1QQPkO7E.json';
+import uploadedTrack from './fixtures/youtube-manual-VGrBBel4zRc.json';
 import {
   alignTracks,
   cleanCueText,
@@ -51,6 +54,54 @@ describe('parseYouTubeJson3', () => {
     expect(parseYouTubeJson3(json)).toEqual([
       { start: 0, end: 3, text: 'one two' },
       { start: 3, end: 5, text: 'three' },
+    ]);
+  });
+
+  // Real tracks, trimmed. Times in ms.
+  const spans = (cues: { start: number; end: number }[]) => cues.map((c) => [Math.round(c.start * 1000), Math.round(c.end * 1000)]);
+
+  it('keeps an automatic line until the next line in its window, not its 3 s placeholder', () => {
+    const cues = parseYouTubeJson3(asrSentences);
+    expect(spans(cues)).toEqual([
+      [1079, 16080],
+      [16080, 20880],
+      [20880, 32119],
+      [32119, 34000],
+      [34000, 34239],
+      [34239, 38680],
+      [38680, 43680],
+      [43680, 47239],
+      [47239, 54000], // last line: its own duration
+    ]);
+    expect(cues[6].text).toBe('1人は衝撃だと危機感を現わにしました。');
+  });
+
+  it('gives sound tags and partly timed lines the same window timing', () => {
+    const cues = parseYouTubeJson3(asrSoundTags);
+    expect(cues.map((c) => [Math.round(c.start * 1000), Math.round(c.end * 1000), c.text.slice(0, 4)])).toEqual([
+      [1680, 17439, '父は偉大'],
+      [17439, 18340, '今日はす'],
+      [18340, 30130, '[拍手]'],
+      [30130, 32680, '[拍手]'],
+      [32680, 34760, 'あの、で'],
+      [34760, 41920, '新たに農'],
+      [41920, 43840, '[拍手]'],
+      [43840, 44960, 'それでは'],
+      [44960, 58399, '大変な局'],
+      [58399, 62559, '56歳。'],
+      [62559, 65559, 'え、総理'],
+    ]);
+  });
+
+  it('keeps the gaps of an uploaded track', () => {
+    expect(spans(parseYouTubeJson3(uploadedTrack))).toEqual([
+      [0, 7000],
+      [9500, 17000],
+      [17000, 19000],
+      [22000, 25000],
+      [25000, 28000],
+      [28000, 32000],
+      [37000, 40000],
     ]);
   });
 });
