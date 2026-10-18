@@ -14,10 +14,22 @@ python3 -m http.server 4178 --directory site
 - **Store link.** Every "Add to Chrome" button points to
   `https://chromewebstore.google.com/detail/captionary/imcclapmlgkhceckdmnhhcchmgjkcbci` (`data-cta`
   marks them). The item is private until it's published, so the link 404s until then.
-- **Domain.** Once there is one, add `<link rel="canonical">` and `og:url`, and a 1200 × 630
-  `og:image` (a capture of the hero demo works well).
-- **Privacy policy.** The Chrome Web Store needs a public URL; `docs/chrome-web-store/privacy-policy.md`
-  can become `privacy.html` here once it's approved, with a footer link.
+- **Domain.** Once there is one, follow the TODO comment in the `<head>` of `index.html`: add
+  `<link rel="canonical">` and `og:url`, and change `og:image` from `og.png` to the absolute URL. Most
+  link previews ignore a relative image. Then enter the homepage and `privacy.html` URLs in the store
+  listing.
+- **Privacy policy.** `privacy.html` is the text of `docs/chrome-web-store/privacy-policy.md`, linked
+  from both footers, and it is still a draft. Once the policy is approved: replace the
+  `[PUBLISHER TO ADD BEFORE PUBLICATION]` placeholder with the support contact, remove the draft notice
+  at the top (an HTML comment marks it), and give the page its publication date. Edit the Markdown file
+  and the page together.
+
+## Share image
+
+`og.png` (1200 × 630) is a capture of the hero: the headline and the demo player with the starting
+look-up open, laid out side by side. It was taken in headless Chrome for Testing with the page at
+1600 × 840 CSS pixels and a device scale of 0.75, so the real fonts and the real card are drawn at the
+final size. Take it again when the headline or the demo changes.
 
 ## Keeping the comparison honest
 
