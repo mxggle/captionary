@@ -382,7 +382,7 @@
           <p>There’s no Captionary account, no analytics and no ads. The code is <a href="https://github.com/mxggle/captionary">on GitHub</a>, so you can check all of this yourself.</p>
         </div>
         <ul class="ticks ticks-wide">
-          <li>API keys and ChatGPT sign-in tokens are kept in the extension’s local storage. They’re never synced or exported, and only the extension’s background worker reads them. Web pages never see them.</li>
+          <li>API keys and ChatGPT sign-in tokens stay in the extension’s local storage and are never synced or exported. AI requests go out from the extension’s background worker, so the sites you watch never see a key.</li>
           <li>Chrome asks your permission for each AI service when you add it. Captionary ships with no AI hosts in its manifest.</li>
           <li>You choose how much context goes with a request: just the word, the sentence, or a couple of lines around it, and whether the video title is included.</li>
           <li>Subtitle text is marked as untrusted in every prompt, and answers can’t load images or HTML.</li>

@@ -11,6 +11,9 @@ python3 -m http.server 4178 --directory site
 
 ## Before launch
 
+- **Ship ChatGPT sign-in first.** The page sells it in the hero, the AI section, the comparison, the FAQ
+  and the privacy page, but the sign-in itself (the `chatgpt` provider) isn't in `main` yet. Don't
+  deploy the site until that work has merged, or take the ChatGPT parts out of the page.
 - **Store link.** Every "Add to Chrome" button points to
   `https://chromewebstore.google.com/detail/captionary/imcclapmlgkhceckdmnhhcchmgjkcbci` (`data-cta`
   marks them). The item is private until it's published, so the link 404s until then.
@@ -18,11 +21,12 @@ python3 -m http.server 4178 --directory site
   `<link rel="canonical">` and `og:url`, and change `og:image` from `og.png` to the absolute URL. Most
   link previews ignore a relative image. Then enter the homepage and `privacy.html` URLs in the store
   listing.
-- **Privacy policy.** `privacy.html` is the text of `docs/chrome-web-store/privacy-policy.md`, linked
-  from both footers, and it is still a draft. Once the policy is approved: replace the
-  `[PUBLISHER TO ADD BEFORE PUBLICATION]` placeholder with the support contact, remove the draft notice
-  at the top (an HTML comment marks it), and give the page its publication date. Edit the Markdown file
-  and the page together.
+- **Privacy policy.** `privacy.html` is linked from both footers and is still a draft. Its text comes from
+  the Markdown draft in `docs/chrome-web-store/privacy-policy.md`, which belongs to the Chrome Web Store
+  preparation and isn't in `main` yet; until it lands, `privacy.html` is the only copy in the repository.
+  Once the policy is approved: replace the `[PUBLISHER TO ADD BEFORE PUBLICATION]` placeholder with the
+  support contact, remove the draft notice at the top (an HTML comment marks it), and give the page its
+  publication date. Once the Markdown draft is in the repository, edit the two together.
 
 ## Share image
 
