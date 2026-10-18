@@ -1,5 +1,6 @@
 import { browser, defineBackground } from '#imports';
 import { pruneCache } from '@/lib/ai/cache';
+import { getChatGPTAccount } from '@/lib/ai/chatgpt-auth';
 import { listModels, resolveConnection, resolveModel, runJob, testConnection, toAIError } from '@/lib/ai/gateway';
 import { PROVIDERS } from '@/lib/ai/registry';
 import { hasApiKey } from '@/lib/ai/secrets';
@@ -7,6 +8,7 @@ import { AIError, type AIJob, type AIStreamEvent } from '@/lib/ai/types';
 import { lookupWiktionary } from '@/lib/dictionary';
 import { getFrequencyList } from '@/lib/frequency';
 import { baseLang } from '@/lib/languages';
+import { setupProgress } from '@/lib/onboarding';
 import { romanizeLine } from '@/lib/text/romanize';
 import { romanizeChinese } from '@/lib/text/romanize-zh';
 import { AI_PORT, type AIStatus, type BgRequest, type BgResponse, type SidePanelPayload } from '@/lib/messaging';
@@ -21,7 +23,7 @@ async function aiStatus(): Promise<AIStatus> {
   const conn = resolveConnection(ai, ai.routes.word.connectionId);
   if (!conn) return { enabled: ai.enabled, configured: false, autoExplain: ai.autoExplain };
   const info = PROVIDERS[conn.kind];
-  const configured = !info.requiresKey || (await hasApiKey(conn.id));
+  const configured = info.signIn ? (await getChatGPTAccount(conn.id)) !== null : !info.requiresKey || (await hasApiKey(conn.id));
   return {
     enabled: ai.enabled,
     configured,
@@ -90,7 +92,9 @@ async function handle(msg: BgRequest, sender: { tab?: { id?: number; windowId?: 
     case 'fetch.text':
       return fetchText(msg.url);
     case 'open.page': {
-      const path = ({ options: '/options.html', vocab: '/vocab.html', reader: '/reader.html' } as const)[msg.page];
+      const path = ({ options: '/options.html', vocab: '/vocab.html', reader: '/reader.html', welcome: '/welcome.html' } as const)[
+        msg.page
+      ];
       await browser.tabs.create({ url: browser.runtime.getURL(path) + (msg.hash ? `#${msg.hash}` : '') });
       return;
     }
@@ -156,7 +160,8 @@ export default defineBackground(() => {
       });
     });
     if (reason === 'install') {
-      await browser.tabs.create({ url: `${browser.runtime.getURL('/options.html')}#welcome` });
+      await setupProgress.setValue({ done: false, step: 'hello' });
+      await browser.tabs.create({ url: browser.runtime.getURL('/welcome.html') });
     }
   });
 

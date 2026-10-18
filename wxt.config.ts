@@ -7,7 +7,7 @@ export default defineConfig({
   manifest: {
     name: 'Captionary',
     description:
-      'Learn languages from YouTube, Netflix and Apple TV+: dual subtitles, a pop-up dictionary, saved words and AI vocabulary explanations.',
+      'Learn languages on YouTube, Netflix and Apple TV+ with dual subtitles, a pop-up dictionary, saved words and AI explanations.',
     permissions: ['storage', 'unlimitedStorage', 'contextMenus', 'sidePanel', 'scripting', 'activeTab'],
     // Fixed hosts the extension needs for its own features. AI provider hosts are
     // NOT listed here: they are requested at runtime, one origin at a time, when the

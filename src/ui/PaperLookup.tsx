@@ -76,6 +76,7 @@ export function TutorAnswer({
   lang,
   speechRate,
   chunkShown,
+  onSetUpTutor,
 }: {
   lookup: Lookup;
   subject: string;
@@ -84,6 +85,8 @@ export function TutorAnswer({
   speechRate: number;
   /** The tutor's chunk is shown as a `ChunkButton` above the answer. */
   chunkShown?: boolean;
+  /** Replaces the link to the setup guide's tutor step (on the guide itself). */
+  onSetUpTutor?: () => void;
 }) {
   const { ai } = lookup;
   const [question, setQuestion] = useState('');
@@ -103,10 +106,16 @@ export function TutorAnswer({
       <div className="cap-tutor">
         {label}
         <p className="cap-tutor__text">
-          {lookup.aiOff ? 'The tutor is off.' : 'Connect an AI provider to get explanations in context.'}{' '}
-          <a href="/options.html#ai" target="_blank" rel="noopener noreferrer">
-            Open AI settings
-          </a>
+          {lookup.aiOff ? 'The tutor is off.' : 'Add an AI tutor to get explanations in context.'}{' '}
+          {!lookup.aiOff && onSetUpTutor ? (
+            <button className="cap-link" onClick={onSetUpTutor}>
+              Set up a tutor
+            </button>
+          ) : (
+            <a href={lookup.aiOff ? '/options.html#ai' : '/welcome.html#tutor'} target="_blank" rel="noopener noreferrer">
+              {lookup.aiOff ? 'Open AI settings' : 'Set up a tutor'}
+            </a>
+          )}
         </p>
       </div>
     );
@@ -244,6 +253,7 @@ export interface PaperLookupProps {
   onClose?: () => void;
   onSave: LookupInput['onSave'];
   onSelectWord?: (sel: WordSelection) => void;
+  onSetUpTutor?: () => void;
 }
 
 /** The paper look-up card on extension pages (`LookupCard`, Highlighter): reader, side panel. */
@@ -361,6 +371,7 @@ export function PaperLookup(props: PaperLookupProps) {
             lang={target.lang}
             speechRate={settings.dictionary.speechRate}
             chunkShown={!!suggestion}
+            onSetUpTutor={props.onSetUpTutor}
           />
           {isWord && settings.dictionary.wiktionary && lookup.dictState !== 'idle' && (
             <div className="cap-lookup__dict">

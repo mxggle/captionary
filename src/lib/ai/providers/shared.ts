@@ -18,6 +18,8 @@ export class HttpError extends Error {
     public status: number,
     message: string,
     public retryAfterMs?: number,
+    /** Raw response body, for providers whose errors carry structured fields. */
+    public body?: string,
   ) {
     super(message);
     this.name = 'HttpError';
@@ -46,8 +48,7 @@ function parseRetryAfter(res: Response): number | undefined {
   return Number.isFinite(date) ? Math.max(0, date - Date.now()) : undefined;
 }
 
-async function errorMessage(res: Response): Promise<string> {
-  const text = await res.text().catch(() => '');
+function errorMessage(res: Response, text: string): string {
   try {
     const json = JSON.parse(text) as { error?: { message?: string } | string; message?: string };
     if (typeof json.error === 'string') return json.error;
@@ -65,7 +66,13 @@ async function errorMessage(res: Response): Promise<string> {
 export async function fetchWithRetry(
   url: string,
   init: RequestInit,
-  opts: { signal: AbortSignal; timeoutMs: number; maxRetries: number },
+  opts: {
+    signal: AbortSignal;
+    timeoutMs: number;
+    maxRetries: number;
+    /** Whether a retryable status's body says waiting won't help (a plan's usage limit). */
+    isFinal?: (body: string) => boolean;
+  },
 ): Promise<Response> {
   for (let attempt = 0; ; attempt++) {
     const timeout = AbortSignal.timeout(opts.timeoutMs);
@@ -80,12 +87,12 @@ export async function fetchWithRetry(
     }
     if (res.ok) return res;
     const retryAfter = parseRetryAfter(res);
-    if (RETRYABLE.has(res.status) && attempt < opts.maxRetries) {
-      await res.body?.cancel().catch(() => undefined);
+    const text = await res.text().catch(() => '');
+    if (RETRYABLE.has(res.status) && attempt < opts.maxRetries && !opts.isFinal?.(text)) {
       await sleep(Math.min(retryAfter ?? backoff(attempt), 20_000), opts.signal);
       continue;
     }
-    throw new HttpError(res.status, await errorMessage(res), retryAfter);
+    throw new HttpError(res.status, errorMessage(res, text), retryAfter, text);
   }
 }
 

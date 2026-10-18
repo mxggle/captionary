@@ -1,6 +1,7 @@
 /** Every provider the extension can talk to. */
 export type ProviderKind =
   | 'openai'
+  | 'chatgpt'
   | 'anthropic'
   | 'gemini'
   | 'openrouter'
@@ -14,7 +15,7 @@ export type ProviderKind =
   | 'chrome-builtin';
 
 /** Wire protocol used to reach a provider. */
-export type ProviderProtocol = 'openai' | 'anthropic' | 'gemini' | 'chrome';
+export type ProviderProtocol = 'openai' | 'chatgpt' | 'anthropic' | 'gemini' | 'chrome';
 
 /** The jobs the extension asks an AI model to do. Each can be routed to a different model. */
 export type AITask = 'word' | 'sentence' | 'chat' | 'translate';
@@ -196,7 +197,11 @@ export interface ProviderRequest {
 
 export interface ProviderContext {
   connection: ProviderConnection;
+  /** API key, or the OAuth access token for sign-in providers. */
   apiKey: string;
+  /** ChatGPT workspace the access token acts for (sign-in providers only). */
+  accountId?: string;
+  fedramp?: boolean;
 }
 
 export type ProviderChunk = { type: 'text'; text: string } | { type: 'usage'; usage: AIUsage };

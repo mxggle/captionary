@@ -33,7 +33,7 @@ export type BgRequest =
   | { type: 'text.romanize'; lang: string; lines: string[] }
   | { type: 'freq.list'; lang: string }
   | { type: 'fetch.text'; url: string }
-  | { type: 'open.page'; page: 'options' | 'vocab' | 'reader'; hash?: string }
+  | { type: 'open.page'; page: 'options' | 'vocab' | 'reader' | 'welcome'; hash?: string }
   | { type: 'sidepanel.open'; payload: SidePanelPayload }
   | { type: 'reader.import'; doc: ReaderDocument }
   | { type: 'reader.openTab'; tabId: number };

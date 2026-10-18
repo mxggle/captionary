@@ -8,6 +8,10 @@ export interface ProviderInfo {
   /** Whether the base URL is something users normally change. */
   editableBaseUrl: boolean;
   requiresKey: boolean;
+  /** Authenticates with an account sign-in (OAuth) instead of an API key. */
+  signIn?: boolean;
+  /** Hosts besides the base URL's that requests need (e.g. the token endpoint). */
+  extraOrigins?: string[];
   keyPlaceholder?: string;
   /** Where to create an API key. */
   keyUrl?: string;
@@ -31,6 +35,19 @@ export const PROVIDERS: Record<ProviderKind, ProviderInfo> = {
     keyUrl: 'https://platform.openai.com/api-keys',
     suggestedModels: ['gpt-5-mini', 'gpt-5', 'gpt-5-nano', 'gpt-4.1-mini'],
     defaultModel: 'gpt-5-mini',
+  },
+  chatgpt: {
+    kind: 'chatgpt',
+    name: 'ChatGPT',
+    protocol: 'chatgpt',
+    defaultBaseUrl: 'https://chatgpt.com/backend-api/codex',
+    editableBaseUrl: false,
+    requiresKey: false,
+    signIn: true,
+    extraOrigins: ['https://auth.openai.com/*'],
+    suggestedModels: ['gpt-6-luna', 'gpt-6-sol', 'gpt-6-astra', 'gpt-5.5'],
+    defaultModel: 'gpt-6-luna',
+    hint: 'Uses your ChatGPT Plus, Pro or Business plan instead of an API key. Requests count toward the plan’s Codex usage limits.',
   },
   anthropic: {
     kind: 'anthropic',
@@ -168,6 +185,7 @@ export const PROVIDERS: Record<ProviderKind, ProviderInfo> = {
 
 export const PROVIDER_ORDER: ProviderKind[] = [
   'openai',
+  'chatgpt',
   'anthropic',
   'gemini',
   'openrouter',
@@ -213,6 +231,12 @@ export function originPattern(conn: Pick<ProviderConnection, 'kind' | 'baseUrl'>
   } catch {
     return null;
   }
+}
+
+/** Every host permission a connection's requests need. */
+export function providerOrigins(conn: Pick<ProviderConnection, 'kind' | 'baseUrl'>): string[] {
+  const base = originPattern(conn);
+  return base ? [base, ...(PROVIDERS[conn.kind].extraOrigins ?? [])] : [];
 }
 
 /** Heuristic filter that drops embedding/audio/image models from list endpoints. */

@@ -125,6 +125,7 @@ export function LookupCard(props: LookupCardProps) {
   const expanded = view !== 'compact';
   const placement = place(expanded ? 360 : 300);
   const openSettings = () => void bg({ type: 'open.page', page: 'options', hash: 'ai' }).catch(() => undefined);
+  const openSetup = () => void bg({ type: 'open.page', page: 'welcome', hash: 'tutor' }).catch(() => undefined);
   const explain = () => {
     setView('explain');
     if (ai.status === 'idle' || ai.status === 'error') lookup.explain();
@@ -227,6 +228,7 @@ export function LookupCard(props: LookupCardProps) {
             <TutorNative
               lookup={lookup}
               openSettings={openSettings}
+              openSetup={openSetup}
               lang={target.lang}
               speechRate={settings.dictionary.speechRate}
               chunkShown={!!suggestion}
@@ -313,12 +315,15 @@ export function LookupCard(props: LookupCardProps) {
 function TutorNative({
   lookup,
   openSettings,
+  openSetup,
   lang,
   speechRate,
   chunkShown,
 }: {
   lookup: ReturnType<typeof useLookup>;
   openSettings: () => void;
+  /** The setup guide's tutor step, for a learner who has no provider yet. */
+  openSetup: () => void;
   lang: string;
   speechRate: number;
   chunkShown: boolean;
@@ -327,9 +332,9 @@ function TutorNative({
   if (!lookup.aiReady) {
     return (
       <div className="cap-lookup__note">
-        {lookup.aiOff ? 'The tutor is off.' : 'Connect an AI provider to get explanations in context.'}{' '}
-        <button className="cap-link" onClick={openSettings}>
-          Open AI settings
+        {lookup.aiOff ? 'The tutor is off.' : 'Add an AI tutor to get explanations in context.'}{' '}
+        <button className="cap-link" onClick={lookup.aiOff ? openSettings : openSetup}>
+          {lookup.aiOff ? 'Open AI settings' : 'Set up a tutor'}
         </button>
       </div>
     );
