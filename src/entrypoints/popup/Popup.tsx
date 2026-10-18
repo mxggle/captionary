@@ -2,6 +2,7 @@ import { browser } from '#imports';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { TabStatus } from '@/content/controller';
 import { bg, type AIStatus } from '@/lib/messaging';
+import { setupProgress, type SetupProgress } from '@/lib/onboarding';
 import type { Settings } from '@/lib/settings';
 import { Switch, keyLabel } from '@/ui/controls';
 import { LanguageSelect, useSettings } from '@/ui/form';
@@ -11,7 +12,7 @@ import { useVocabMap } from '@/ui/useVocab';
 const SITE_NAMES: Record<string, string> = { youtube: 'YouTube', netflix: 'Netflix', appletv: 'Apple TV+' };
 const VIDEO_HOSTS = /(^|\.)(youtube\.com|netflix\.com|tv\.apple\.com)$/;
 
-function open(page: 'options' | 'vocab' | 'reader', hash?: string) {
+function open(page: 'options' | 'vocab' | 'reader' | 'welcome', hash?: string) {
   void bg({ type: 'open.page', page, hash }).then(() => window.close());
 }
 
@@ -213,13 +214,13 @@ function TutorStatus({ ai }: { ai: AIStatus | null }) {
         <span className="cap-dot cap-dot--warn" />
         <span className="cap-spacer">The tutor isn’t set up.</span>
         <a
-          href="/options.html#ai"
+          href="/welcome.html#tutor"
           onClick={(e) => {
             e.preventDefault();
-            open('options', 'ai');
+            open('welcome', 'tutor');
           }}
         >
-          Connect a provider
+          Set it up
         </a>
       </div>
     );
@@ -232,6 +233,26 @@ function TutorStatus({ ai }: { ai: AIStatus | null }) {
       </span>
       {settings}
     </div>
+  );
+}
+
+/** Shown until the setup guide is finished, so closing its tab early does not lose it. */
+function FinishSetup() {
+  const [progress, setProgress] = useState<SetupProgress | null>(null);
+  useEffect(() => {
+    void setupProgress.getValue().then(setProgress);
+  }, []);
+  if (!progress || progress.done) return null;
+  return (
+    <section className="cap-tile" aria-label="Finish setting up">
+      <div className="cap-tile__title">Finish setting up Captionary</div>
+      <p style={{ margin: 0, fontSize: 13.5, color: 'var(--ink-muted)' }}>Pick your languages and try it out. About two minutes.</p>
+      <div>
+        <button className="cap-btn cap-btn--primary cap-btn--sm" onClick={() => open('welcome')}>
+          Continue setup
+        </button>
+      </div>
+    </section>
   );
 }
 
@@ -259,6 +280,8 @@ export function Popup() {
         <span className="cap-spacer cap-popup__brand">Captionary</span>
         <Switch label="Captionary on" checked={s.enabled} onChange={(v) => void update((st) => void (st.enabled = v))} />
       </div>
+
+      <FinishSetup />
 
       <ThisTab s={s} update={update} />
 

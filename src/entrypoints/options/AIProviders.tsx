@@ -1,9 +1,18 @@
 import { browser } from '#imports';
 import { useEffect, useId, useState } from 'react';
+import {
+  getChatGPTAccount,
+  SIGN_IN_ORIGINS,
+  signInWithChatGPT,
+  signOutChatGPT,
+  tokensItem,
+  type ChatGPTAccount,
+} from '@/lib/ai/chatgpt-auth';
+import { originsToRequest, releaseOrigins, requestOrigins } from '@/lib/ai/host-access';
 import { builtinOptions, getLanguageModel } from '@/lib/ai/providers/chrome';
-import { newConnection, originPattern, PROVIDER_ORDER, PROVIDERS, validateBaseUrl } from '@/lib/ai/registry';
+import { newConnection, PROVIDER_ORDER, providerOrigins, PROVIDERS, validateBaseUrl } from '@/lib/ai/registry';
 import { getApiKey, maskKey, removeApiKey, setApiKey } from '@/lib/ai/secrets';
-import type { AISettings, ProviderConnection, ProviderKind } from '@/lib/ai/types';
+import type { AIError, AISettings, ProviderConnection, ProviderKind } from '@/lib/ai/types';
 import { bg } from '@/lib/messaging';
 import type { TestResult } from '@/lib/ai/gateway';
 import { Note, PageHead } from '@/ui/controls';
@@ -16,6 +25,7 @@ type UpdateAI = (fn: (s: AISettings) => void) => Promise<unknown>;
 /** Names and one-line notes in the "Add a provider" grid. */
 const PICKS: Record<ProviderKind, { name: string; note: string }> = {
   openai: { name: 'OpenAI', note: 'API key' },
+  chatgpt: { name: 'ChatGPT', note: 'Sign in · uses your plan' },
   anthropic: { name: 'Anthropic (Claude)', note: 'API key' },
   gemini: { name: 'Google Gemini', note: 'API key' },
   openrouter: { name: 'OpenRouter', note: 'API key · many models' },
@@ -37,31 +47,22 @@ function hostOf(url: string): string {
   }
 }
 
-async function requestOrigin(conn: Pick<ProviderConnection, 'kind' | 'baseUrl'>): Promise<boolean> {
-  const origin = originPattern(conn);
-  if (!origin) return true;
-  try {
-    return await browser.permissions.request({ origins: [origin] });
-  } catch {
-    return false;
-  }
-}
-
 function useHostPermission(conn: ProviderConnection): [boolean | null, () => Promise<void>] {
   const [granted, setGranted] = useState<boolean | null>(null);
-  const origin = originPattern(conn);
+  const key = providerOrigins(conn).join(' ');
   useEffect(() => {
-    if (!origin) return setGranted(true);
-    void browser.permissions.contains({ origins: [origin] }).then(setGranted);
-    const onChange = () => void browser.permissions.contains({ origins: [origin] }).then(setGranted);
+    const origins = key ? key.split(' ') : [];
+    if (!origins.length) return setGranted(true);
+    void browser.permissions.contains({ origins }).then(setGranted);
+    const onChange = () => void browser.permissions.contains({ origins }).then(setGranted);
     browser.permissions.onAdded.addListener(onChange);
     browser.permissions.onRemoved.addListener(onChange);
     return () => {
       browser.permissions.onAdded.removeListener(onChange);
       browser.permissions.onRemoved.removeListener(onChange);
     };
-  }, [origin]);
-  return [granted, async () => setGranted(await requestOrigin(conn))];
+  }, [key]);
+  return [granted, async () => setGranted(await requestOrigins(originsToRequest(conn)))];
 }
 
 function ApiKeyField({ conn }: { conn: ProviderConnection }) {
@@ -141,6 +142,76 @@ function ApiKeyField({ conn }: { conn: ProviderConnection }) {
         </div>
       )}
       <span className="cap-help">Stored only on this computer, never synced or exported, and sent only to {info.name}.</span>
+    </div>
+  );
+}
+
+const titleCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+function ChatGPTAccountField({ conn }: { conn: ProviderConnection }) {
+  const [account, setAccount] = useState<ChatGPTAccount | null | undefined>(undefined);
+  const [pending, setPending] = useState<AbortController | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    const load = () => void getChatGPTAccount(conn.id).then(setAccount);
+    load();
+    // The background signs the account out when its sign-in can no longer be refreshed.
+    return tokensItem(conn.id).watch(load);
+  }, [conn.id]);
+  if (account === undefined) return null;
+
+  const signIn = async () => {
+    setError(null);
+    // Ask inside the click so Chrome shows its prompt (no prompt if already granted).
+    if (!(await requestOrigins(SIGN_IN_ORIGINS))) {
+      return setError('Captionary needs access to chatgpt.com and auth.openai.com, and to localhost to read the sign-in result.');
+    }
+    const abort = new AbortController();
+    setPending(abort);
+    try {
+      setAccount(await signInWithChatGPT(conn.id, abort.signal));
+    } catch (err) {
+      if ((err as AIError).code !== 'aborted') setError((err as Error).message);
+    } finally {
+      setPending(null);
+      await releaseOrigins(SIGN_IN_ORIGINS);
+    }
+  };
+
+  return (
+    <div className="cap-field">
+      <span className="cap-label">ChatGPT account</span>
+      {account ? (
+        <div className="cap-row" style={{ flexWrap: 'nowrap' }}>
+          <span className="cap-spacer">
+            Signed in{account.email ? ` as ${account.email}` : ''}
+            {account.plan ? ` · ${titleCase(account.plan)} plan` : ''}
+          </span>
+          <button className="cap-btn cap-btn--ghost cap-btn--danger" onClick={() => void signOutChatGPT(conn.id)}>
+            Sign out
+          </button>
+        </div>
+      ) : pending ? (
+        <div className="cap-row">
+          <span className="cap-spacer">Finish signing in on the ChatGPT tab. It closes by itself when you are done.</span>
+          <button className="cap-btn cap-btn--ghost" onClick={() => pending.abort()}>
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <div className="cap-row">
+          <button className="cap-btn cap-btn--primary" onClick={() => void signIn()}>
+            Sign in with ChatGPT
+          </button>
+        </div>
+      )}
+      {error && <Note tone="danger">{error}</Note>}
+      <span className="cap-help">
+        You sign in on OpenAI’s own page; Captionary never sees your password. The sign-in is stored only on this computer, never synced or
+        exported, and sent only to OpenAI. Signing out deletes it here; to end the session at OpenAI too, log out of all devices in
+        ChatGPT’s security settings. This uses the sign-in OpenAI made for its Codex app, which OpenAI hasn’t documented for other apps, so
+        it may change or stop working.
+      </span>
     </div>
   );
 }
@@ -252,8 +323,11 @@ function ConnectionCard({ conn, ai, updateAI }: { conn: ProviderConnection; ai: 
   };
 
   const remove = async () => {
-    if (!confirm(`Remove ${conn.label}? Its API key will be deleted from this computer.`)) return;
-    await removeApiKey(conn.id);
+    const credential = info.signIn
+      ? 'You will be signed out of ChatGPT on this computer.'
+      : 'Its API key will be deleted from this computer.';
+    if (!confirm(`Remove ${conn.label}? ${credential}`)) return;
+    await (info.signIn ? signOutChatGPT(conn.id) : removeApiKey(conn.id));
     await updateAI((s) => {
       s.connections = s.connections.filter((c) => c.id !== conn.id);
       if (s.defaultConnectionId === conn.id) s.defaultConnectionId = s.connections[0]?.id ?? null;
@@ -265,6 +339,7 @@ function ConnectionCard({ conn, ai, updateAI }: { conn: ProviderConnection; ai: 
         }
       }
     });
+    await releaseOrigins(originsToRequest(conn));
   };
 
   const where =
@@ -329,7 +404,7 @@ function ConnectionCard({ conn, ai, updateAI }: { conn: ProviderConnection; ai: 
                 </span>
               </div>
             )}
-            <ApiKeyField conn={conn} />
+            {info.signIn ? <ChatGPTAccountField conn={conn} /> : <ApiKeyField conn={conn} />}
             {granted === false && (
               <Note
                 tone="warn"
@@ -339,7 +414,9 @@ function ConnectionCard({ conn, ai, updateAI }: { conn: ProviderConnection; ai: 
                   </button>
                 }
               >
-                Chrome asks you once to let Captionary contact {host}. No other site is accessible.
+                {info.signIn
+                  ? 'Chrome asks you once to let Captionary contact chatgpt.com and auth.openai.com, and localhost only while you sign in. No other site is accessible.'
+                  : `Chrome asks you once to let Captionary contact ${host}. No other site is accessible.`}
               </Note>
             )}
           </>
@@ -408,7 +485,7 @@ export function AIProvidersSection() {
     const conn = newConnection(kind);
     // Ask for host access inside the click so Chrome shows its prompt right away.
     // (A custom endpoint has no URL yet; its card offers "Grant access" later.)
-    if (PROVIDERS[kind].protocol !== 'chrome') void requestOrigin(conn);
+    if (PROVIDERS[kind].protocol !== 'chrome') void requestOrigins(originsToRequest(conn));
     void updateAI((s) => {
       s.connections.push(conn);
       s.defaultConnectionId ??= conn.id;
@@ -422,9 +499,9 @@ export function AIProvidersSection() {
         lead="Connect the service that powers the tutor. Add several and give each task its own model under Models per task."
       />
       <Note>
-        Requests go straight from your browser to the provider you pick; there is no Captionary server. Keys stay on this computer, only the
-        extension’s background worker reads them, and they are never synced or exported. Only the text you look up, and the context you
-        allow under <a href="#ai-privacy">Privacy &amp; cost</a>, is sent.
+        Requests go straight from your browser to the provider you pick; there is no Captionary server. Keys and sign-ins stay on this
+        computer in Captionary’s own storage, which web pages can’t read, and they are never synced or exported. Only the text you look up,
+        and the context you allow under <a href="#ai-privacy">Privacy &amp; cost</a>, is sent.
       </Note>
       {ai.connections.length === 0 && (
         <Note tone="warn">No provider yet. Pick one below: Chrome’s built-in AI and Ollama need no account.</Note>

@@ -146,13 +146,14 @@
   margin-right: -10px;
   padding: 0 6px;
   border-radius: var(--radius-control);
-  background: var(--learn);
-  color: var(--on-learn);
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  color: inherit;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 .cap-iconbtn {
   width: var(--control-md);
@@ -210,10 +211,13 @@
   color: var(--ink);
 }
 .cap-status__btn.is-learn[aria-pressed='true'] {
-  background: var(--learn);
-  border-color: var(--learn-edge);
-  color: var(--on-learn);
+  background: var(--surface-sunk);
+  border-color: var(--line-strong);
+  color: var(--ink);
   font-weight: 600;
+}
+.cap-status__btn.is-learn[aria-pressed='true'] .cap-ico {
+  color: var(--learn-line);
 }
 .cap-status__btn.is-known[aria-pressed='true'] {
   background: var(--known-soft);
@@ -257,11 +261,11 @@
   opacity: 0.72;
 }
 .cap-chip__dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
-  background: var(--learn);
-  box-shadow: inset 0 0 0 1px var(--learn-edge);
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--learn-line);
+  flex: none;
 }
 .cap-tag {
   display: inline-flex;
@@ -275,15 +279,24 @@
   font-size: 12px;
   white-space: nowrap;
 }
-.cap-tag--learn {
-  background: var(--learn);
-  color: var(--on-learn);
-  font-weight: 700;
+/* Status tags sit on every saved row, so they stay quiet: a hairline outline and a small mark, no fill. */
+.cap-tag--learn,
+.cap-tag--known {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+.cap-tag--learn::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--learn-line);
+  flex: none;
 }
 .cap-tag--known {
-  background: var(--known-soft);
   color: var(--known);
-  font-weight: 600;
 }
 .cap-tag--accent {
   background: var(--accent-soft);
@@ -300,11 +313,13 @@
   color: var(--danger);
   font-weight: 600;
 }
+/* The word in its sentence: the same dotted underline learning words get in captions and the reader. */
 .cap-mark {
-  background: var(--learn);
-  color: var(--on-learn);
-  border-radius: var(--radius-xs);
-  padding: 0 3px;
+  background: none;
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline dotted var(--learn-line) 2px;
+  text-underline-offset: 0.24em;
 }
 .cap-dot {
   width: 8px;

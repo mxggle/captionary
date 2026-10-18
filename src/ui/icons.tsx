@@ -241,6 +241,20 @@ export const IconHistory = (p: SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+/** Chrome's extensions menu button, drawn for the setup guide's toolbar picture. */
+export const IconPuzzle = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <path d="M10 4.5a2 2 0 1 1 4 0V6h3.5a1 1 0 0 1 1 1v3.5H20a2 2 0 1 1 0 4h-1.5V18a1 1 0 0 1-1 1H14v-1.5a2 2 0 1 0-4 0V19H6.5a1 1 0 0 1-1-1v-3.5H7a2 2 0 1 0 0-4H5.5V7a1 1 0 0 1 1-1H10z" />
+  </svg>
+);
+
+export const IconPin = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <path d="M12 17v5" />
+    <path d="M9 3h6l-1 6 3 3v2H7v-2l3-3z" />
+  </svg>
+);
+
 /**
  * The Captionary glyph for video sites: a caption frame, two lines and one filled word, in the
  * player's icon colour. The only mark Captionary shows on a host page.

@@ -484,7 +484,7 @@ function SavedWords({ items }: { items: VocabItem[] }) {
             `${counts.learning} words and phrases you are learning${langName}.`
           ) : (
             <>
-              Everything you save while watching or reading. <mark className="cap-mark">Learning</mark> words stay highlighted wherever you
+              Everything you save while watching or reading. <mark className="cap-mark">Learning</mark> words stay underlined wherever you
               meet them again.
             </>
           )

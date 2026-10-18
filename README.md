@@ -56,23 +56,42 @@ using the AI provider of your choice.
 
 ## AI providers and settings
 
-Supported: OpenAI, Anthropic (Claude), Google Gemini, OpenRouter, DeepSeek, Groq, Mistral, xAI,
-Ollama and LM Studio (local), any OpenAI-compatible endpoint, and Chrome's built-in Gemini Nano.
+Supported: OpenAI, ChatGPT sign-in (no API key), Anthropic (Claude), Google Gemini, OpenRouter, DeepSeek,
+Groq, Mistral, xAI, Ollama and LM Studio (local), any OpenAI-compatible endpoint, and Chrome's built-in
+Gemini Nano.
 
 How the AI settings are designed:
 
 | Concern | What the extension does |
 | --- | --- |
-| **API keys** | Stored in `chrome.storage.local` under their own keys — never `storage.sync`, never in settings exports, masked in the UI. Only the background service worker reads them; content scripts and web pages never see a key. |
-| **Network access** | No AI hosts in the manifest. When you add a provider, Chrome asks once for that single origin (`optional_host_permissions`). HTTPS is required except for `localhost`; credentials in URLs are rejected. |
+| **API keys** | Stored in `chrome.storage.local` under their own keys — never `storage.sync`, never in settings exports, masked in the UI. The background worker reads them to make requests, and the settings and setup pages to show or check them; content scripts never read them, and web pages can't. |
+| **Network access** | No AI host is granted at install. When you add a provider, Chrome asks once for that single origin (`optional_host_permissions`), and removing the provider gives it back unless another provider uses it. HTTPS is required except for `localhost`; credentials in URLs are rejected. |
 | **Where requests run** | All provider calls go from the background worker (official `openai` and `@anthropic-ai/sdk` SDKs; Gemini over REST with the key in a header, not the URL). Streaming answers reach the page over a port; closing the pop-up aborts the request. |
-| **Models** | Live model lists from each provider (`/models`), with sensible suggestions until fetched; free text for custom ids. **Test connection** uses the free list endpoint, not a paid completion. |
+| **Models** | Live model lists from each provider (`/models`), with sensible suggestions until fetched; free text for custom ids. **Test connection** uses the free list endpoint, not a paid completion; ChatGPT also sends a one-word request, since its model list doesn't show whether the plan may use them. |
 | **Per-task routing** | Word look-up, sentence breakdown, follow-up chat and subtitle translation can each use a different provider/model, reasoning effort, temperature and output limit. Optional fallback provider on outages, rate limits or exhausted credit. |
 | **Parameters** | Temperature defaults to the provider's own (current reasoning models reject custom values). Reasoning effort is mapped per provider (`reasoning_effort`, Claude `output_config.effort`, Gemini thinking budget/level) and extra output room is reserved for thinking. If a model rejects an optional parameter, the request is retried once without it. |
 | **Reliability** | Timeouts, retries with exponential backoff that honours `Retry-After`, clear error messages (bad key, no credit, rate limit, local server not running, Ollama origin setup), refusal handling. Claude Opus/Sonnet 5.x requests opt into server-side refusal fallback. |
 | **Cost control** | Explanations are generated on demand by default, answers are cached locally (IndexedDB, configurable TTL), a daily request limit stops runaway spend, usage and token counters per model. |
 | **Privacy** | Choose how much context is sent (word only / sentence / sentence ± 2 lines) and whether the video title is shared. Local options (Ollama, LM Studio, Chrome built-in) keep everything on your machine. |
 | **Prompt safety** | Subtitle and page text is wrapped in `<context>` tags that it cannot close, every prompt says it is untrusted data, and rendered answers never load images or raw HTML (so injected text cannot exfiltrate data through URLs). Prompts are editable with variables and a reset button. |
+
+### ChatGPT sign-in
+Add **ChatGPT** under *Settings → AI providers* and click *Sign in with ChatGPT* to use a ChatGPT Plus, Pro
+or Business plan instead of an API key. Requests count toward the plan's Codex usage limits.
+
+- The extension uses the same public OAuth client (PKCE) as OpenAI's Codex CLI and calls the Codex backend
+  (`chatgpt.com/backend-api/codex/responses`), the way opencode and Cline do. OpenAI does not document this
+  backend, so it may change.
+- That client only redirects to `http://localhost:1455/auth/callback`. The extension can't listen on a
+  port, so the options page watches the sign-in tab, reads the code from its address when it reaches that
+  URL, and closes it. This is why Chrome asks for `localhost` access alongside `chatgpt.com` and
+  `auth.openai.com`. Localhost access is given back as soon as the sign-in ends, unless a local model
+  server uses it; removing the provider gives back the other two.
+- Tokens are stored like API keys: `storage.local` only, never synced or exported. The background worker
+  refreshes them shortly before they expire (one refresh at a time, since refresh tokens are single-use)
+  and signs out if the refresh is rejected. A sign-out during a refresh wins: the refreshed tokens are dropped.
+- Tokens only ever go to `auth.openai.com` and the fixed Codex backend, never to a base URL from settings.
+  Plan limits (`usage_limit_reached`, `usage_not_included`) are reported at once instead of retried.
 
 ### Local models
 - **Ollama**: start it with `OLLAMA_ORIGINS="chrome-extension://*" ollama serve` so it accepts requests from the extension.

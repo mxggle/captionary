@@ -12,6 +12,9 @@ import {
   type Settings,
   type ShortcutAction,
 } from '@/lib/settings';
+import { clearCache } from '@/lib/ai/cache';
+import { releaseOrigins } from '@/lib/ai/host-access';
+import { clearFrequencyLists } from '@/lib/frequency';
 import { importVocab, listVocab, toAnkiTsv, toCsv, type VocabItem } from '@/lib/vocab';
 import { useVocabCount } from '@/ui/AppShell';
 import { keyLabel, Note, PageHead, Range, Segment, Select, SettingRow, SettingsCard, Switch, type Choice } from '@/ui/controls';
@@ -561,7 +564,10 @@ export function DataSection() {
     }
   };
   const resetAll = async () => {
-    await browser.storage.local.clear();
+    // Everything the privacy policy lists: storage, the AI answer and word-frequency caches,
+    // and access to AI services (no connection needs it once settings are gone).
+    await Promise.all([browser.storage.local.clear(), browser.storage.session.clear(), clearCache(), clearFrequencyLists()]);
+    await releaseOrigins((await browser.permissions.getAll()).origins ?? []);
     setConfirming(false);
     setMessage({ ok: true, text: 'Everything was deleted. Captionary starts fresh.' });
   };
@@ -615,8 +621,8 @@ export function DataSection() {
         {confirming ? (
           <div className="cap-card__body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <p style={{ margin: 0 }}>
-              Delete all settings, AI providers, API keys and <strong>{count ?? 0} saved words</strong> from this browser? This can’t be
-              undone. Export a backup first if you might want them back.
+              Delete all settings, AI providers, API keys, ChatGPT sign-ins, cached answers and <strong>{count ?? 0} saved words</strong>{' '}
+              from this browser? This can’t be undone. Export a backup first if you might want them back.
             </p>
             <div className="cap-row">
               <button className="cap-btn cap-btn--danger-fill" onClick={() => void resetAll()}>
@@ -628,7 +634,7 @@ export function DataSection() {
             </div>
           </div>
         ) : (
-          <SettingRow title="Delete everything" help="Settings, AI providers, API keys and saved words.">
+          <SettingRow title="Delete everything" help="Settings, AI providers, API keys, sign-ins, cached answers and saved words.">
             <button className="cap-btn cap-btn--danger" onClick={() => setConfirming(true)}>
               Delete everything…
             </button>
@@ -639,82 +645,27 @@ export function DataSection() {
   );
 }
 
-export function WelcomeSection({ go }: { go: (hash: string) => void }) {
-  const [s, set] = useSet();
+export function WelcomeSection() {
+  const [s] = useSet();
   if (!s) return null;
   const keys = s.shortcuts;
   const key = (k: string) => <span className="cap-kbd">{keyLabel(k)}</span>;
   return (
     <>
       <PageHead
-        title="Welcome to Captionary"
-        lead="Learn a language from the films and series you already watch. Three steps, about a minute."
-      />
-      <ol className="cap-card cap-steps">
-        <li className="cap-step">
-          <span className="cap-step__num" aria-hidden="true">
-            1
-          </span>
-          <div className="cap-step__body" style={{ gap: 14 }}>
-            <h2 className="cap-h2">Your languages</h2>
-            <div className="cap-popup__sentence" style={{ fontSize: 16, lineHeight: 2.2 }}>
-              I’m learning{' '}
-              <LanguageSelect
-                variant="sentence"
-                label="I’m learning"
-                allowAuto
-                value={s.targetLanguage}
-                onChange={(v) => set((st) => void (st.targetLanguage = v))}
-              />{' '}
-              and I speak{' '}
-              <LanguageSelect
-                variant="sentence"
-                label="I speak"
-                value={s.nativeLanguage}
-                onChange={(v) => set((st) => void (st.nativeLanguage = v))}
-              />
-            </div>
-            <SettingRowless title="My level">
-              {(id) => (
-                <Segment
-                  labelledBy={id}
-                  value={s.learnerLevel}
-                  options={LEVELS}
-                  onChange={(v) => set((st) => void (st.learnerLevel = v))}
-                />
-              )}
-            </SettingRowless>
-            <span className="cap-help">
-              The tutor pitches its explanations at this level. “Learning” can also follow each video’s own language.
-            </span>
-          </div>
-        </li>
-        <li className="cap-step">
-          <span className="cap-step__num" aria-hidden="true">
-            2
-          </span>
-          <div className="cap-step__body">
-            <h2 className="cap-h2">
-              Connect an AI tutor <span className="cap-h2__meta">optional</span>
-            </h2>
-            <p className="cap-step__text">
-              Dictionary and translations work without it. With a tutor, every word you click can be explained in its exact sentence, lines
-              get grammar breakdowns, and you can ask follow-up questions.
-            </p>
-            <div className="cap-row">
-              <button className="cap-btn cap-btn--primary cap-btn--lg" onClick={() => go('ai')}>
-                Set up the tutor
-              </button>
-              <span className="cap-help">Chrome’s built-in AI and Ollama need no account.</span>
-            </div>
-          </div>
-        </li>
-        <li className="cap-step">
-          <span className="cap-step__num" aria-hidden="true">
-            3
-          </span>
+        title="Get started"
+        lead="The setup guide takes you through Captionary one question at a time: your languages, the toolbar icon, an optional AI tutor and a short practice."
+      >
+        <a className="cap-btn cap-btn--primary cap-btn--lg" href="/welcome.html#hello">
+          Open the setup guide
+        </a>
+      </PageHead>
+      <section className="cap-card cap-steps" aria-labelledby="welcome-video">
+        <div className="cap-step">
           <div className="cap-step__body" style={{ flexBasis: 300 }}>
-            <h2 className="cap-h2">Open a video</h2>
+            <h2 className="cap-h2" id="welcome-video">
+              On a video
+            </h2>
             <p className="cap-step__text">
               Captions show both languages. Click a word to look it up; drag across words, or Shift+click another word, for a phrase. Find
               Captionary in the player’s control bar.
@@ -754,21 +705,8 @@ export function WelcomeSection({ go }: { go: (hash: string) => void }) {
               </div>
             </div>
           </div>
-        </li>
-      </ol>
+        </div>
+      </section>
     </>
-  );
-}
-
-/** A labelled control without the row chrome (inside the welcome steps). */
-function SettingRowless({ title, children }: { title: string; children: (id: string) => React.ReactNode }) {
-  const id = `f-${title.replace(/\W+/g, '-').toLowerCase()}`;
-  return (
-    <div className="cap-field">
-      <span className="cap-label" id={id}>
-        {title}
-      </span>
-      {children(id)}
-    </div>
   );
 }

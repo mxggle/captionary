@@ -2,20 +2,24 @@ import { browser } from '#imports';
 import { getAISettings, getSettings } from '../settings';
 import { cacheKey, getCached, putCached } from './cache';
 import { buildPrompt, parseTranslations } from './prompts';
+import { chatGPTCredentials } from './chatgpt-auth';
 import { anthropicAdapter } from './providers/anthropic';
+import { chatgptAdapter } from './providers/chatgpt';
 import { chromeAdapter } from './providers/chrome';
 import { geminiAdapter } from './providers/gemini';
 import { openaiAdapter } from './providers/openai';
-import { originPattern, PROVIDERS } from './registry';
+import { providerOrigins, PROVIDERS } from './registry';
 import { getApiKey } from './secrets';
 import {
   AIError,
+  type AIErrorCode,
   type AIJob,
   type AIResult,
   type AISettings,
   type AIUsage,
   type ProviderAdapter,
   type ProviderConnection,
+  type ProviderContext,
   type ProviderProtocol,
   type ProviderRequest,
   type TaskRoute,
@@ -24,6 +28,7 @@ import { assertWithinLimit, recordRequest } from './usage';
 
 const ADAPTERS: Record<ProviderProtocol, ProviderAdapter> = {
   openai: openaiAdapter,
+  chatgpt: chatgptAdapter,
   anthropic: anthropicAdapter,
   gemini: geminiAdapter,
   chrome: chromeAdapter,
@@ -61,6 +66,9 @@ export function toAIError(err: unknown, conn?: ProviderConnection): AIError {
   }
   const status = e?.status;
   const local = conn ? PROVIDERS[conn.kind].local : false;
+  if (status === 401 && conn?.kind === 'chatgpt') {
+    return new AIError('auth', 'ChatGPT rejected the sign-in. Sign in again in Settings → AI providers.', status);
+  }
   if (status === 401) return new AIError('auth', 'The API key was rejected. Check it in Settings → AI providers.', status);
   if (status === 403) {
     if (conn?.kind === 'ollama') {
@@ -87,9 +95,9 @@ export function toAIError(err: unknown, conn?: ProviderConnection): AIError {
 const RETRY_ON_FALLBACK = new Set(['rate_limit', 'unavailable', 'network', 'timeout', 'quota']);
 
 async function ensureHostPermission(conn: ProviderConnection): Promise<void> {
-  const origin = originPattern(conn);
-  if (!origin) return;
-  const granted = await browser.permissions.contains({ origins: [origin] });
+  const origins = providerOrigins(conn);
+  if (!origins.length) return;
+  const granted = await browser.permissions.contains({ origins });
   if (!granted) {
     throw new AIError(
       'permission',
@@ -98,27 +106,49 @@ async function ensureHostPermission(conn: ProviderConnection): Promise<void> {
   }
 }
 
+/** Credentials for one request: the stored API key, or a fresh sign-in access token. */
+async function providerContext(conn: ProviderConnection, forceRefresh = false): Promise<ProviderContext> {
+  const info = PROVIDERS[conn.kind];
+  if (info.signIn) {
+    const tokens = await chatGPTCredentials(conn.id, forceRefresh);
+    return { connection: conn, apiKey: tokens.accessToken, accountId: tokens.accountId, fedramp: tokens.fedramp };
+  }
+  const apiKey = await getApiKey(conn.id);
+  if (info.requiresKey && !apiKey) {
+    throw new AIError('missing_key', `Add your ${info.name} API key in Settings → AI providers.`);
+  }
+  return { connection: conn, apiKey };
+}
+
 async function streamOnce(
   conn: ProviderConnection,
   req: ProviderRequest,
   onDelta: ((t: string) => void) | undefined,
 ): Promise<{ text: string; usage?: AIUsage }> {
   const info = PROVIDERS[conn.kind];
-  const apiKey = await getApiKey(conn.id);
-  if (info.requiresKey && !apiKey) {
-    throw new AIError('missing_key', `Add your ${info.name} API key in Settings → AI providers.`);
-  }
   await ensureHostPermission(conn);
   const adapter = ADAPTERS[info.protocol];
   let text = '';
   let usage: AIUsage | undefined;
-  for await (const chunk of adapter.stream({ connection: conn, apiKey }, req)) {
-    if (chunk.type === 'text') {
-      text += chunk.text;
-      onDelta?.(chunk.text);
-    } else {
-      usage = { ...usage, ...chunk.usage };
+  const run = async (ctx: ProviderContext) => {
+    for await (const chunk of adapter.stream(ctx, req)) {
+      if (chunk.type === 'text') {
+        text += chunk.text;
+        onDelta?.(chunk.text);
+      } else {
+        usage = { ...usage, ...chunk.usage };
+      }
     }
+  };
+  // Outside the retry: a 401 from here is a spent sign-in, which a refresh cannot fix.
+  const ctx = await providerContext(conn);
+  try {
+    await run(ctx);
+  } catch (err) {
+    // An access token can be revoked before it expires: refresh once and retry.
+    const status = (err as { status?: number }).status;
+    if (!info.signIn || status !== 401 || text || req.signal.aborted) throw err;
+    await run(await providerContext(conn, true));
   }
   return { text, usage };
 }
@@ -210,11 +240,9 @@ export async function runJob(job: AIJob, opts: RunOptions = {}): Promise<AIResul
 
 export async function listModels(conn: ProviderConnection): Promise<string[]> {
   const info = PROVIDERS[conn.kind];
-  const apiKey = await getApiKey(conn.id);
-  if (info.requiresKey && !apiKey) throw new AIError('missing_key', `Add your ${info.name} API key first.`);
   await ensureHostPermission(conn);
   try {
-    return await ADAPTERS[info.protocol].listModels({ connection: conn, apiKey }, AbortSignal.timeout(20_000));
+    return await ADAPTERS[info.protocol].listModels(await providerContext(conn), AbortSignal.timeout(20_000));
   } catch (err) {
     throw toAIError(err, conn);
   }
@@ -226,20 +254,24 @@ export interface TestResult {
   models?: string[];
   reply?: string;
   error?: string;
+  /** Why it failed, so a page can phrase its own advice. */
+  code?: AIErrorCode;
 }
 
 /**
  * Verify a connection. Listing models is free, so it is tried first; a tiny completion
- * is used only when the list endpoint is missing (some OpenAI-compatible servers).
+ * is used when the list endpoint is missing (some OpenAI-compatible servers), and for a
+ * sign-in, whose model list doesn't show whether the plan may use them.
  */
 export async function testConnection(conn: ProviderConnection, model?: string): Promise<TestResult> {
   const started = performance.now();
+  let models: string[] | undefined;
   try {
-    const models = await listModels(conn);
-    return { ok: true, latencyMs: Math.round(performance.now() - started), models };
+    models = await listModels(conn);
+    if (!PROVIDERS[conn.kind].signIn) return { ok: true, latencyMs: Math.round(performance.now() - started), models };
   } catch (err) {
     const e = toAIError(err, conn);
-    if (e.code !== 'bad_request') return { ok: false, latencyMs: Math.round(performance.now() - started), error: e.message };
+    if (e.code !== 'bad_request') return { ok: false, latencyMs: Math.round(performance.now() - started), error: e.message, code: e.code };
   }
   try {
     const { text } = await streamOnce(
@@ -257,8 +289,9 @@ export async function testConnection(conn: ProviderConnection, model?: string): 
       },
       undefined,
     );
-    return { ok: true, latencyMs: Math.round(performance.now() - started), reply: text.trim() };
+    return { ok: true, latencyMs: Math.round(performance.now() - started), models, reply: text.trim() };
   } catch (err) {
-    return { ok: false, latencyMs: Math.round(performance.now() - started), error: toAIError(err, conn).message };
+    const e = toAIError(err, conn);
+    return { ok: false, latencyMs: Math.round(performance.now() - started), error: e.message, code: e.code };
   }
 }
