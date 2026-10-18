@@ -15,6 +15,8 @@ export interface AIStatus {
 export interface SidePanelPayload {
   kind: 'word' | 'sentence';
   text: string;
+  /** Dictionary form of a chunk the tutor suggested (see `PopupTarget.base`). */
+  base?: string;
   sentence?: string;
   lang?: string;
   url?: string;

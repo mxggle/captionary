@@ -52,13 +52,21 @@ export function LookupHost({ controller, surfaces, hostRef }: Props) {
       rankKnown={!!frequency}
       rank={popup.kind === 'word' && frequency ? frequencyRank(frequency, normalizeWord(popup.text, popup.lang)) : undefined}
       onClose={close}
-      onSave={(status, extra) => {
-        if (status) void controller.saveWord(popup.text, status, popup.cueIndex, extra);
-        else void removeVocab(vocabKey(popup.text, popup.lang).id);
+      onSave={(status, entry) => {
+        if (status) void controller.saveWord(entry, status, popup.cueIndex);
+        else void removeVocab(vocabKey(entry.text, popup.lang).id);
       }}
       onPlayLine={popup.cueIndex >= 0 ? () => controller.playCue(popup.cueIndex) : undefined}
       onSelectWord={(sel) =>
-        controller.openPopup({ kind: 'word', text: sel.text, cueIndex: popup.cueIndex, rect: sel.rect, surface, tokenRange: sel.range })
+        controller.openPopup({
+          kind: 'word',
+          text: sel.text,
+          cueIndex: popup.cueIndex,
+          rect: sel.rect,
+          surface,
+          tokenRange: sel.range,
+          base: sel.base,
+        })
       }
       onOpenSidePanel={() =>
         void bg({
@@ -66,6 +74,7 @@ export function LookupHost({ controller, surfaces, hostRef }: Props) {
           payload: {
             kind: popup.kind,
             text: popup.text,
+            base: popup.base,
             sentence: popup.sentence,
             lang: popup.lang,
             url: media?.url,

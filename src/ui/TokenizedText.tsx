@@ -14,6 +14,8 @@ export interface WordSelection {
   rect: AnchorRect;
   /** First and last token index of the selection, to keep it marked while its look-up is open. */
   range: [number, number];
+  /** Dictionary form, when the selection is the chunk the tutor suggested (see `PopupTarget.base`). */
+  base?: string;
 }
 
 interface Props {
@@ -39,8 +41,8 @@ const STATUS_CLASS = { learning: 'is-learn', known: 'is-known' } as const;
 
 /**
  * Subtitle/sentence text split into clickable words. Click a word to look it up;
- * press on one word and drag to another to select a phrase. Saved words and phrases
- * are marked by learning status (a dotted underline; see `cap-w` in components.css).
+ * press on one word and drag to another, or Shift+click a second word, to select a phrase.
+ * Saved words and phrases are marked by learning status (a dotted underline; see `cap-w` in components.css).
  */
 export const TokenizedText = memo(function TokenizedText({ text, lang, index, highlight, onSelect, className, freq, selected }: Props) {
   const tokens = useMemo(() => tokenize(text, lang), [text, lang]);
@@ -59,6 +61,12 @@ export const TokenizedText = memo(function TokenizedText({ text, lang, index, hi
   const dragRef = useRef(drag);
   dragRef.current = drag;
   const spans = useRef(new Map<number, HTMLSpanElement>());
+  // The last selection in this line, which Shift+click extends. A ref outlives the look-up: the same
+  // press closes it (and clears `selected`) before reaching the word.
+  const lastSelection = useRef<{ text: string; range: [number, number] } | null>(null);
+  useEffect(() => {
+    if (selected) lastSelection.current = { text, range: selected };
+  }, [text, selected?.[0], selected?.[1]]);
 
   const dragging = drag !== null;
   useEffect(() => {
@@ -74,6 +82,7 @@ export const TokenizedText = memo(function TokenizedText({ text, lang, index, hi
       if (!first || !last) return;
       const selected = text.slice(tokens[a].index, tokens[b].index + tokens[b].text.length);
       const words = tokens.slice(a, b + 1).filter((t) => t.word).length;
+      lastSelection.current = { text, range: [a, b] };
       onSelect({
         text: selected,
         words,
@@ -125,7 +134,9 @@ export const TokenizedText = memo(function TokenizedText({ text, lang, index, hi
               if (e.button !== 0) return;
               e.preventDefault();
               e.stopPropagation();
-              setDrag({ start: i, end: i });
+              // Shift+click grows the last selection in this line to take in this word (a word inside it trims it back).
+              const prev = e.shiftKey && lastSelection.current?.text === text ? lastSelection.current.range : null;
+              setDrag({ start: prev ? (i < prev[0] ? prev[1] : prev[0]) : i, end: i });
             }}
             onPointerEnter={() => {
               if (dragRef.current) setDrag({ ...dragRef.current, end: i });

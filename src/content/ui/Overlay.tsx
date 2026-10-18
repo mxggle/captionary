@@ -40,6 +40,34 @@ function playerOf(root: HTMLElement | null): Element | null {
 }
 
 /**
+ * How far up from the player's bottom edge the captions must sit to clear YouTube's progress bar
+ * and control bar. The bar keeps its layout while it fades, so the captions do not jump with it.
+ */
+function useControlsClearance(rootRef: React.RefObject<HTMLElement | null>, site: string): number {
+  const [px, setPx] = useState(0);
+  useEffect(() => {
+    if (site !== 'youtube') return setPx(0);
+    const player = playerOf(rootRef.current);
+    if (!player) return;
+    const measure = () => {
+      const bottom = player.getBoundingClientRect().bottom;
+      const tops = ['.ytp-chrome-bottom', '.ytp-progress-bar-container']
+        .map((q) => player.querySelector(q)?.getBoundingClientRect())
+        .filter((r): r is DOMRect => !!r && r.height > 0)
+        .map((r) => r.top);
+      setPx(tops.length ? Math.max(0, Math.round(bottom - Math.min(...tops))) : 0);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(player);
+    const chrome = player.querySelector('.ytp-chrome-bottom');
+    if (chrome) ro.observe(chrome);
+    return () => ro.disconnect();
+  }, [rootRef, site]);
+  return px;
+}
+
+/**
  * True while the pointer moves over the player, like the host's controls; used to fade the fallback
  * button in and out with them.
  */
@@ -113,6 +141,7 @@ export function Overlay({ controller }: { controller: SessionController }) {
   const index = useVocabIndex(s.vocab, s.lang);
   const toastMessage = useToast();
   const pointerActive = usePointerActivity(rootRef);
+  const controlsClearance = useControlsClearance(rootRef, s.site);
   const badge = useStatusBadge(s.status, s.message, s.media?.id);
   const [fabArmed, setFabArmed] = useState(false);
 
@@ -196,7 +225,7 @@ export function Overlay({ controller }: { controller: SessionController }) {
         <div
           className="cap-captions cap-overlay__captions"
           style={{
-            bottom: `${subtitles.bottomOffset}%`,
+            bottom: controlsClearance ? `max(${subtitles.bottomOffset}%, ${controlsClearance + 8}px)` : `${subtitles.bottomOffset}%`,
             left: `calc((100% - ${drawerSpace}px) / 2)`,
             maxWidth: `min(1100px, calc((100% - ${drawerSpace}px) * 0.92))`,
           }}

@@ -108,3 +108,42 @@ export function findPhrases(tokens: Token[], lang: string, phrases: Map<string, 
   }
   return matches;
 }
+
+/**
+ * Where `chunk` appears among `tokens` as whole words: its first and last token index, or null.
+ * With `within`, only an occurrence that covers that token range and more words counts, as for the
+ * chunk the tutor says a selected word belongs to.
+ */
+export function locateChunk(tokens: Token[], chunk: string, lang: string, within?: [number, number]): [number, number] | null {
+  const spaceless = isSpaceless(lang);
+  const target = phraseKey(
+    tokenize(chunk, lang)
+      .filter((t) => t.word)
+      .map((t) => t.text),
+    lang,
+  );
+  if (!target) return null;
+  // The line's words joined the way phrase keys are, with each word's offset in the joined text.
+  const words: { i: number; start: number; end: number }[] = [];
+  let joined = '';
+  tokens.forEach((t, i) => {
+    const key = t.word ? normalizeWord(t.text, lang) : '';
+    if (!key) return;
+    if (joined && !spaceless) joined += ' ';
+    words.push({ i, start: joined.length, end: joined.length + key.length });
+    joined += key;
+  });
+  for (let at = joined.indexOf(target); at >= 0; at = joined.indexOf(target, at + 1)) {
+    const end = at + target.length;
+    const hit = words.filter((w) => w.end > at && w.start < end);
+    if (!hit.length) continue;
+    const first = hit[0];
+    const last = hit[hit.length - 1];
+    // Spaced languages match whole words only ("up" is not in "upset"); without spaces the
+    // segmenter's boundaries vary, so the chunk takes in the words it touches.
+    if (!spaceless && (first.start !== at || last.end !== end)) continue;
+    const range: [number, number] = [first.i, last.i];
+    if (!within || (range[0] <= within[0] && range[1] >= within[1] && (range[0] < within[0] || range[1] > within[1]))) return range;
+  }
+  return null;
+}

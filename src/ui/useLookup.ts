@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { extractTranslation } from '@/lib/ai/prompts';
+import { extractTranslation, parseWordExplanation, wordExplanationMarkdown, type WordChunk } from '@/lib/ai/prompts';
 import type { AIJob, ChatTurn } from '@/lib/ai/types';
 import { externalDictionaries, type DictionaryResult } from '@/lib/dictionary';
 import { bg, streamJob, type AIStatus } from '@/lib/messaging';
 import type { Settings } from '@/lib/settings';
 import { canRomanize } from '@/lib/text/romanize';
+import { locateChunk, tokenize } from '@/lib/text/tokenize';
 import { chromeTranslatorState, translateWithChrome } from '@/lib/translate';
-import { vocabKey, type VocabItem, type VocabStatus } from '@/lib/vocab';
+import { findVocab, vocabKey, type VocabItem, type VocabStatus } from '@/lib/vocab';
 import type { PopupTarget } from '@/content/store';
 import { useAIStream } from './useAIStream';
 
@@ -27,7 +28,54 @@ export interface LookupInput {
   rank?: number;
   /** Start the tutor without waiting for Explain; defaults to sentences, and to words with "Explain words automatically". */
   autoExplain?: boolean;
-  onSave: (status: VocabStatus | null, extra?: { translation?: string; notes?: string }) => void;
+  /** Save the entry with this status, or remove it (null). */
+  onSave: (status: VocabStatus | null, entry: SaveEntry) => void;
+}
+
+/** What a look-up saves or removes. */
+export interface SaveEntry {
+  /** The entry: the saved item's own text, else the dictionary form the tutor gave, else the selection. */
+  text: string;
+  /** The selection as written, kept as another form of the entry when they differ. */
+  form: string;
+  translation?: string;
+  notes?: string;
+}
+
+/** A larger chunk of the line, named by the tutor, to look up instead of the selection. */
+export interface ChunkSuggestion {
+  /** The chunk as written in the line. */
+  text: string;
+  /** Its dictionary form, which saving files it under. */
+  base: string;
+  /** What it means, in the explanation language. */
+  meaning: string;
+  /** Its first and last token in the line. */
+  range: [number, number];
+  words: number;
+}
+
+/** The tutor's chunk as a selection in the target's line, when it is there and larger than the selection. */
+export function chunkSuggestion(target: PopupTarget, chunk: WordChunk): ChunkSuggestion | null {
+  const { sentence, lang } = target;
+  if (!sentence) return null;
+  const tokens = tokenize(sentence, lang);
+  const slice = ([a, b]: [number, number]) =>
+    tokens[a] && tokens[b] ? sentence.slice(tokens[a].index, tokens[b].index + tokens[b].text.length) : '';
+  const own = target.tokenRange && slice(target.tokenRange) === target.text ? target.tokenRange : locateChunk(tokens, target.text, lang);
+  const range = own && locateChunk(tokens, chunk.text, lang, own);
+  if (!range) return null;
+  const text = slice(range);
+  const words = tokens.slice(range[0], range[1] + 1).filter((t) => t.word).length;
+  return { text, base: chunk.base ?? text, meaning: chunk.meaning, range, words };
+}
+
+/**
+ * Whether the tutor starts without waiting for Explain: for sentences, for words with "Explain words
+ * automatically", and for a chunk the learner followed from an explanation.
+ */
+export function explainsAtOnce(target: PopupTarget, aiStatus: AIStatus | null): boolean {
+  return target.kind !== 'word' || !!aiStatus?.autoExplain || target.base !== undefined;
 }
 
 /** Rarity of a word as the legend names it; undefined for the 2,000 most common words. */
@@ -48,7 +96,11 @@ export function useLookup({ target, settings, aiStatus, vocab, mediaTitle, autoE
   const isWord = target.kind === 'word';
   const native = settings.nativeLanguage;
   const identity = useMemo(() => vocabKey(target.text, target.lang), [target.text, target.lang]);
-  const saved = vocab[identity.id];
+  // Saved under the dictionary form the tutor gave, or under the selection or with it as another form.
+  const saved = useMemo(
+    () => (target.base !== undefined && findVocab(vocab, target.base, target.lang)) || findVocab(vocab, target.text, target.lang),
+    [vocab, target.base, target.text, target.lang],
+  );
 
   // ---- quick on-device translation ----
   const [quick, setQuick] = useState<string | null>(null);
@@ -129,9 +181,8 @@ export function useLookup({ target, settings, aiStatus, vocab, mediaTitle, autoE
     [isWord, target, mediaTitle],
   );
   const aiReady = !!aiStatus?.enabled && !!aiStatus.configured;
-  // Sentence breakdowns are always explicitly requested; word explanations start on their own only
-  // when the learner opted in (each is a paid request).
-  const autoStart = aiReady && (autoExplain ?? (!isWord || !!aiStatus?.autoExplain));
+  // Word explanations start on their own only when the learner opted in (each is a paid request).
+  const autoStart = aiReady && (autoExplain ?? explainsAtOnce(target, aiStatus));
   const { start: startAI, reset: resetAI } = ai;
   useEffect(() => {
     resetAI();
@@ -142,6 +193,24 @@ export function useLookup({ target, settings, aiStatus, vocab, mediaTitle, autoE
     if (aiReady) startAI(job);
   }, [aiReady, startAI, job]);
 
+  // ---- the tutor's answer, split into its sections ----
+  const answering = ai.status === 'streaming' || ai.status === 'done';
+  const explanation = useMemo(
+    () => (isWord && answering ? parseWordExplanation(ai.text, ai.status === 'streaming') : null),
+    [isWord, answering, ai.text, ai.status],
+  );
+  // The equivalent of the sense used here, as soon as its line has arrived; answers from a custom
+  // prompt without the section markers still have their "Translation:" line read once complete.
+  const aiTranslation = explanation?.gloss ?? (isWord && ai.status === 'done' && !explanation ? extractTranslation(ai.text) : undefined);
+  /** The answer as Markdown, without the section markers. */
+  const answerText = explanation ? wordExplanationMarkdown(explanation, true) : ai.text;
+  const chunk = explanation?.chunk;
+  const suggestion = useMemo(
+    () => (isWord && chunk ? chunkSuggestion(target, chunk) : null),
+    // The answer is parsed again with each streamed piece; the chunk's fields are what matter.
+    [isWord, target, chunk?.text, chunk?.base, chunk?.meaning],
+  );
+
   // ---- follow-up chat ----
   const [turns, setTurns] = useState<ChatEntry[]>([]);
   const chatCancel = useRef<(() => void) | null>(null);
@@ -150,7 +219,7 @@ export function useLookup({ target, settings, aiStatus, vocab, mediaTitle, autoE
     const q = question.trim();
     if (!q) return;
     const history: ChatTurn[] = [];
-    if (ai.text) history.push({ role: 'assistant', content: ai.text });
+    if (ai.text) history.push({ role: 'assistant', content: answerText });
     for (const t of turns) {
       if (t.status !== 'done') continue;
       history.push({ role: 'user', content: t.q }, { role: 'assistant', content: t.a });
@@ -169,21 +238,34 @@ export function useLookup({ target, settings, aiStatus, vocab, mediaTitle, autoE
   };
 
   // ---- saving ----
-  const aiTranslation = isWord && ai.status === 'done' ? extractTranslation(ai.text) : undefined;
-  // Prefer the on-device translation; otherwise reuse the tutor's "Translation:" line.
-  const translationForSave = quick ?? aiTranslation;
+  // Prefer the tutor's equivalent for the sense in this sentence; otherwise the on-device translation.
+  const translationForSave = aiTranslation ?? quick;
+  const entry = (extra?: Pick<SaveEntry, 'translation' | 'notes'>): SaveEntry => ({
+    text: saved?.text ?? target.base ?? target.text,
+    form: target.text,
+    ...extra,
+  });
   const setStatus = (status: VocabStatus) => {
-    if (saved?.status === status) onSave(null);
-    else onSave(status, { translation: saved?.translation ?? translationForSave ?? undefined });
+    if (saved?.status === status) onSave(null, entry());
+    else onSave(status, entry({ translation: saved?.translation ?? translationForSave ?? undefined }));
   };
   const saveNotes = () =>
-    onSave(saved?.status ?? 'learning', { translation: saved?.translation ?? translationForSave ?? undefined, notes: ai.text });
+    onSave(
+      saved?.status ?? 'learning',
+      entry({
+        translation: saved?.translation ?? translationForSave ?? undefined,
+        notes: explanation ? wordExplanationMarkdown(explanation, false) : ai.text,
+      }),
+    );
 
   const firstEntry = dict?.entries[0];
   const pos = firstEntry?.partOfSpeech?.toLowerCase();
   // Wiktionary definitions are English, so they only stand in for a translation into English.
   const definition = native.startsWith('en') ? firstEntry?.senses[0]?.definition : undefined;
-  const translation = isWord ? (saved?.translation ?? quick ?? aiTranslation ?? definition) : (target.translation ?? quick ?? undefined);
+  // The tutor's equivalent fits this sentence's sense, so it leads once the learner asks for it.
+  const translation = isWord
+    ? (explanation?.gloss ?? saved?.translation ?? quick ?? aiTranslation ?? definition)
+    : (target.translation ?? quick ?? undefined);
 
   return {
     isWord,
@@ -197,9 +279,16 @@ export function useLookup({ target, settings, aiStatus, vocab, mediaTitle, autoE
     ai,
     job,
     aiReady,
+    /** The tutor's answer is on its way or shown: the card's content will keep growing. */
+    answerShown: aiReady && (ai.status === 'loading' || ai.status === 'streaming' || ai.status === 'done'),
     /** The learner turned the tutor off (as opposed to never setting one up). */
     aiOff: !!aiStatus && !aiStatus.enabled,
     explain,
+    /** The word explanation split into meaning, context and examples; null for other answers. */
+    explanation,
+    /** The tutor's chunk, when it is a larger part of the line than the selection. */
+    suggestion,
+    answerText,
     turns,
     ask,
     setStatus,

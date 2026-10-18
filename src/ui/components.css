@@ -1143,6 +1143,192 @@ textarea.cap-input {
   color: var(--danger);
 }
 
+/* word explanation: the definition under the pinned meaning, then context and examples tabs */
+.cap-explain,
+.cap-explain__def,
+.cap-chunk {
+  --x-ink: var(--ink);
+  --x-muted: var(--ink-muted);
+  --x-line: var(--line);
+  --x-chip: var(--surface-sunk);
+  --x-warn: var(--warn);
+  --x-mark: var(--accent);
+}
+.cap-lookup--native .cap-explain,
+.cap-lookup--native .cap-explain__def,
+.cap-lookup--native .cap-chunk {
+  --x-ink: var(--player-ink);
+  --x-muted: var(--player-ink-muted);
+  --x-line: var(--player-line);
+  --x-chip: var(--player-hover);
+  --x-warn: #f5c451;
+  --x-mark: var(--player-ink);
+}
+.cap-explain__def {
+  margin-top: 3px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--x-muted);
+}
+.cap-lookup--native .cap-explain__def {
+  padding: 0 16px;
+}
+/* the larger chunk the tutor names: a button that looks it up instead */
+.cap-chunk {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  padding: 7px 8px 7px 10px;
+  border: 1px solid var(--x-line);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--x-ink);
+  font: inherit;
+  font-size: 13.5px;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+}
+.cap-lookup--native .cap-chunk {
+  margin: 8px 16px 0;
+}
+.cap-chunk:hover {
+  background: var(--x-chip);
+}
+.cap-chunk:focus-visible {
+  outline: 2px solid var(--x-mark);
+  outline-offset: 1px;
+}
+.cap-chunk__label {
+  flex: none;
+  font-size: 12px;
+  color: var(--x-muted);
+}
+.cap-chunk__text {
+  flex: none;
+  font-weight: 500;
+}
+.cap-chunk__meaning {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--x-muted);
+}
+.cap-chunk .cap-ico {
+  flex: none;
+  align-self: center;
+  margin-left: auto;
+  color: var(--x-muted);
+}
+.cap-explain__def .cap-md p,
+.cap-explain__panel .cap-md p {
+  margin: 0;
+}
+.cap-explain__tabs {
+  display: flex;
+  gap: 18px;
+  border-bottom: 1px solid var(--x-line);
+}
+.cap-explain__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: -1px;
+  padding: 6px 0 7px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--x-muted);
+  font: inherit;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+.cap-explain__tab[aria-selected='true'] {
+  color: var(--x-ink);
+  font-weight: 500;
+  border-bottom-color: var(--x-mark);
+}
+.cap-explain__tab:focus-visible {
+  outline: 2px solid var(--x-mark);
+  outline-offset: 2px;
+}
+.cap-explain__wait {
+  width: 10px;
+  height: 10px;
+  border-width: 1.5px;
+}
+.cap-explain__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--x-ink);
+}
+.cap-explain .cap-explain__chunk code {
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+  background: var(--x-chip);
+  font-family: inherit;
+  font-size: 1em;
+  font-weight: 500;
+}
+.cap-explain__warn {
+  font-size: 13px;
+  color: var(--x-warn);
+}
+.cap-explain__colloc {
+  margin: 0;
+  font-size: 13px;
+  color: var(--x-muted);
+}
+.cap-explain .cap-explain__examples {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cap-explain__examples li {
+  padding: 6px 0;
+}
+.cap-explain__examples li + li {
+  border-top: 1px solid var(--x-line);
+}
+.cap-explain__ex {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+.cap-explain__ex .cap-md {
+  flex: 1;
+  min-width: 0;
+}
+.cap-explain__ex-tr {
+  margin-top: 1px;
+  font-size: 13px;
+  color: var(--x-muted);
+}
+.cap-explain__say {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-top: -1px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--x-muted);
+  cursor: pointer;
+}
+.cap-explain__say:hover {
+  background: var(--x-chip);
+  color: var(--x-ink);
+}
+
 /* player text button (inside native look-up and menus) */
 .cap-pbtn {
   display: inline-flex;

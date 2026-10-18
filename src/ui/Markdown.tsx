@@ -22,7 +22,7 @@ const components: Components = {
  */
 export const Markdown = memo(function Markdown({ text }: { text: string }) {
   return (
-    <div className="lr-md">
+    <div className="cap-md">
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components} disallowedElements={['img']} unwrapDisallowed={false} skipHtml>
         {text}
       </ReactMarkdown>

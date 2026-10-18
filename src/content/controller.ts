@@ -6,7 +6,7 @@ import { buildRankMap } from '@/lib/text/frequency-map';
 import { canRomanize } from '@/lib/text/romanize';
 import type { Cue, TrackInfo, TranslationSource } from '@/lib/subtitles/types';
 import { chromeTranslatorState, translateLines } from '@/lib/translate';
-import { listVocab, saveVocab, watchVocab, type VocabItem } from '@/lib/vocab';
+import { listVocab, saveVocab, watchVocab, type SaveInput, type VocabItem } from '@/lib/vocab';
 import { getSession, setSession, type AnchorRect, type MediaInfo, type PopupTarget } from './store';
 
 export interface SiteAdapter {
@@ -689,10 +689,10 @@ export class SessionController {
 
   // ---------- vocabulary ----------
 
-  async saveWord(text: string, status: VocabItem['status'], cueIndex: number, extra?: { translation?: string; notes?: string }) {
+  async saveWord(entry: Pick<SaveInput, 'text' | 'form' | 'translation' | 'notes'>, status: VocabItem['status'], cueIndex: number) {
     const { lang, media } = getSession();
     if (!lang) return;
-    await saveVocab({ lang, text, status, ...extra, context: cueIndex >= 0 ? this.contextFor(cueIndex, media) : undefined });
+    await saveVocab({ lang, ...entry, status, context: cueIndex >= 0 ? this.contextFor(cueIndex, media) : undefined });
   }
 }
 

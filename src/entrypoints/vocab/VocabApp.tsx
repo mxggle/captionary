@@ -304,7 +304,7 @@ function Entry({ item, editing, onEdit, onDone }: { item: VocabItem; editing: bo
         <div className="cap-entry__body" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {sentence && (
             <div lang={item.lang}>
-              <MarkedSentence sentence={sentence} word={item.text} />
+              <MarkedSentence sentence={sentence} word={item.text} forms={item.forms} />
             </div>
           )}
           <div className="cap-field">
@@ -354,7 +354,7 @@ function Entry({ item, editing, onEdit, onDone }: { item: VocabItem; editing: bo
         {sentence && sentence !== item.text && (
           <div lang={item.lang}>
             {/* The highlighter is for words you are learning; known entries stay plain. */}
-            {item.status === 'learning' ? <MarkedSentence sentence={sentence} word={item.text} /> : sentence}
+            {item.status === 'learning' ? <MarkedSentence sentence={sentence} word={item.text} forms={item.forms} /> : sentence}
           </div>
         )}
         {item.context?.translation && <div className="cap-entry__ctx-tr">{item.context.translation}</div>}
@@ -679,7 +679,7 @@ function Review({ items }: { items: VocabItem[] }) {
           {item.translation && <div style={{ fontSize: 22, lineHeight: 1.3 }}>{item.translation}</div>}
           {hasSentence && (
             <div className="cap-ctx" lang={item.lang} style={{ fontSize: 17 }}>
-              <MarkedSentence sentence={sentence} word={item.text} />
+              <MarkedSentence sentence={sentence} word={item.text} forms={item.forms} />
               {item.context?.translation && (
                 <div className="cap-ctx__tr" style={{ fontSize: 14 }}>
                   {item.context.translation}
@@ -714,7 +714,7 @@ function Review({ items }: { items: VocabItem[] }) {
             {hasSentence && (
               <>
                 <div className="cap-ctx" lang={item.lang} style={{ fontSize: 18 }}>
-                  <MarkedSentence sentence={sentence} word={item.text} />
+                  <MarkedSentence sentence={sentence} word={item.text} forms={item.forms} />
                 </div>
                 <button
                   className="cap-btn cap-btn--lg"

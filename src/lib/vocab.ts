@@ -21,6 +21,8 @@ export interface VocabItem {
   text: string;
   /** Normalized key used for matching. */
   key: string;
+  /** Other forms met in text, as written, when `text` is their dictionary form ("holds up" for "hold up"); matched like `key`. */
+  forms?: string[];
   kind: 'word' | 'phrase';
   status: VocabStatus;
   translation?: string;
@@ -55,6 +57,8 @@ export interface SaveInput {
   text: string;
   /** Defaults to 'phrase' when the text contains spaces. */
   kind?: 'word' | 'phrase';
+  /** The selection as written, when `text` is its dictionary form; kept in `forms`. */
+  form?: string;
   status?: VocabStatus;
   translation?: string;
   notes?: string;
@@ -77,16 +81,33 @@ export function vocabKey(text: string, rawLang: string, kindHint?: 'word' | 'phr
   return { id: vocabId(lang, key), key, kind, lang };
 }
 
+/** The keys an item is found by in text: its own and its other forms'. */
+export function vocabKeys(item: VocabItem): string[] {
+  return [item.key, ...(item.forms ?? []).map((f) => vocabKey(f, item.lang, item.kind).key)];
+}
+
+/** The saved item for a word or phrase: saved under it, or under its dictionary form with it as another form. */
+export function findVocab(vocab: Record<string, VocabItem>, text: string, rawLang: string): VocabItem | undefined {
+  const { id, key, lang } = vocabKey(text, rawLang);
+  return vocab[id] ?? Object.values(vocab).find((item) => item.lang === lang && item.forms?.length && vocabKeys(item).includes(key));
+}
+
 export async function saveVocab(input: SaveInput): Promise<VocabItem> {
   const { id, key, kind, lang } = vocabKey(input.text, input.lang, input.kind);
   const existing = await getVocab(id);
   const now = Date.now();
+  const itemKind = existing?.kind ?? kind;
+  const forms = [...(existing?.forms ?? [])];
+  const form = input.form?.trim();
+  const known = new Set([key, ...forms.map((f) => vocabKey(f, lang, itemKind).key)]);
+  if (form && !known.has(vocabKey(form, lang, itemKind).key)) forms.push(form);
   const item: VocabItem = {
     id,
     lang,
     key,
+    ...(forms.length ? { forms } : {}),
     text: existing?.text ?? input.text.trim(),
-    kind: existing?.kind ?? kind,
+    kind: itemKind,
     status: input.status ?? existing?.status ?? 'learning',
     translation: input.translation ?? existing?.translation,
     notes: input.notes ?? existing?.notes,
@@ -181,7 +202,9 @@ export function toAnkiTsv(items: VocabItem[]): string {
   for (const i of items) {
     const sentence = i.context?.sentence ? escapeHtml(i.context.sentence) : '';
     const word = escapeHtml(i.text);
-    const highlighted = sentence ? sentence.split(word).join(`<b>${word}</b>`) : '';
+    // The sentence may hold another form of the entry ("holds up" for "hold up").
+    const mark = [i.text, ...(i.forms ?? [])].map(escapeHtml).find((w) => sentence.includes(w)) ?? word;
+    const highlighted = sentence ? sentence.split(mark).join(`<b>${mark}</b>`) : '';
     const front = highlighted ? `${word}<br><br><i>${highlighted}</i>` : word;
     const backParts = [i.translation, i.context?.translation ? `<i>${escapeHtml(i.context.translation)}</i>` : '', i.notes]
       .filter(Boolean)

@@ -37,7 +37,7 @@ async function readTextFile(file: File): Promise<string> {
 }
 
 /** Below the word when there is room, above it otherwise; inside the reading column. */
-function placeLookup(rect: PopupTarget['rect'], wrap: HTMLElement | null): { style: CSSProperties; maxHeight: number } {
+function placeLookup(rect: PopupTarget['rect'], wrap: HTMLElement | null): { style: CSSProperties; maxHeight: number; growsUp?: boolean } {
   const box = wrap?.getBoundingClientRect();
   if (!box) return { style: { top: 0, left: 0 }, maxHeight: 480 };
   const width = Math.min(380, innerWidth - 32);
@@ -47,7 +47,7 @@ function placeLookup(rect: PopupTarget['rect'], wrap: HTMLElement | null): { sty
   if (below >= 320 || below >= above) {
     return { style: { left, top: rect.top - box.top + rect.height + 8, width }, maxHeight: Math.max(240, below) };
   }
-  return { style: { left, bottom: box.height - (rect.top - box.top) + 8, width }, maxHeight: Math.max(240, above) };
+  return { style: { left, bottom: box.height - (rect.top - box.top) + 8, width }, maxHeight: Math.max(240, above), growsUp: true };
 }
 
 function TextMode({ onMode }: { onMode: (m: ReaderMode) => void }) {
@@ -363,21 +363,23 @@ function TextMode({ onMode }: { onMode: (m: ReaderMode) => void }) {
                   vocab={vocab}
                   style={place.style}
                   maxHeight={place.maxHeight}
+                  growsUp={place.growsUp}
                   mediaTitle={doc.title}
                   rankKnown={!!freq}
                   rank={popup.kind === 'word' && freq ? frequencyRank(freq, normalizeWord(popup.text, popup.lang)) : undefined}
                   onClose={() => setPopup(null)}
-                  onSave={(status, extra) => {
-                    if (!status) return void removeVocab(vocabKey(popup.text, popup.lang).id);
+                  onSave={(status, entry) => {
+                    if (!status) return void removeVocab(vocabKey(entry.text, popup.lang).id);
                     void saveVocab({
                       lang: popup.lang,
-                      text: popup.text,
+                      ...entry,
                       status,
-                      ...extra,
                       context: { sentence: popup.sentence, translation: popup.translation, title: doc.title, url: doc.url, site: 'reader' },
                     });
                   }}
-                  onSelectWord={(sel) => setPopup({ ...popup, kind: 'word', text: sel.text, rect: sel.rect, tokenRange: sel.range })}
+                  onSelectWord={(sel) =>
+                    setPopup({ ...popup, kind: 'word', text: sel.text, rect: sel.rect, tokenRange: sel.range, base: sel.base })
+                  }
                 />
               );
             })()}

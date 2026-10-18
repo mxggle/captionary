@@ -35,6 +35,11 @@ export interface PopupTarget {
   time?: number;
   /** Token range of the selection in its line, kept marked while the look-up is open. */
   tokenRange?: [number, number];
+  /**
+   * Set when the learner followed the chunk the tutor suggested: its dictionary form (its own text
+   * when not inflected), which the entry is saved under.
+   */
+  base?: string;
 }
 
 export interface MediaInfo {

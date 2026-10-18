@@ -48,6 +48,7 @@ function Tutor() {
       setTarget({
         kind: payload.kind,
         text: payload.text,
+        base: payload.base,
         lang: detected,
         cueIndex: -1,
         sentence: payload.sentence ?? payload.text,
@@ -129,13 +130,12 @@ function Tutor() {
             settings={settings}
             aiStatus={aiStatus}
             vocab={vocab}
-            onSave={(status, extra) => {
-              if (!status) return void removeVocab(vocabKey(target.text, target.lang).id);
+            onSave={(status, entry) => {
+              if (!status) return void removeVocab(vocabKey(entry.text, target.lang).id);
               void saveVocab({
                 lang: target.lang,
-                text: target.text,
+                ...entry,
                 status,
-                ...extra,
                 context: { sentence: target.sentence, title: payload?.title, url: payload?.url, site: 'web' },
               });
             }}
@@ -143,6 +143,7 @@ function Tutor() {
               setPayload({
                 kind: 'word',
                 text: sel.text,
+                base: sel.base,
                 sentence: target.sentence,
                 lang: target.lang,
                 url: payload?.url,
