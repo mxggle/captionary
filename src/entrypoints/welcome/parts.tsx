@@ -1,5 +1,6 @@
 import { browser } from '#imports';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useI18n, type UILocale } from '@/lib/i18n';
 import { languageName } from '@/lib/languages';
 import { bg, type AIStatus } from '@/lib/messaging';
 import type { SetupStep } from '@/lib/onboarding';
@@ -57,7 +58,7 @@ export function Step({
 export function Foot({
   onBack,
   onNext,
-  nextLabel = 'Continue',
+  nextLabel,
   quiet,
   disabled,
   note,
@@ -72,18 +73,19 @@ export function Foot({
   note?: ReactNode;
   extra?: ReactNode;
 }) {
+  const { m } = useI18n();
   return (
     <>
       {onBack && (
         <button className="cap-btn cap-btn--ghost cap-btn--lg" onClick={onBack}>
           <IconChevronLeft className="cap-ico" />
-          Back
+          {m.common.back}
         </button>
       )}
       <span className="cap-spacer cap-wizard__note">{note}</span>
       {extra}
       <button className={`cap-btn cap-btn--lg${quiet ? '' : ' cap-btn--primary'}`} disabled={disabled} onClick={onNext}>
-        {nextLabel}
+        {nextLabel ?? m.common.continue}
         <IconArrowRight className="cap-ico" />
       </button>
     </>
@@ -178,6 +180,6 @@ export function useTutorStatus(): [AIStatus | null, () => Promise<void>] {
 }
 
 /** "Chinese (Simplified)" reads as "Chinese" in a sentence. */
-export function shortLanguageName(code: string): string {
-  return languageName(code).replace(/\s*\(.*\)$/, '');
+export function shortLanguageName(code: string, uiLocale?: UILocale): string {
+  return languageName(code, uiLocale).replace(/\s*[(\uff08].*[)\uff09]$/, '');
 }

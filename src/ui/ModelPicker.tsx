@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
+import { useI18n } from '@/lib/i18n';
 import { IconChevronDown } from './icons';
 
 /**
@@ -21,6 +22,7 @@ export function ModelPicker({
   label: string;
   labelledBy?: string;
 }) {
+  const { m } = useI18n();
   const id = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
@@ -108,8 +110,8 @@ export function ModelPicker({
           type="button"
           className="cap-iconbtn cap-iconbtn--sm cap-combo__toggle"
           tabIndex={-1}
-          aria-label={`Show all ${models.length} models`}
-          title={`Show all ${models.length} models`}
+          aria-label={m.options.aiProviders.showAllModels(models.length)}
+          title={m.options.aiProviders.showAllModels(models.length)}
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => {
             if (expanded) return close();

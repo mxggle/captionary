@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { MessageCreateParamsStreaming } from '@anthropic-ai/sdk/resources/beta/messages/messages';
+import { getCurrentUILocale, getMessages } from '../../i18n';
 import { AIError, type ProviderAdapter, type ProviderContext, type ProviderRequest } from '../types';
 import { TRANSLATION_SCHEMA, withThinkingHeadroom } from './shared';
 
@@ -61,7 +62,7 @@ export const anthropicAdapter: ProviderAdapter = {
         yield { type: 'text', text: event.delta.text };
       } else if (event.type === 'message_delta') {
         if (event.delta.stop_reason === 'refusal') {
-          throw new AIError('refusal', 'The model declined to answer this request.');
+          throw new AIError('refusal', getMessages(getCurrentUILocale()).runtime.ai.modelDeclined);
         }
         yield { type: 'usage', usage: { inputTokens, outputTokens: event.usage.output_tokens } };
       }

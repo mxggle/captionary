@@ -7,6 +7,7 @@ import { NetflixAdapter } from '@/content/sites/netflix';
 import { getSession, setSession, useSession } from '@/content/store';
 import { Overlay } from '@/content/ui/Overlay';
 import { PlayerButton } from '@/content/ui/PlayerButton';
+import { getMessages, resolveUILocale } from '@/lib/i18n';
 import { watchSettings } from '@/lib/settings';
 
 /** Netflix's "Audio & Subtitles" button; Captionary's button goes right after it. */
@@ -90,7 +91,8 @@ export default defineContentScript({
       if (currentId !== id) return;
       controller.attachVideo(adapter.getVideo());
       if (!tracks) {
-        setSession({ status: 'error', message: 'Subtitles not found. Reload the page to let Captionary read them.' });
+        const m = getMessages(resolveUILocale(settings));
+        setSession({ status: 'error', message: m.content.errors.netflixSubtitlesNotFound });
         return;
       }
       await controller.startMedia(

@@ -1,3 +1,4 @@
+import { getCurrentUILocale, getMessages } from '@/lib/i18n';
 import { bg } from '@/lib/messaging';
 import { parseTtml, parseVttOrSrt } from '@/lib/subtitles/parse';
 import type { NetflixTrack } from '@/lib/subtitles/netflix';
@@ -101,10 +102,10 @@ export class NetflixAdapter implements SiteAdapter {
 
   async loadTrack(trackId: string): Promise<Cue[]> {
     const track = this.tracks.get(trackId);
-    if (!track) throw new Error('Unknown subtitle track');
+    if (!track) throw new Error(getMessages(getCurrentUILocale()).content.errors.unknownSubtitleTrack);
     // Subtitle files live on Netflix's CDN; the background downloads them.
     if (track.vtt) return parseVttOrSrt(await bg({ type: 'fetch.text', url: track.vtt }));
     if (track.dfxp) return parseTtml(await bg({ type: 'fetch.text', url: track.dfxp }));
-    throw new Error('No downloadable subtitle format');
+    throw new Error(getMessages(getCurrentUILocale()).content.errors.netflixNoDownloadableFormat);
   }
 }

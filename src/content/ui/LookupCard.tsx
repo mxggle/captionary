@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
+import { formatAIError, useI18n } from '@/lib/i18n';
 import { bg, type AIStatus } from '@/lib/messaging';
 import type { Settings } from '@/lib/settings';
 import { canSpeak, speak } from '@/lib/tts';
@@ -96,6 +97,7 @@ const SETTINGS_ERRORS = ['missing_key', 'auth', 'permission', 'not_configured', 
  * after Explain or More.
  */
 export function LookupCard(props: LookupCardProps) {
+  const { m } = useI18n();
   const { target, settings, aiStatus, vocab, place, fixed, onClose } = props;
   const isWord = target.kind === 'word';
   const autoExplain = explainsAtOnce(target, aiStatus);
@@ -135,7 +137,8 @@ export function LookupCard(props: LookupCardProps) {
     lookup.ask(question);
     setQuestion('');
   };
-  const band = rankBand(props.rank, !!props.rankKnown);
+  const rawBand = rankBand(props.rank, !!props.rankKnown);
+  const band = rawBand === 'rarer' ? m.lookup.rarer : rawBand;
   const posLabel = view === 'more' ? 'Wiktionary' : [lookup.pos, band].filter(Boolean).join(' · ');
   const learning = saved?.status === 'learning';
   const known = saved?.status === 'known';
@@ -149,7 +152,7 @@ export function LookupCard(props: LookupCardProps) {
       className={`cap-lookup cap-lookup--native${expanded ? ' is-expanded' : ''}${fixed ? ' is-fixed' : ''}`}
       style={placement.style}
       role="dialog"
-      aria-label={`Look-up: ${target.text}`}
+      aria-label={m.lookup.lookupAria(target.text)}
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => e.stopPropagation()}
@@ -172,15 +175,15 @@ export function LookupCard(props: LookupCardProps) {
             </span>
           )}
           {!isWord && props.onPlayLine && (
-            <button className="cap-picon" aria-label="Play this line" title="Play this line" onClick={props.onPlayLine}>
+            <button className="cap-picon" aria-label={m.lookup.playThisLine} title={m.lookup.playThisLine} onClick={props.onPlayLine}>
               <IconPlay className="cap-ico-lg" />
             </button>
           )}
           {canSpeak() && (
             <button
               className="cap-picon"
-              aria-label="Listen"
-              title="Listen"
+              aria-label={m.common.listen}
+              title={m.common.listen}
               onClick={() => void speak(target.text, target.lang, settings.dictionary.speechRate)}
             >
               <IconSpeaker className="cap-ico-lg" />
@@ -188,7 +191,7 @@ export function LookupCard(props: LookupCardProps) {
           )}
           {isWord && posLabel && <span className="cap-lookup__pos-native">{posLabel}</span>}
           {expanded && (
-            <button className="cap-picon" aria-label="Close (Esc)" title="Close (Esc)" onClick={onClose}>
+            <button className="cap-picon" aria-label={m.common.closeEsc} title={m.common.closeEsc} onClick={onClose}>
               <IconClose className="cap-ico-lg" />
             </button>
           )}
@@ -205,18 +208,18 @@ export function LookupCard(props: LookupCardProps) {
           <div className="cap-lookup__actions">
             <button className="cap-pbtn" aria-pressed={learning} onClick={() => lookup.setStatus('learning')}>
               {learning ? <IconBookmarkFilled className="cap-ico-lg is-learn" /> : <IconBookmark className="cap-ico-lg" />}
-              {learning ? 'Learning' : 'Save'}
+              {learning ? m.common.learning : m.common.save}
             </button>
             <button className="cap-pbtn" aria-pressed={known} onClick={() => lookup.setStatus('known')}>
               <IconCheck className="cap-ico-lg" strokeWidth={2} />
-              Known
+              {m.common.known}
             </button>
             <button className="cap-pbtn" aria-pressed={view === 'explain'} onClick={explain}>
               <IconSpark className="cap-ico-lg" />
-              Explain
+              {m.common.explain}
             </button>
             <span className="cap-spacer" />
-            <button className="cap-picon" aria-label="More: dictionary, copy, open in tutor" title="More" onClick={() => setView('more')}>
+            <button className="cap-picon" aria-label={m.lookup.moreAria} title={m.common.more} onClick={() => setView('more')}>
               <IconMore className="cap-ico-lg" />
             </button>
           </div>
@@ -236,13 +239,13 @@ export function LookupCard(props: LookupCardProps) {
             {lookup.aiReady && (ai.status === 'done' || lookup.turns.length > 0) && (
               <form className="cap-lookup__ask" onSubmit={ask}>
                 <input
-                  aria-label="Ask a follow-up"
-                  placeholder="Ask a follow-up…"
+                  aria-label={m.lookup.askFollowUpLabel}
+                  placeholder={m.lookup.askFollowUpPlaceholder}
                   value={question}
                   maxLength={500}
                   onChange={(e) => setQuestion(e.target.value)}
                 />
-                <button className="cap-picon" type="submit" aria-label="Ask" disabled={!question.trim()}>
+                <button className="cap-picon" type="submit" aria-label={m.lookup.askButton} disabled={!question.trim()}>
                   <IconArrowRight className="cap-ico" />
                 </button>
               </form>
@@ -253,11 +256,11 @@ export function LookupCard(props: LookupCardProps) {
         {view === 'more' && (
           <>
             <div className="cap-lookup__ai cap-lookup__dict">
-              {!settings.dictionary.wiktionary && <p className="cap-lookup__dim">Wiktionary definitions are off in Settings → General.</p>}
+              {!settings.dictionary.wiktionary && <p className="cap-lookup__dim">{m.lookup.wiktionaryOffNote}</p>}
               {lookup.dictState === 'loading' && <span className="cap-spinner" />}
-              {lookup.dictState === 'error' && <p className="cap-lookup__dim">The dictionary is not answering. Try again later.</p>}
+              {lookup.dictState === 'error' && <p className="cap-lookup__dim">{m.lookup.dictError}</p>}
               {lookup.dictState === 'done' && lookup.dict?.entries.length === 0 && (
-                <p className="cap-lookup__dim">No entry for “{target.text}”. It may be an inflected form; Explain asks the tutor.</p>
+                <p className="cap-lookup__dim">{m.lookup.dictEmptyNative(target.text)}</p>
               )}
               {lookup.dict?.entries.slice(0, 3).map((entry, i) => (
                 <div key={i} style={i ? { marginTop: 8 } : undefined}>
@@ -282,7 +285,7 @@ export function LookupCard(props: LookupCardProps) {
                 ))}
                 {props.onOpenSidePanel && (
                   <button className="cap-link" style={{ color: 'var(--link)', textDecoration: 'none' }} onClick={props.onOpenSidePanel}>
-                    Open in side panel
+                    {m.lookup.openInSidePanel}
                   </button>
                 )}
               </p>
@@ -291,11 +294,11 @@ export function LookupCard(props: LookupCardProps) {
             <div className="cap-lookup__actions">
               <button className="cap-pbtn" onClick={() => lookup.copy(target.text)}>
                 <IconCopy className="cap-ico-lg" />
-                Copy
+                {m.common.copy}
               </button>
               <button className="cap-pbtn" onClick={() => setView(ai.status === 'idle' ? 'compact' : 'explain')}>
                 <IconChevronLeft className="cap-ico-lg" />
-                Back
+                {m.common.back}
               </button>
             </div>
           </>
@@ -328,13 +331,14 @@ function TutorNative({
   speechRate: number;
   chunkShown: boolean;
 }) {
+  const { m } = useI18n();
   const { ai } = lookup;
   if (!lookup.aiReady) {
     return (
       <div className="cap-lookup__note">
-        {lookup.aiOff ? 'The tutor is off.' : 'Add an AI tutor to get explanations in context.'}{' '}
+        {lookup.aiOff ? m.lookup.tutorOff : m.lookup.addTutorPrompt}{' '}
         <button className="cap-link" onClick={lookup.aiOff ? openSettings : openSetup}>
-          {lookup.aiOff ? 'Open AI settings' : 'Set up a tutor'}
+          {lookup.aiOff ? m.lookup.openAISettings : m.lookup.setUpTutor}
         </button>
       </div>
     );
@@ -343,22 +347,26 @@ function TutorNative({
     return (
       <div className="cap-lookup__note" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <span className="cap-spinner" />
-        Thinking…
+        {m.common.thinking}
       </div>
     );
   }
   if (ai.status === 'error') {
+    const err = formatAIError(ai.error, m);
     return (
       <>
-        <div className="cap-lookup__error">{ai.error?.message}</div>
+        <div className="cap-lookup__error">
+          <div>{err.primary}</div>
+          {err.detail && <div style={{ fontSize: 11, opacity: 0.8, marginTop: 4 }}>{err.detail}</div>}
+        </div>
         <div className="cap-lookup__actions" style={{ marginTop: 8 }}>
           <button className="cap-pbtn" onClick={lookup.explain}>
             <IconRefresh className="cap-ico-lg" />
-            Retry
+            {m.common.retry}
           </button>
           {SETTINGS_ERRORS.includes(ai.error?.code ?? '') && (
             <button className="cap-pbtn" onClick={openSettings}>
-              Open AI settings
+              {m.lookup.openAISettings}
             </button>
           )}
         </div>
@@ -385,21 +393,27 @@ function TutorNative({
         <div className="cap-lookup__ai-meta">
           <span className="cap-spacer" title={ai.provider}>
             {ai.model}
-            {ai.cached ? ' · cached' : ''}
+            {ai.cached ? ` · ${m.common.cached}` : ''}
           </span>
           <button
             className="cap-picon"
             style={SMALL}
-            aria-label="Copy explanation"
-            title="Copy"
+            aria-label={m.lookup.copyExplanation}
+            title={m.common.copy}
             onClick={() => lookup.copy(lookup.answerText)}
           >
             <IconCopy className="cap-ico" />
           </button>
-          <button className="cap-picon" style={SMALL} aria-label="Save to notes" title="Save to notes" onClick={lookup.saveNotes}>
+          <button
+            className="cap-picon"
+            style={SMALL}
+            aria-label={m.lookup.saveToNotes}
+            title={m.lookup.saveToNotes}
+            onClick={lookup.saveNotes}
+          >
             <IconBookmark className="cap-ico" />
           </button>
-          <button className="cap-picon" style={SMALL} aria-label="Regenerate" title="Regenerate" onClick={lookup.explain}>
+          <button className="cap-picon" style={SMALL} aria-label={m.lookup.regenerate} title={m.lookup.regenerate} onClick={lookup.explain}>
             <IconRefresh className="cap-ico" />
           </button>
         </div>
@@ -409,7 +423,7 @@ function TutorNative({
           <p className="cap-lookup__q">{t.q}</p>
           {t.status === 'error' ? (
             <div className="cap-lookup__error" style={{ padding: 0 }}>
-              {t.error}
+              {formatAIError({ code: 'unknown', message: t.error }, m).primary}
             </div>
           ) : t.a ? (
             <div className={t.status === 'streaming' ? 'cap-cursor' : undefined}>

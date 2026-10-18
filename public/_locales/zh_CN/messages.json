@@ -1,0 +1,14 @@
+{
+  "extName": {
+    "message": "Captionary"
+  },
+  "extDescription": {
+    "message": "在 YouTube、Netflix 和 Apple TV+ 上通过双语字幕、点按查词、生词本和 AI 语境讲解轻松学外语。"
+  },
+  "actionTitle": {
+    "message": "Captionary"
+  },
+  "commandToggleSidepanel": {
+    "message": "打开 AI 导师侧边栏"
+  }
+}

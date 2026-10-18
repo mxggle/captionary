@@ -87,9 +87,25 @@ export function sameLang(a: string | null | undefined, b: string | null | undefi
   return normalizeLang(a) === normalizeLang(b);
 }
 
-export function languageName(code: string): string {
+const ZH_OVERRIDES: Record<string, Record<string, string>> = {
+  'zh-CN': { 'zh-CN': '简体中文', 'zh-TW': '繁体中文', nb: '挪威语', fil: '菲律宾语' },
+  'zh-TW': { 'zh-CN': '簡體中文', 'zh-TW': '繁體中文', nb: '挪威文', fil: '菲律賓文' },
+  ja: { 'zh-CN': '中国語（簡体字）', 'zh-TW': '中国語（繁体字）', nb: 'ノルウェー語', fil: 'フィリピン語' },
+};
+
+export function languageName(code: string, uiLocale?: string): string {
   const norm = normalizeLang(code);
   const found = LANGUAGES.find((l) => l.code === norm);
+  if (uiLocale && uiLocale !== 'en') {
+    const override = ZH_OVERRIDES[uiLocale]?.[norm];
+    if (override) return override;
+    try {
+      const display = new Intl.DisplayNames([uiLocale], { type: 'language' }).of(norm || code);
+      if (display) return display;
+    } catch {
+      // fall through to English
+    }
+  }
   if (found) return found.name;
   try {
     return new Intl.DisplayNames(['en'], { type: 'language' }).of(code) ?? code;

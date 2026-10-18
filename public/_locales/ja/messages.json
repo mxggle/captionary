@@ -1,0 +1,14 @@
+{
+  "extName": {
+    "message": "Captionary"
+  },
+  "extDescription": {
+    "message": "YouTube、Netflix、Apple TV+ で二言語字幕、ポップアップ辞書、単語帳、AI による文脈解説を使って語学学習。"
+  },
+  "actionTitle": {
+    "message": "Captionary"
+  },
+  "commandToggleSidepanel": {
+    "message": "AI チューターのサイドパネルを開く"
+  }
+}

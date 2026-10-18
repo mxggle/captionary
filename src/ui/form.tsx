@@ -1,6 +1,7 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import type { AISettings } from '@/lib/ai/types';
-import { LANGUAGES } from '@/lib/languages';
+import { useI18n } from '@/lib/i18n';
+import { LANGUAGES, languageName } from '@/lib/languages';
 import {
   getAISettings,
   getSettings,
@@ -30,9 +31,6 @@ export function useAISettings(): [AISettings | null, (fn: (s: AISettings) => voi
   return [settings, (fn) => updateAISettings(fn).then(setSettings)];
 }
 
-const LANGUAGE_OPTIONS: SelectOption<string>[] = LANGUAGES.map((l) => ({ value: l.code, label: l.name, text: `${l.name} — ${l.native}` }));
-const AUTO_OPTION: SelectOption<string> = { value: 'auto', label: 'Each video’s language', text: 'Each video’s language (automatic)' };
-
 export function LanguageSelect({
   value,
   onChange,
@@ -52,9 +50,25 @@ export function LanguageSelect({
   style?: CSSProperties;
   className?: string;
 }) {
-  const options = allowAuto ? [AUTO_OPTION, ...LANGUAGE_OPTIONS] : LANGUAGE_OPTIONS;
+  const { locale, m } = useI18n();
+  const options = useMemo<SelectOption<string>[]>(() => {
+    const langOpts = LANGUAGES.map((l) => {
+      const name = languageName(l.code, locale);
+      return { value: l.code, label: name, text: name === l.native ? name : `${name} — ${l.native}` };
+    });
+    if (!allowAuto) return langOpts;
+    return [{ value: 'auto', label: m.languageSelect.autoLabel, text: m.languageSelect.autoText }, ...langOpts];
+  }, [locale, m, allowAuto]);
   // Keep codes we have no name for (a detected language outside the list) selectable.
-  const all = options.some((o) => o.value === value) ? options : [...options, { value, label: value }];
+  const all = useMemo(() => {
+    const list = options.some((o) => o.value === value) ? options : [...options, { value, label: languageName(value, locale) }];
+    const seen = new Set<string>();
+    return list.filter((o) => {
+      if (seen.has(o.value)) return false;
+      seen.add(o.value);
+      return true;
+    });
+  }, [options, value, locale]);
   return (
     <Select
       value={value}

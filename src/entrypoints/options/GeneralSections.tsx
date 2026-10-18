@@ -1,5 +1,6 @@
 import { browser } from '#imports';
 import { useState, type CSSProperties } from 'react';
+import { UI_LANGUAGE_OPTIONS, useI18n } from '@/lib/i18n';
 import {
   aiSettingsItem,
   DEFAULT_SETTINGS,
@@ -8,9 +9,9 @@ import {
   getSettings,
   mergeDefaults,
   settingsItem,
-  SHORTCUT_LABELS,
   type Settings,
   type ShortcutAction,
+  type UILanguage,
 } from '@/lib/settings';
 import { clearCache } from '@/lib/ai/cache';
 import { releaseOrigins } from '@/lib/ai/host-access';
@@ -32,12 +33,18 @@ const LEVELS: Choice<Settings['learnerLevel']>[] = (['A1', 'A2', 'B1', 'B2', 'C1
 
 export function GeneralSection() {
   const [s, set] = useSet();
+  const { m } = useI18n(s);
   if (!s) return null;
+  const g = m.options.general;
+  const uiLangOptions = [
+    { value: 'auto' as UILanguage, label: g.uiLanguageAuto },
+    ...UI_LANGUAGE_OPTIONS.filter((o) => o.value !== 'auto'),
+  ];
   return (
     <>
-      <PageHead title="General" lead="Your languages, where Captionary runs, and how look-ups work." />
-      <SettingsCard title="Languages">
-        <SettingRow title="I’m learning" help="“Each video’s language” follows the original audio of whatever you watch.">
+      <PageHead title={g.title} lead={g.lead} />
+      <SettingsCard title={g.languagesCard}>
+        <SettingRow title={g.imLearning} help={g.imLearningHelp}>
           {(id) => (
             <LanguageSelect
               labelledBy={id}
@@ -47,10 +54,10 @@ export function GeneralSection() {
             />
           )}
         </SettingRow>
-        <SettingRow title="My language" help="Translations and explanations are written in this language.">
+        <SettingRow title={g.myLanguage} help={g.myLanguageHelp}>
           {(id) => <LanguageSelect labelledBy={id} value={s.nativeLanguage} onChange={(v) => set((st) => void (st.nativeLanguage = v))} />}
         </SettingRow>
-        <SettingRow title="My level" help="The tutor pitches explanations at this level.">
+        <SettingRow title={g.myLevel} help={g.myLevelHelp}>
           {(id) => (
             <Segment labelledBy={id} value={s.learnerLevel} options={LEVELS} onChange={(v) => set((st) => void (st.learnerLevel = v))} />
           )}
@@ -58,8 +65,8 @@ export function GeneralSection() {
       </SettingsCard>
 
       <SettingsCard
-        title="Where Captionary runs"
-        action={<Switch label="Captionary on everywhere" checked={s.enabled} onChange={(v) => set((st) => void (st.enabled = v))} />}
+        title={g.whereRunsCard}
+        action={<Switch label={g.captionaryOnEverywhere} checked={s.enabled} onChange={(v) => set((st) => void (st.enabled = v))} />}
       >
         <SettingRow title="YouTube">
           {(id) => <Switch labelledBy={id} checked={s.sites.youtube} onChange={(v) => set((st) => void (st.sites.youtube = v))} />}
@@ -67,13 +74,13 @@ export function GeneralSection() {
         <SettingRow title="Netflix">
           {(id) => <Switch labelledBy={id} checked={s.sites.netflix} onChange={(v) => set((st) => void (st.sites.netflix = v))} />}
         </SettingRow>
-        <SettingRow title="Apple TV+" help="The player on tv.apple.com. Purchases and rentals don’t play on the web.">
+        <SettingRow title="Apple TV+" help={g.appleTvHelp}>
           {(id) => <Switch labelledBy={id} checked={s.sites.appletv} onChange={(v) => set((st) => void (st.sites.appletv = v))} />}
         </SettingRow>
       </SettingsCard>
 
-      <SettingsCard title="Look-ups">
-        <SettingRow title="Instant translation" help="Translate clicked words on this computer with Chrome’s built-in translator.">
+      <SettingsCard title={g.lookupsCard}>
+        <SettingRow title={g.instantTranslation} help={g.instantTranslationHelp}>
           {(id) => (
             <Switch
               labelledBy={id}
@@ -82,14 +89,14 @@ export function GeneralSection() {
             />
           )}
         </SettingRow>
-        <SettingRow title="Wiktionary definitions" help="Free dictionary entries under More. Definitions are in English.">
+        <SettingRow title={g.wiktionary} help={g.wiktionaryHelp}>
           {(id) => (
             <Switch labelledBy={id} checked={s.dictionary.wiktionary} onChange={(v) => set((st) => void (st.dictionary.wiktionary = v))} />
           )}
         </SettingRow>
-        <SettingRow title="Pronunciation speed">
+        <SettingRow title={g.pronunciationSpeed}>
           <Range
-            label="Pronunciation speed"
+            label={g.pronunciationSpeed}
             min={0.5}
             max={1.5}
             step={0.05}
@@ -100,16 +107,26 @@ export function GeneralSection() {
         </SettingRow>
       </SettingsCard>
 
-      <SettingsCard title="Appearance">
-        <SettingRow title="Extension pages" help="On video sites Captionary always follows the site’s own look.">
+      <SettingsCard title={g.appearanceCard}>
+        <SettingRow title={g.interfaceLanguage} help={g.interfaceLanguageHelp}>
+          {(id) => (
+            <Select
+              labelledBy={id}
+              value={s.uiLanguage ?? 'auto'}
+              options={uiLangOptions}
+              onChange={(v) => set((st) => void (st.uiLanguage = v))}
+            />
+          )}
+        </SettingRow>
+        <SettingRow title={g.extensionPages} help={g.extensionPagesHelp}>
           {(id) => (
             <Segment
               labelledBy={id}
               value={s.pageTheme}
               options={[
-                { value: 'system', label: 'System' },
-                { value: 'light', label: 'Light' },
-                { value: 'dark', label: 'Dark' },
+                { value: 'system', label: g.themeSystem },
+                { value: 'light', label: g.themeLight },
+                { value: 'dark', label: g.themeDark },
               ]}
               onChange={(v) => set((st) => void (st.pageTheme = v))}
             />
@@ -127,6 +144,7 @@ const PREVIEW = {
 
 /** A live preview of the caption settings in each host's caption style. */
 function CaptionPreview({ s }: { s: Settings }) {
+  const { m } = useI18n(s);
   const [host, setHost] = useState<'youtube-dark' | 'netflix' | 'appletv'>('youtube-dark');
   const sub = s.subtitles;
   // The frame is about 760px wide; captions are tuned for a 1000px player.
@@ -141,11 +159,11 @@ function CaptionPreview({ s }: { s: Settings }) {
   };
   return (
     <SettingsCard
-      title="Preview"
+      title={m.options.subtitles.previewCard}
       style={{ overflow: 'hidden' }}
       action={
         <Segment
-          label="Preview as"
+          label={m.options.subtitles.previewAs}
           value={host}
           options={[
             { value: 'youtube-dark', label: 'YouTube' },
@@ -170,7 +188,7 @@ function CaptionPreview({ s }: { s: Settings }) {
               className={`cap-cap cap-cap--tr${sub.blurTranslation ? ' is-blurred' : ''}`}
               style={{ fontSize: Math.round(size * sub.translationScale) }}
             >
-              {PREVIEW.translation}
+              {m.options.subtitles.previewTranslation}
             </div>
           )}
         </div>
@@ -179,42 +197,55 @@ function CaptionPreview({ s }: { s: Settings }) {
   );
 }
 
-const ENGINE_OPTIONS = [
-  {
-    value: 'platform',
-    label: 'The site’s auto-translate',
-    meta: 'then on-device',
-    text: 'The site’s auto-translate, then on-device, then the tutor',
-  },
-  { value: 'chrome', label: 'On-device translation', meta: 'Chrome', text: 'On-device translation (Chrome)' },
-  { value: 'ai', label: 'The tutor', meta: 'uses requests', text: 'The tutor (AI provider, uses requests)' },
-  { value: 'none', label: 'No translation' },
-] as const;
-
 export function SubtitlesSection() {
   const [s, set] = useSet();
+  const { m } = useI18n(s);
   if (!s) return null;
   const sub = s.subtitles;
   const keys = s.shortcuts;
+  const t = m.options.subtitles;
+  const engineOptions = [
+    {
+      value: 'platform' as const,
+      label: t.enginePlatformLabel,
+      meta: t.enginePlatformMeta,
+      text: t.enginePlatformText,
+    },
+    { value: 'chrome' as const, label: t.engineChromeLabel, meta: t.engineChromeMeta, text: t.engineChromeText },
+    { value: 'ai' as const, label: t.engineAiLabel, meta: t.engineAiMeta, text: t.engineAiText },
+    { value: 'none' as const, label: t.engineNoneLabel },
+  ];
   const steps = [0.1, 0.25].includes(s.playback.rateStep) ? [0.1, 0.25] : [0.1, 0.25, s.playback.rateStep].sort((a, b) => a - b);
-  const k = (key: string) => key && <span className="cap-kbd">{keyLabel(key)}</span>;
+  const k = (key: string) => key && <span className="cap-kbd">{keyLabel(key, m.common.space)}</span>;
   return (
     <>
-      <PageHead title="Subtitles & playback" lead="How captions look on the video and how playback helps you follow along." />
+      <PageHead title={t.title} lead={t.lead} />
       <CaptionPreview s={s} />
 
-      <SettingsCard title="On the video">
-        <SettingRow title={<>Original subtitle {k(keys.toggleOriginal)}</>}>
+      <SettingsCard title={t.onVideoCard}>
+        <SettingRow
+          title={
+            <>
+              {t.originalSubtitle} {k(keys.toggleOriginal)}
+            </>
+          }
+        >
           {(id) => (
             <Switch labelledBy={id} checked={sub.showOriginal} onChange={(v) => set((st) => void (st.subtitles.showOriginal = v))} />
           )}
         </SettingRow>
-        <SettingRow title={<>Translation {k(keys.toggleTranslation)}</>}>
+        <SettingRow
+          title={
+            <>
+              {t.translation} {k(keys.toggleTranslation)}
+            </>
+          }
+        >
           {(id) => (
             <Switch labelledBy={id} checked={sub.showTranslation} onChange={(v) => set((st) => void (st.subtitles.showTranslation = v))} />
           )}
         </SettingRow>
-        <SettingRow title="Romanization" help="Pinyin, romaji or Latin letters under Chinese, Japanese, Korean, Russian, Greek and more.">
+        <SettingRow title={t.romanization} help={t.romanizationHelp}>
           {(id) => (
             <Switch
               labelledBy={id}
@@ -223,34 +254,34 @@ export function SubtitlesSection() {
             />
           )}
         </SettingRow>
-        <SettingRow title="Blur translation until hover" help="Try to understand first, then check.">
+        <SettingRow title={t.blurTranslation} help={t.blurTranslationHelp}>
           {(id) => (
             <Switch labelledBy={id} checked={sub.blurTranslation} onChange={(v) => set((st) => void (st.subtitles.blurTranslation = v))} />
           )}
         </SettingRow>
-        <SettingRow title="Underline saved words">
+        <SettingRow title={t.underlineSaved}>
           {(id) => (
             <Segment
               labelledBy={id}
               value={sub.highlight}
               options={[
-                { value: 'learning', label: 'Learning' },
-                { value: 'all', label: 'All saved' },
-                { value: 'none', label: 'None' },
+                { value: 'learning', label: t.highlightLearning },
+                { value: 'all', label: t.highlightAll },
+                { value: 'none', label: t.highlightNone },
               ]}
               onChange={(v) => set((st) => void (st.subtitles.highlight = v))}
             />
           )}
         </SettingRow>
         <SettingRow
-          title="Colour words by frequency"
+          title={t.frequencyColors}
           help={
             <>
-              Underlines rarer words in three colours. Downloads a word list once per language from the{' '}
+              {t.frequencyColorsHelpBefore}
               <a href="https://github.com/hermitdave/FrequencyWords" target="_blank" rel="noopener noreferrer">
-                OpenSubtitles frequency lists
+                {t.frequencyColorsLink}
               </a>
-              .
+              {t.frequencyColorsHelpAfter}
             </>
           }
         >
@@ -260,10 +291,10 @@ export function SubtitlesSection() {
         </SettingRow>
       </SettingsCard>
 
-      <SettingsCard title="Size and position">
-        <SettingRow title="Text size" help="At a 1000-pixel-wide player; scales with the player.">
+      <SettingsCard title={t.sizePositionCard}>
+        <SettingRow title={t.textSize} help={t.textSizeHelp}>
           <Range
-            label="Text size"
+            label={t.textSize}
             min={14}
             max={48}
             value={sub.fontSize}
@@ -271,9 +302,9 @@ export function SubtitlesSection() {
             onChange={(v) => set((st) => void (st.subtitles.fontSize = v))}
           />
         </SettingRow>
-        <SettingRow title="Translation size">
+        <SettingRow title={t.translationSize}>
           <Range
-            label="Translation size"
+            label={t.translationSize}
             min={0.5}
             max={1.2}
             step={0.05}
@@ -282,9 +313,9 @@ export function SubtitlesSection() {
             onChange={(v) => set((st) => void (st.subtitles.translationScale = v))}
           />
         </SettingRow>
-        <SettingRow title="Distance from the bottom">
+        <SettingRow title={t.bottomDistance}>
           <Range
-            label="Distance from the bottom"
+            label={t.bottomDistance}
             min={2}
             max={40}
             value={sub.bottomOffset}
@@ -292,7 +323,7 @@ export function SubtitlesSection() {
             onChange={(v) => set((st) => void (st.subtitles.bottomOffset = v))}
           />
         </SettingRow>
-        <SettingRow title="Hide the site’s own subtitles">
+        <SettingRow title={t.hideNativeSubtitles}>
           {(id) => (
             <Switch
               labelledBy={id}
@@ -303,33 +334,34 @@ export function SubtitlesSection() {
         </SettingRow>
       </SettingsCard>
 
-      <SettingsCard title="Translation">
-        <SettingRow
-          title="When the video has no subtitles in your language"
-          help="A human subtitle track is always used first when there is one."
-        >
+      <SettingsCard title={t.translationCard}>
+        <SettingRow title={t.whenNoSubtitles} help={t.whenNoSubtitlesHelp}>
           {(id) => (
             <Select
               labelledBy={id}
               style={{ minWidth: 260 }}
               value={sub.translationEngine}
-              options={[...ENGINE_OPTIONS]}
+              options={engineOptions}
               onChange={(v) => set((st) => void (st.subtitles.translationEngine = v))}
             />
           )}
         </SettingRow>
       </SettingsCard>
 
-      <SettingsCard title="Playback and the subtitle list">
+      <SettingsCard title={t.playbackCard}>
         <SettingRow
-          title={<>Pause after each line {k(keys.toggleAutoPause)}</>}
-          help="Stops at the end of every subtitle so you can read and repeat."
+          title={
+            <>
+              {t.pauseAfterEachLine} {k(keys.toggleAutoPause)}
+            </>
+          }
+          help={t.pauseAfterEachLineHelp}
         >
           {(id) => (
             <Switch labelledBy={id} checked={s.playback.autoPause} onChange={(v) => set((st) => void (st.playback.autoPause = v))} />
           )}
         </SettingRow>
-        <SettingRow title="Pause while the pointer is on the subtitles">
+        <SettingRow title={t.pauseOnHover}>
           {(id) => (
             <Switch labelledBy={id} checked={s.playback.pauseOnHover} onChange={(v) => set((st) => void (st.playback.pauseOnHover = v))} />
           )}
@@ -337,7 +369,7 @@ export function SubtitlesSection() {
         <SettingRow
           title={
             <>
-              Speed step {k(keys.slower)} {k(keys.faster)}
+              {t.speedStep} {k(keys.slower)} {k(keys.faster)}
             </>
           }
         >
@@ -351,12 +383,16 @@ export function SubtitlesSection() {
           )}
         </SettingRow>
         <SettingRow
-          title={<>Show the subtitle list {k(keys.toggleSidebar)}</>}
-          help="In YouTube’s side column. In fullscreen, on Netflix and on Apple TV+ it opens as a drawer with the same key."
+          title={
+            <>
+              {t.showSubtitleList} {k(keys.toggleSidebar)}
+            </>
+          }
+          help={t.showSubtitleListHelp}
         >
           {(id) => <Switch labelledBy={id} checked={s.sidebar.open} onChange={(v) => set((st) => void (st.sidebar.open = v))} />}
         </SettingRow>
-        <SettingRow title="Follow playback in the list">
+        <SettingRow title={t.followPlayback}>
           {(id) => (
             <Switch labelledBy={id} checked={s.sidebar.autoScroll} onChange={(v) => set((st) => void (st.sidebar.autoScroll = v))} />
           )}
@@ -385,13 +421,16 @@ function KeyButton({
   clashWith?: ShortcutAction;
   onChange: (k: string) => void;
 }) {
+  const { m } = useI18n();
   const [listening, setListening] = useState(false);
-  const label = SHORTCUT_LABELS[action];
-  const state = value ? `${keyLabel(value)}${clashWith ? `, clashes with ${SHORTCUT_LABELS[clashWith]}` : ''}` : 'unassigned';
+  const label = m.shortcuts[action];
+  const state = value
+    ? `${keyLabel(value)}${clashWith ? m.options.shortcuts.clashesWith(m.shortcuts[clashWith]) : ''}`
+    : m.options.shortcuts.unassigned;
   return (
     <button
       className={`cap-kbd cap-kbd--lg${listening ? ' is-listening' : ''}${clashWith ? ' is-clash' : ''}${value ? '' : ' is-empty'}`}
-      aria-label={`${label}: ${state}. Press to change`}
+      aria-label={m.options.shortcuts.pressToChange(label, state)}
       onClick={() => setListening(true)}
       onBlur={() => setListening(false)}
       onKeyDown={(e) => {
@@ -403,20 +442,21 @@ function KeyButton({
         setListening(false);
       }}
     >
-      {listening ? 'Press a key…' : value ? keyLabel(value) : '—'}
+      {listening ? m.options.shortcuts.pressAKey : value ? keyLabel(value) : '—'}
     </button>
   );
 }
 
-const KEY_GROUPS: { title: string; rows: (ShortcutAction | [ShortcutAction, ShortcutAction])[] }[] = [
-  { title: 'Moving between lines', rows: ['prevLine', 'repeatLine', 'nextLine', 'toggleAutoPause', 'togglePlay', ['slower', 'faster']] },
-  { title: 'What you see', rows: ['toggleTranslation', 'toggleOriginal', 'toggleSidebar'] },
-  { title: 'Learning', rows: ['explainLine', 'saveLine'] },
-];
-
 export function ShortcutsSection() {
   const [s, set] = useSet();
+  const { m } = useI18n(s);
   if (!s) return null;
+  const sc = m.options.shortcuts;
+  const keyGroups: { title: string; rows: (ShortcutAction | [ShortcutAction, ShortcutAction])[] }[] = [
+    { title: sc.groupMoving, rows: ['prevLine', 'repeatLine', 'nextLine', 'toggleAutoPause', 'togglePlay', ['slower', 'faster']] },
+    { title: sc.groupSeeing, rows: ['toggleTranslation', 'toggleOriginal', 'toggleSidebar'] },
+    { title: sc.groupLearning, rows: ['explainLine', 'saveLine'] },
+  ];
   const used = new Map<string, ShortcutAction[]>();
   for (const [a, k] of Object.entries(s.shortcuts) as [ShortcutAction, string][]) if (k) used.set(k, [...(used.get(k) ?? []), a]);
   const clash = (a: ShortcutAction) => {
@@ -426,16 +466,13 @@ export function ShortcutsSection() {
   const assign = (a: ShortcutAction) => (k: string) => set((st) => void (st.shortcuts[a] = k));
   return (
     <>
-      <PageHead
-        title="Keyboard shortcuts"
-        lead="Single keys that work while a video plays. Click a key, then press the new one; Backspace clears it."
-      >
+      <PageHead title={sc.title} lead={sc.lead}>
         <button className="cap-btn cap-btn--lg" onClick={() => set((st) => void (st.shortcuts = { ...DEFAULT_SHORTCUTS }))}>
-          Restore defaults
+          {sc.restoreDefaults}
         </button>
       </PageHead>
 
-      <section className="cap-card" aria-label="Keys in use" style={{ overflowX: 'auto' }}>
+      <section className="cap-card" aria-label={sc.keysInUseAria} style={{ overflowX: 'auto' }}>
         <div className="cap-keymap" aria-hidden="true">
           {KEY_ROWS.map((row, i) => (
             <div key={i} className="cap-keymap__row" style={{ paddingLeft: i * 16 }}>
@@ -454,18 +491,18 @@ export function ShortcutsSection() {
           </span>
           <span className="cap-row" style={{ gap: 6 }}>
             <span className="cap-key cap-key--legend is-site" />
-            Kept free for the site’s own keys
+            {sc.keptFreeLegend}
           </span>
         </div>
       </section>
 
-      {KEY_GROUPS.map((group) => (
+      {keyGroups.map((group) => (
         <SettingsCard key={group.title} title={group.title}>
           {group.rows.map((row) => {
             if (Array.isArray(row)) {
               const [a, b] = row;
               return (
-                <SettingRow key={a} title="Slower · faster">
+                <SettingRow key={a} title={sc.slowerFaster}>
                   <KeyButton action={a} value={s.shortcuts[a]} clashWith={clash(a)} onChange={assign(a)} />
                   <KeyButton action={b} value={s.shortcuts[b]} clashWith={clash(b)} onChange={assign(b)} />
                 </SettingRow>
@@ -473,14 +510,12 @@ export function ShortcutsSection() {
             }
             const other = clash(row);
             const help = other ? (
-              <span style={{ color: 'var(--danger)' }}>
-                {keyLabel(s.shortcuts[row])} is already {SHORTCUT_LABELS[other]}. Pick another key.
-              </span>
+              <span style={{ color: 'var(--danger)' }}>{sc.clashHelp(keyLabel(s.shortcuts[row]), m.shortcuts[other])}</span>
             ) : row === 'togglePlay' && !s.shortcuts[row] ? (
-              'Unassigned: the site’s Space and K already do this.'
+              sc.togglePlayUnassignedHelp
             ) : undefined;
             return (
-              <SettingRow key={row} title={SHORTCUT_LABELS[row]} help={help}>
+              <SettingRow key={row} title={m.shortcuts[row]} help={help}>
                 <KeyButton action={row} value={s.shortcuts[row]} clashWith={other} onChange={assign(row)} />
               </SettingRow>
             );
@@ -489,7 +524,7 @@ export function ShortcutsSection() {
       ))}
 
       <p className="cap-help" style={{ margin: 0 }}>
-        Esc closes the look-up. Alt+L opens the AI tutor; change it at chrome://extensions/shortcuts.
+        {sc.footerHelp}
       </p>
     </>
   );
@@ -519,6 +554,8 @@ function pickFile(accept: string): Promise<{ name: string; text: string } | null
 }
 
 export function DataSection() {
+  const { m } = useI18n();
+  const d = m.options.data;
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [confirming, setConfirming] = useState(false);
   const count = useVocabCount();
@@ -536,20 +573,20 @@ export function DataSection() {
     try {
       const data = JSON.parse(file.text) as { app?: string; settings?: unknown; ai?: unknown };
       // 'language-react' is the app id of backups made before the rename to Captionary.
-      if (data.app !== 'captionary' && data.app !== 'language-react') throw new Error('This is not a Captionary settings file.');
+      if (data.app !== 'captionary' && data.app !== 'language-react') throw new Error(d.notSettingsFileError);
       if (data.settings) await settingsItem.setValue(mergeDefaults(DEFAULT_SETTINGS, data.settings));
       if (data.ai) await aiSettingsItem.setValue(mergeDefaults(await getAISettings(), data.ai));
       setMessage({
         ok: true,
-        text: `Imported settings from ${file.name}. Enter the API keys again under AI providers: exports never contain them.`,
+        text: d.importedSettingsMsg(file.name),
       });
     } catch (err) {
-      setMessage({ ok: false, text: `The import failed: ${(err as Error).message}` });
+      setMessage({ ok: false, text: d.importFailedMsg((err as Error).message) });
     }
   };
   const exportVocab = async (format: 'csv' | 'anki' | 'json') => {
     const items = await listVocab();
-    if (format === 'csv') download(`captionary-words-${stamp}.csv`, `﻿${toCsv(items)}`, 'text/csv');
+    if (format === 'csv') download(`captionary-words-${stamp}.csv`, `\uFEFF${toCsv(items)}`, 'text/csv');
     else if (format === 'anki') download(`captionary-anki-${stamp}.txt`, toAnkiTsv(items), 'text/plain');
     else download(`captionary-words-${stamp}.json`, JSON.stringify(items, null, 2), 'application/json');
   };
@@ -558,9 +595,9 @@ export function DataSection() {
     if (!file) return;
     try {
       const n = await importVocab(JSON.parse(file.text) as VocabItem[]);
-      setMessage({ ok: true, text: `Imported ${n} words from ${file.name}.` });
+      setMessage({ ok: true, text: d.importedWordsMsg(n, file.name) });
     } catch (err) {
-      setMessage({ ok: false, text: `The import failed: ${(err as Error).message}` });
+      setMessage({ ok: false, text: d.importFailedMsg((err as Error).message) });
     }
   };
   const resetAll = async () => {
@@ -569,20 +606,14 @@ export function DataSection() {
     await Promise.all([browser.storage.local.clear(), browser.storage.session.clear(), clearCache(), clearFrequencyLists()]);
     await releaseOrigins((await browser.permissions.getAll()).origins ?? []);
     setConfirming(false);
-    setMessage({ ok: true, text: 'Everything was deleted. Captionary starts fresh.' });
+    setMessage({ ok: true, text: d.resetDoneMsg });
   };
 
   return (
     <>
-      <PageHead
-        title="Data & backup"
-        lead="Everything Captionary keeps lives in this browser. Back it up or move it to another computer."
-      />
-      <SettingsCard title="Saved words" action={count !== null && <span className="cap-tag">{count} items</span>}>
-        <SettingRow
-          title="Export"
-          help="Anki: File → Import the .txt file. Fields are separated by tabs and the sentence has the word in bold."
-        >
+      <PageHead title={d.title} lead={d.lead} />
+      <SettingsCard title={d.savedWordsCard} action={count !== null && <span className="cap-tag">{d.itemsCount(count)}</span>}>
+        <SettingRow title={d.exportTitle} help={d.exportHelp}>
           <button className="cap-btn" onClick={() => void exportVocab('csv')}>
             CSV
           </button>
@@ -590,53 +621,51 @@ export function DataSection() {
             Anki
           </button>
           <button className="cap-btn" onClick={() => void exportVocab('json')}>
-            JSON backup
+            {d.jsonBackup}
           </button>
         </SettingRow>
-        <SettingRow title="Import a JSON backup" help="Words in the file replace saved copies of the same words; everything else is kept.">
+        <SettingRow title={d.importTitle} help={d.importHelp}>
           <button className="cap-btn" onClick={() => void importWords()}>
             <IconUpload className="cap-ico" />
-            Choose file
+            {d.chooseFile}
           </button>
         </SettingRow>
       </SettingsCard>
 
       {message && <Note tone={message.ok ? 'success' : 'danger'}>{message.text}</Note>}
 
-      <SettingsCard title="Settings">
-        <SettingRow
-          title="Export or import settings"
-          help="Includes providers and prompts but never API keys; enter keys again after importing."
-        >
+      <SettingsCard title={d.settingsCard}>
+        <SettingRow title={d.exportImportSettings} help={d.exportImportSettingsHelp}>
           <button className="cap-btn" onClick={() => void exportSettings()}>
-            Export
+            {d.exportBtn}
           </button>
           <button className="cap-btn" onClick={() => void importSettings()}>
-            Import
+            {d.importBtn}
           </button>
         </SettingRow>
       </SettingsCard>
 
-      <SettingsCard title="Start over" style={confirming ? { borderColor: 'var(--danger)' } : undefined}>
+      <SettingsCard title={d.startOverCard} style={confirming ? { borderColor: 'var(--danger)' } : undefined}>
         {confirming ? (
           <div className="cap-card__body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <p style={{ margin: 0 }}>
-              Delete all settings, AI providers, API keys, ChatGPT sign-ins, cached answers and <strong>{count ?? 0} saved words</strong>{' '}
-              from this browser? This can’t be undone. Export a backup first if you might want them back.
+              {d.confirmDeleteTextBefore}
+              <strong>{d.confirmDeleteWords(count ?? 0)}</strong>
+              {d.confirmDeleteTextAfter}
             </p>
             <div className="cap-row">
               <button className="cap-btn cap-btn--danger-fill" onClick={() => void resetAll()}>
-                Delete everything
+                {d.deleteEverything}
               </button>
               <button className="cap-btn cap-btn--ghost" onClick={() => setConfirming(false)}>
-                Cancel
+                {m.common.cancel}
               </button>
             </div>
           </div>
         ) : (
-          <SettingRow title="Delete everything" help="Settings, AI providers, API keys, sign-ins, cached answers and saved words.">
+          <SettingRow title={d.deleteEverything} help={d.deleteEverythingHelp}>
             <button className="cap-btn cap-btn--danger" onClick={() => setConfirming(true)}>
-              Delete everything…
+              {d.deleteEverythingEllipsis}
             </button>
           </SettingRow>
         )}
@@ -647,40 +676,36 @@ export function DataSection() {
 
 export function WelcomeSection() {
   const [s] = useSet();
+  const { m } = useI18n(s);
   if (!s) return null;
+  const w = m.options.welcomeSection;
   const keys = s.shortcuts;
   const key = (k: string) => <span className="cap-kbd">{keyLabel(k)}</span>;
   return (
     <>
-      <PageHead
-        title="Get started"
-        lead="The setup guide takes you through Captionary one question at a time: your languages, the toolbar icon, an optional AI tutor and a short practice."
-      >
+      <PageHead title={w.title} lead={w.lead}>
         <a className="cap-btn cap-btn--primary cap-btn--lg" href="/welcome.html#hello">
-          Open the setup guide
+          {w.openGuide}
         </a>
       </PageHead>
       <section className="cap-card cap-steps" aria-labelledby="welcome-video">
         <div className="cap-step">
           <div className="cap-step__body" style={{ flexBasis: 300 }}>
             <h2 className="cap-h2" id="welcome-video">
-              On a video
+              {w.onAVideo}
             </h2>
-            <p className="cap-step__text">
-              Captions show both languages. Click a word to look it up; drag across words, or Shift+click another word, for a phrase. Find
-              Captionary in the player’s control bar.
-            </p>
+            <p className="cap-step__text">{w.onAVideoText}</p>
             <div className="cap-row" style={{ gap: '6px 12px', fontSize: 13.5, color: 'var(--ink-muted)' }}>
               <span className="cap-row" style={{ gap: 4 }}>
                 {key(keys.prevLine)}
                 {key(keys.repeatLine)}
-                {key(keys.nextLine)} previous · repeat · next
+                {key(keys.nextLine)} {w.prevRepeatNext}
               </span>
               <span className="cap-row" style={{ gap: 4 }}>
-                {key(keys.toggleAutoPause)} pause after each line
+                {key(keys.toggleAutoPause)} {w.pauseAfterEachLine}
               </span>
               <span className="cap-row" style={{ gap: 4 }}>
-                {key(keys.explainLine)} explain the line
+                {key(keys.explainLine)} {w.explainTheLine}
               </span>
             </div>
             <div className="cap-row">
@@ -690,7 +715,7 @@ export function WelcomeSection() {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                Try a YouTube video
+                {w.tryYoutube}
                 <IconExternal className="cap-ico" />
               </a>
             </div>
@@ -701,7 +726,7 @@ export function WelcomeSection() {
                 Pues vámonos <span className="cap-w is-learn">ya</span>.
               </div>
               <div className="cap-cap cap-cap--tr" style={{ fontSize: 11 }}>
-                Then let’s go now.
+                {w.sampleTranslation}
               </div>
             </div>
           </div>

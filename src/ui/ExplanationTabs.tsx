@@ -1,16 +1,12 @@
 import { useId, useState } from 'react';
 import type { WordExplanation, WordSection } from '@/lib/ai/prompts';
+import { useI18n } from '@/lib/i18n';
 import { canSpeak, speak } from '@/lib/tts';
 import { IconChevronRight, IconSpeaker } from './icons';
 import { Markdown } from './Markdown';
 import type { ChunkSuggestion } from './useLookup';
 
 type Tab = Exclude<WordSection, 'meaning'>;
-
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'context', label: 'In context' },
-  { id: 'examples', label: 'Examples' },
-];
 
 /** Markdown marks dropped, for reading a line aloud or showing it as plain text. */
 const plain = (md: string) => md.replace(/\*\*|__|`/g, '');
@@ -32,9 +28,10 @@ export function ExplanationDefinition({ explanation }: { explanation: WordExplan
  * dictionary form: one press looks it up instead and marks it in the line.
  */
 export function ChunkButton({ suggestion, lang, onPick }: { suggestion: ChunkSuggestion; lang: string; onPick: () => void }) {
+  const { m } = useI18n();
   return (
-    <button className="cap-chunk" title={`Look up “${suggestion.text}” instead`} onClick={onPick}>
-      <span className="cap-chunk__label">Phrase</span>
+    <button className="cap-chunk" title={m.lookup.chunkTitle(suggestion.text)} onClick={onPick}>
+      <span className="cap-chunk__label">{m.lookup.chunkLabel}</span>
       <span className="cap-chunk__text" lang={lang}>
         {suggestion.base}
       </span>
@@ -64,15 +61,20 @@ export function ExplanationTabs({
   /** The chunk line is shown above as a `ChunkButton`, so the context leaves it out. */
   chunkShown?: boolean;
 }) {
+  const { m } = useI18n();
   const [tab, setTab] = useState<Tab>('context');
   const id = useId();
   const writing = streaming ? explanation.started[explanation.started.length - 1] : undefined;
   const pending = (t: Tab) => streaming && !explanation.started.includes(t);
+  const tabs: { id: Tab; label: string }[] = [
+    { id: 'context', label: m.lookup.inContextTab },
+    { id: 'examples', label: m.lookup.examplesTab },
+  ];
 
   return (
     <div className="cap-explain">
       <div className="cap-explain__tabs" role="tablist">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.id}
             id={`${id}-${t.id}`}
@@ -83,7 +85,7 @@ export function ExplanationTabs({
             onClick={() => setTab(t.id)}
           >
             {t.label}
-            {pending(t.id) && <span className="cap-spinner cap-explain__wait" aria-label="Loading" />}
+            {pending(t.id) && <span className="cap-spinner cap-explain__wait" aria-label={m.common.loading} />}
           </button>
         ))}
       </div>
@@ -133,6 +135,7 @@ function ExamplesPanel({
   native: string;
   speechRate: number;
 }) {
+  const { m } = useI18n();
   const { collocations, examples } = explanation;
   return (
     <>
@@ -150,8 +153,8 @@ function ExamplesPanel({
                 {canSpeak() && (
                   <button
                     className="cap-explain__say"
-                    aria-label="Listen to this example"
-                    title="Listen"
+                    aria-label={m.lookup.listenExample}
+                    title={m.common.listen}
                     onClick={() => void speak(plain(e.text), lang, speechRate)}
                   >
                     <IconSpeaker className="cap-ico" />

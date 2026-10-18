@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useI18n } from '@/lib/i18n';
 import { sameLang } from '@/lib/languages';
 import { bg } from '@/lib/messaging';
 import { updateSettings } from '@/lib/settings';
@@ -51,8 +52,9 @@ function Highlighted({ text, query }: { text: string; query: string }) {
 }
 
 export function FrequencyLegend({ className = '' }: { className?: string }) {
+  const { m } = useI18n();
   return (
-    <div className={`cap-legend ${className}`.trim()} title="Words underlined by how common they are in film and TV subtitles">
+    <div className={`cap-legend ${className}`.trim()} title={m.content.panel.freqLegendTitle}>
       <span>
         <i style={{ background: 'var(--freq-mid)' }} />
         2k–8k
@@ -63,7 +65,7 @@ export function FrequencyLegend({ className = '' }: { className?: string }) {
       </span>
       <span>
         <i style={{ background: 'var(--freq-vrare)' }} />
-        rarer
+        {m.content.panel.rarer}
       </span>
     </div>
   );
@@ -85,6 +87,7 @@ export function SubtitlePanel({
   /** Replaces the language pair under the title (the reader shows the file name). */
   subtitle?: string;
 }) {
+  const { m, locale } = useI18n();
   const s = useSubtitleData();
   const [tab, setTab] = useState<'subs' | 'saved'>('subs');
   const [searching, setSearching] = useState(false);
@@ -118,7 +121,7 @@ export function SubtitlePanel({
     return all.filter((i) => s.cues[i].text.toLowerCase().includes(q) || s.translations[i]?.toLowerCase().includes(q));
   }, [query, s.cues, s.translations]);
 
-  const choices = useMemo(() => translationChoices(s), [s.tracks, s.originalTrackId, s.site, s.settings, s.aiStatus]);
+  const choices = useMemo(() => translationChoices(s), [s.tracks, s.originalTrackId, s.site, s.settings, s.aiStatus, locale]);
   const savedHere = useMemo(() => {
     const id = s.media?.id;
     return Object.values(s.vocab)
@@ -132,24 +135,26 @@ export function SubtitlePanel({
   const name = fileBase(s.media?.title);
   const copyAll = () => {
     void navigator.clipboard.writeText(toPlainText(s.cues, s.translations));
-    toast('Subtitles copied');
+    toast(m.content.toast.subtitlesCopied);
   };
   const download = () => downloadText(`${name}.srt`, toSrt(s.cues, s.translations));
-  const sub = query.trim() ? `${filtered.length} of ${s.cues.length} lines` : (subtitle ?? (s.status === 'ready' ? languagePair(s) : ''));
+  const sub = query.trim()
+    ? m.content.panel.linesMatchCount(filtered.length, s.cues.length)
+    : (subtitle ?? (s.status === 'ready' ? languagePair(s) : ''));
 
   const head = (
     <div className="cap-panel__head">
       <div className="cap-panel__titles">
-        <h2 className="cap-panel__title">Subtitles</h2>
+        <h2 className="cap-panel__title">{m.content.panel.subtitlesTitle}</h2>
         {sub && <div className="cap-panel__sub">{sub}</div>}
       </div>
       {s.status === 'ready' && (
         <>
           <button
             className="cap-hicon"
-            aria-label="Search subtitles"
+            aria-label={m.content.panel.searchSubtitles}
             aria-pressed={searching}
-            title="Search subtitles"
+            title={m.content.panel.searchSubtitles}
             onClick={() => {
               setSearching(!searching);
               setQuery('');
@@ -159,16 +164,21 @@ export function SubtitlePanel({
             <IconSearch />
           </button>
           {page ? (
-            <button className="cap-hicon" aria-label="Download .srt with translations" title="Download .srt" onClick={download}>
+            <button
+              className="cap-hicon"
+              aria-label={m.content.panel.downloadSrtAria}
+              title={m.content.panel.downloadSrtTitle}
+              onClick={download}
+            >
               <IconDownload />
             </button>
           ) : (
             <button
               className="cap-hicon cap-panel__more"
-              aria-label="More: tracks, copy, download .srt, settings"
+              aria-label={m.content.panel.moreAria}
               aria-haspopup="menu"
               aria-expanded={!!menu}
-              title="More"
+              title={m.common.more}
               onClick={() => setMenu(menu ? null : 'main')}
             >
               <IconMoreVertical />
@@ -177,7 +187,7 @@ export function SubtitlePanel({
         </>
       )}
       {onClose && (
-        <button className="cap-hicon" aria-label={`Close subtitle list${closeKey ? ` (${closeKey})` : ''}`} title="Close" onClick={onClose}>
+        <button className="cap-hicon" aria-label={m.content.panel.closeListAria(closeKey)} title={m.common.close} onClick={onClose}>
           <IconClose />
         </button>
       )}
@@ -186,7 +196,7 @@ export function SubtitlePanel({
 
   if (s.status !== 'ready') {
     return (
-      <aside className={`cap-panel${page ? ' cap-panel--page' : ''}`} aria-label="Captionary subtitles" style={{ height: 'auto' }}>
+      <aside className={`cap-panel${page ? ' cap-panel--page' : ''}`} aria-label={m.content.panel.subtitlesAria} style={{ height: 'auto' }}>
         {head}
         <div
           className={`cap-panel__empty${s.status === 'loading' ? ' is-loading' : ''}${s.status === 'error' ? ' is-error' : ''}`}
@@ -195,24 +205,24 @@ export function SubtitlePanel({
           {s.status === 'loading' && (
             <>
               <span className="cap-spinner" />
-              Loading subtitles…
+              {m.content.panel.loadingSubtitles}
             </>
           )}
-          {s.status === 'idle' && 'Open a video to see its subtitles here.'}
+          {s.status === 'idle' && m.content.panel.idleEmpty}
           {s.status === 'none' && (
             <>
-              <strong>No subtitles for this video</strong>
-              Captionary needs the video’s own captions or a subtitle track. Try another video, or open a subtitle file in the reader.
+              <strong>{m.content.panel.noSubtitlesStrong}</strong>
+              {m.content.panel.noSubtitlesBody}
             </>
           )}
           {s.status === 'error' && (
             <>
-              <strong>The captions didn’t load</strong>
+              <strong>{m.content.panel.errorStrong}</strong>
               {s.message}
               <div style={{ marginTop: 12 }}>
                 <button className="cap-btn cap-btn--sm" onClick={() => controller.retry()}>
                   <IconRefresh className="cap-ico" />
-                  Try again
+                  {m.common.tryAgain}
                 </button>
               </div>
             </>
@@ -223,16 +233,16 @@ export function SubtitlePanel({
   }
 
   return (
-    <aside className={`cap-panel${page ? ' cap-panel--page' : ''}`} aria-label="Captionary subtitles">
+    <aside className={`cap-panel${page ? ' cap-panel--page' : ''}`} aria-label={m.content.panel.subtitlesAria}>
       {head}
       {searching ? (
         <label className="cap-panel__search">
           <IconSearch className="cap-ico" />
-          <span className="cap-sr">Search subtitles</span>
+          <span className="cap-sr">{m.content.panel.searchSubtitles}</span>
           <input
             autoFocus
             value={query}
-            placeholder="Search both lines"
+            placeholder={m.content.panel.searchBothLines}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
               e.stopPropagation();
@@ -243,13 +253,13 @@ export function SubtitlePanel({
             }}
           />
           {query && (
-            <button className="cap-iconbtn cap-iconbtn--sm" aria-label="Clear search" onClick={() => setQuery('')}>
+            <button className="cap-iconbtn cap-iconbtn--sm" aria-label={m.content.panel.clearSearch} onClick={() => setQuery('')}>
               <IconClose className="cap-ico" />
             </button>
           )}
         </label>
       ) : (
-        <div className="cap-panel__chips" role="group" aria-label="Show">
+        <div className="cap-panel__chips" role="group" aria-label={m.content.panel.showGroup}>
           <button
             className={chip}
             aria-pressed={tab === 'subs' && showTr}
@@ -258,7 +268,7 @@ export function SubtitlePanel({
               if (!showTr) void updateSettings((st) => void (st.sidebar.showTranslations = true));
             }}
           >
-            Both lines
+            {m.content.panel.bothLines}
           </button>
           <button
             className={chip}
@@ -268,19 +278,19 @@ export function SubtitlePanel({
               if (showTr) void updateSettings((st) => void (st.sidebar.showTranslations = false));
             }}
           >
-            Original
+            {m.content.panel.original}
           </button>
           <button className={chip} aria-pressed={tab === 'saved'} onClick={() => setTab('saved')}>
-            Saved · {savedHere.length}
+            {m.content.panel.savedTab(savedHere.length)}
           </button>
         </div>
       )}
       {s.frequency && tab === 'subs' && <FrequencyLegend className="cap-panel__legend" />}
       {s.translationStatus === 'error' && tab === 'subs' && (
         <div className="cap-panel__status is-error">
-          <span className="cap-spacer">The translation failed: {s.translationMessage}</span>
+          <span className="cap-spacer">{m.content.panel.translationFailed(s.translationMessage)}</span>
           <button className="cap-btn cap-btn--sm cap-btn--ghost" onClick={() => void controller.selectTranslation(s.translationSource)}>
-            Retry
+            {m.common.retry}
           </button>
         </div>
       )}
@@ -294,7 +304,11 @@ export function SubtitlePanel({
             const selected = s.popup?.surface === 'sidebar' && s.popup.cueIndex === i ? s.popup.tokenRange : undefined;
             return (
               <li key={i} data-i={i} className="cap-cue" aria-current={i === current || undefined}>
-                <button className="cap-cue__time" aria-label={`Play from ${formatTime(cue.start)}`} onClick={() => controller.playCue(i)}>
+                <button
+                  className="cap-cue__time"
+                  aria-label={m.content.panel.playFromAria(formatTime(cue.start))}
+                  onClick={() => controller.playCue(i)}
+                >
                   {formatTime(cue.start)}
                 </button>
                 <div className="cap-cue__body">
@@ -333,7 +347,7 @@ export function SubtitlePanel({
                         <div className="cap-cue__tr">
                           <span className="cap-cue__pending">
                             <span className="cap-spinner" />
-                            translating…
+                            {m.common.translating}
                           </span>
                         </div>
                       )
@@ -353,16 +367,16 @@ export function SubtitlePanel({
                       }}
                     >
                       <IconSpark className="cap-ico" />
-                      Break down
+                      {m.content.panel.breakDown}
                     </button>
                     <button className="cap-btn cap-btn--sm cap-btn--ghost" onClick={() => void controller.saveLine(i)}>
                       <IconBookmark className="cap-ico" />
-                      Save line
+                      {m.content.panel.saveLine}
                     </button>
                     <button
                       className="cap-iconbtn cap-iconbtn--sm"
-                      aria-label="Copy line"
-                      title="Copy line"
+                      aria-label={m.content.panel.copyLine}
+                      title={m.content.panel.copyLine}
                       onClick={() => void navigator.clipboard.writeText(tr ? `${cue.text}\n${tr}` : cue.text)}
                     >
                       <IconCopy className="cap-ico" />
@@ -372,7 +386,7 @@ export function SubtitlePanel({
               </li>
             );
           })}
-          {filtered.length === 0 && <li className="cap-panel__empty">No line contains “{query.trim()}”.</li>}
+          {filtered.length === 0 && <li className="cap-panel__empty">{m.content.panel.noLineMatch(query.trim())}</li>}
         </ol>
       ) : (
         <ol className="cap-panel__list">
@@ -381,7 +395,7 @@ export function SubtitlePanel({
               {v.context?.time !== undefined ? (
                 <button
                   className="cap-cue__time"
-                  aria-label={`Jump to ${formatTime(v.context.time)}`}
+                  aria-label={m.content.panel.jumpToAria(formatTime(v.context.time))}
                   onClick={() => controller.adapter.seek(v.context!.time!)}
                 >
                   {formatTime(v.context.time)}
@@ -397,19 +411,15 @@ export function SubtitlePanel({
                     {v.text}
                   </span>
                   <span className={`cap-tag ${v.status === 'learning' ? 'cap-tag--learn' : 'cap-tag--known'}`}>
-                    {v.status === 'learning' ? 'Learning' : 'Known'}
+                    {v.status === 'learning' ? m.common.learning : m.common.known}
                   </span>
-                  {v.kind === 'phrase' && <span className="cap-tag">phrase</span>}
+                  {v.kind === 'phrase' && <span className="cap-tag">{m.common.phrase}</span>}
                 </div>
                 {v.translation && <div className="cap-cue__tr">{v.translation}</div>}
               </div>
             </li>
           ))}
-          {savedHere.length === 0 && (
-            <li className="cap-panel__empty">
-              Click a word in the subtitles, then Save. Saved words are underlined wherever you meet them again.
-            </li>
-          )}
+          {savedHere.length === 0 && <li className="cap-panel__empty">{m.content.panel.savedEmpty}</li>}
         </ol>
       )}
 
@@ -423,7 +433,7 @@ export function SubtitlePanel({
                 void bg({ type: 'open.page', page: 'vocab' }).catch(() => undefined);
               }}
             >
-              All saved words and export
+              {m.content.panel.allSavedAndExport}
             </a>
             <span className="cap-spacer" />
             <button
@@ -432,7 +442,7 @@ export function SubtitlePanel({
               onClick={() => void controller.saveCurrentLine()}
             >
               <IconBookmark className="cap-ico" />
-              Save current line
+              {m.content.panel.saveCurrentLine}
             </button>
           </div>
         ) : (
@@ -440,12 +450,12 @@ export function SubtitlePanel({
             <IconGlyph className="cap-ico" />
             <span className="cap-spacer">Captionary</span>
             {blur ? (
-              <span>Hover a translation to reveal it</span>
+              <span>{m.content.panel.hoverToReveal}</span>
             ) : (
               <>
-                <span style={{ color: 'var(--ink)' }}>Pause after each line</span>
+                <span style={{ color: 'var(--ink)' }}>{m.content.panel.pauseAfterEachLine}</span>
                 <PlayerSwitch
-                  label="Pause after each line"
+                  label={m.content.panel.pauseAfterEachLine}
                   checked={settings.playback.autoPause}
                   onChange={(v) => void updateSettings((st) => void (st.playback.autoPause = v))}
                 />
@@ -455,10 +465,10 @@ export function SubtitlePanel({
         ))}
 
       {menu && (
-        <div ref={menuRef} role="menu" aria-label="Subtitle options" className="cap-menu cap-menu--page cap-panel__menu">
+        <div ref={menuRef} role="menu" aria-label={m.content.panel.subtitleOptionsAria} className="cap-menu cap-menu--page cap-panel__menu">
           {menu === 'original' ? (
             <>
-              <MenuBack title="Original track" onBack={() => setMenu('main')} />
+              <MenuBack title={m.content.panel.originalTrack} onBack={() => setMenu('main')} />
               <OriginalChoices
                 controller={controller}
                 tracks={originalTracks(s.tracks)}
@@ -468,25 +478,33 @@ export function SubtitlePanel({
             </>
           ) : menu === 'translation' ? (
             <>
-              <MenuBack title="Translation" onBack={() => setMenu('main')} />
+              <MenuBack title={m.content.playerMenu.translation} onBack={() => setMenu('main')} />
               <TranslationChoices controller={controller} choices={choices} current={s.translationSource} onDone={() => setMenu(null)} />
             </>
           ) : (
             <>
-              <MenuRow label="Original track" value={originalValue(s.tracks, s.originalTrackId)} onClick={() => setMenu('original')} />
-              <MenuRow label="Translation" value={translationValue(choices, s.translationSource)} onClick={() => setMenu('translation')} />
+              <MenuRow
+                label={m.content.panel.originalTrack}
+                value={originalValue(s.tracks, s.originalTrackId)}
+                onClick={() => setMenu('original')}
+              />
+              <MenuRow
+                label={m.content.playerMenu.translation}
+                value={translationValue(choices, s.translationSource)}
+                onClick={() => setMenu('translation')}
+              />
               <div className="cap-menu__item">
-                <span className="cap-menu__label">Colour words by frequency</span>
+                <span className="cap-menu__label">{m.content.panel.colourByFrequency}</span>
                 <PlayerSwitch
                   role="menuitemcheckbox"
-                  label="Colour words by frequency"
+                  label={m.content.panel.colourByFrequency}
                   checked={settings.subtitles.frequencyColors}
                   onChange={(v) => void updateSettings((st) => void (st.subtitles.frequencyColors = v))}
                 />
               </div>
               <div className="cap-menu__sep" />
               <MenuRow
-                label="Copy all subtitles"
+                label={m.content.panel.copyAllSubtitles}
                 icon={<IconCopy className="cap-menu__icon" />}
                 chevron={false}
                 onClick={() => {
@@ -495,7 +513,7 @@ export function SubtitlePanel({
                 }}
               />
               <MenuRow
-                label="Download .srt with translations"
+                label={m.content.panel.downloadSrtMenu}
                 icon={<IconDownload className="cap-menu__icon" />}
                 chevron={false}
                 onClick={() => {
@@ -504,7 +522,7 @@ export function SubtitlePanel({
                 }}
               />
               <MenuRow
-                label="Open in the reader"
+                label={m.content.panel.openInReader}
                 icon={<IconDocument className="cap-menu__icon" />}
                 chevron={false}
                 onClick={() => {
@@ -514,7 +532,7 @@ export function SubtitlePanel({
               />
               <div className="cap-menu__sep" />
               <MenuRow
-                label="Captionary settings"
+                label={m.content.panel.captionarySettings}
                 onClick={() => {
                   setMenu(null);
                   void bg({ type: 'open.page', page: 'options', hash: 'subtitles' }).catch(() => undefined);

@@ -2,6 +2,7 @@ import { browser } from '#imports';
 import type { AIErrorInfo, AIJob, AIResult, AIStreamEvent, ProviderKind } from './ai/types';
 import { AIError } from './ai/types';
 import type { DictionaryResult } from './dictionary';
+import { getCurrentUILocale, getMessages } from './i18n';
 
 export interface AIStatus {
   enabled: boolean;
@@ -66,7 +67,7 @@ export interface BgResponseMap {
 /** Send a request to the background and unwrap the response envelope. */
 export async function bg<K extends BgRequest['type']>(msg: Extract<BgRequest, { type: K }>): Promise<BgResponseMap[K]> {
   const res = (await browser.runtime.sendMessage(msg)) as BgResponse<BgResponseMap[K]> | undefined;
-  if (!res) throw new AIError('unknown', 'No response from the extension background.');
+  if (!res) throw new AIError('unknown', getMessages(getCurrentUILocale()).runtime.messaging.noBgResponse);
   if (!res.ok) throw new AIError(res.error.code, res.error.message, res.error.status);
   return res.data;
 }
@@ -89,7 +90,10 @@ export function streamJob(job: AIJob, handlers: StreamHandlers): () => void {
   try {
     port = browser.runtime.connect({ name: AI_PORT });
   } catch (err) {
-    handlers.onError?.({ code: 'unknown', message: (err as Error).message || 'Extension was reloaded; refresh the page.' });
+    handlers.onError?.({
+      code: 'unknown',
+      message: (err as Error).message || getMessages(getCurrentUILocale()).runtime.messaging.extensionReloaded,
+    });
     return () => undefined;
   }
   let finished = false;
@@ -110,7 +114,7 @@ export function streamJob(job: AIJob, handlers: StreamHandlers): () => void {
   port.onDisconnect.addListener(() => {
     if (!finished) {
       finished = true;
-      handlers.onError?.({ code: 'aborted', message: 'Connection to the extension was lost. Refresh the page.' });
+      handlers.onError?.({ code: 'aborted', message: getMessages(getCurrentUILocale()).runtime.messaging.connectionLost });
     }
   });
   port.postMessage({ type: 'run', job });
@@ -132,7 +136,7 @@ export function runJob(job: AIJob, onDelta?: (text: string) => void, signal?: Ab
     });
     signal?.addEventListener('abort', () => {
       cancel();
-      reject(new AIError('aborted', 'Cancelled'));
+      reject(new AIError('aborted', getMessages(getCurrentUILocale()).runtime.ai.requestCancelled));
     });
   });
 }

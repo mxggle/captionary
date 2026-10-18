@@ -47,3 +47,10 @@ section intro when you do. Captionary claims follow the main README; update both
 mirrors the extension's native look-up card: Save / Known / Explain, the "Phrase" suggestion the tutor
 makes, and saving under the dictionary form. Keep it in step with `src/content/ui/LookupCard.tsx` when
 the card changes.
+
+## Localization
+
+`i18n.js` provides client-side localization for `index.html`, `privacy.html`, and `demo.js` in English (`en`),
+Simplified Chinese (`zh-CN`), Traditional Chinese (`zh-TW`), and Japanese (`ja`). It supports `?lang=` URL
+parameters (including aliases like `zh` and `zh-HK`), persists the user's choice in `localStorage`
+(`captionary-site-lang`), and falls back to `navigator.languages` when no explicit choice is set.

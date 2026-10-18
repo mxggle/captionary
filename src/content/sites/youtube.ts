@@ -1,3 +1,4 @@
+import { getCurrentUILocale, getMessages } from '@/lib/i18n';
 import { sameLang } from '@/lib/languages';
 import { parseYouTubeJson3 } from '@/lib/subtitles/parse';
 import type { Cue, TrackInfo } from '@/lib/subtitles/types';
@@ -185,20 +186,20 @@ export class YouTubeAdapter implements SiteAdapter {
       if (await this.waitForToken(videoId, 8000)) body = await get();
     }
     if (!body.trim()) {
-      throw new Error('YouTube did not return subtitles. Press the CC button once to load them, or reload the page.');
+      throw new Error(getMessages(getCurrentUILocale()).content.errors.youtubeNoSubtitlesReturned);
     }
     return parseYouTubeJson3(JSON.parse(body));
   }
 
   async loadTrack(trackId: string): Promise<Cue[]> {
     const track = this.tracks.get(trackId);
-    if (!track) throw new Error('Unknown subtitle track');
+    if (!track) throw new Error(getMessages(getCurrentUILocale()).content.errors.unknownSubtitleTrack);
     return this.fetchCues(track);
   }
 
   async loadPlatformTranslation(trackId: string, lang: string): Promise<Cue[]> {
     const track = this.tracks.get(trackId);
-    if (!track) throw new Error('Unknown subtitle track');
+    if (!track) throw new Error(getMessages(getCurrentUILocale()).content.errors.unknownSubtitleTrack);
     const code = this.translationLanguages.find((l) => sameLang(l.code, lang))?.code ?? ytLangCode(lang);
     return this.fetchCues(track, code);
   }
