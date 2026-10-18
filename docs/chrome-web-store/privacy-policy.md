@@ -1,8 +1,6 @@
 # Captionary Privacy Policy
 
-Draft for publisher review — October 18, 2026. Add an approved public support contact, verify the final release behavior, and publish this policy before entering its URL in the Chrome Web Store. This draft is not yet a live policy.
-
-Checked against the source on October 18, 2026, including optional ChatGPT account sign-in, described below. Interactive sign-in and playback have not been manually validated for this preparation.
+Last updated October 18, 2026.
 
 Captionary helps you learn languages from video subtitles and reading material. This policy describes how the extension handles that material, your study data, and optional AI requests.
 
@@ -74,4 +72,4 @@ You can delete saved vocabulary entries, remove AI provider connections and thei
 
 Update this policy when Captionary's data practices change, and revise the date when publishing a new version.
 
-Public support contact: [PUBLISHER TO ADD BEFORE PUBLICATION].
+Public support contact: https://github.com/mxggle/captionary/issues
