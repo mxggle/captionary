@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { useI18n } from '@/lib/i18n';
 import { listVocab, watchVocab } from '@/lib/vocab';
 import { BrandMark, IconBookmark, IconCards, IconDocument, IconSpark } from './icons';
 
@@ -17,7 +18,9 @@ export type AppPage =
   | 'prompts'
   | 'data';
 
-export const SETTINGS_PAGES: { id: AppPage; label: string }[] = [
+export type SettingsPageId = Exclude<AppPage, 'vocab' | 'review' | 'reader' | 'tutor'>;
+
+export const SETTINGS_PAGES: { id: SettingsPageId; label: string }[] = [
   { id: 'welcome', label: 'Get started' },
   { id: 'general', label: 'General' },
   { id: 'subtitles', label: 'Subtitles & playback' },
@@ -46,6 +49,7 @@ export function useVocabCount(): number | null {
  */
 export function AppShell({ current, narrow, children }: { current: AppPage; narrow?: boolean; children: ReactNode }) {
   const count = useVocabCount();
+  const { m } = useI18n();
   const item = (page: AppPage, href: string, label: string, icon?: ReactNode, n?: ReactNode) => (
     <a key={page} className="cap-nav__item" href={href} aria-current={page === current ? 'page' : undefined}>
       {icon}
@@ -60,12 +64,12 @@ export function AppShell({ current, narrow, children }: { current: AppPage; narr
           <BrandMark />
           Captionary
         </div>
-        {item('vocab', '/vocab.html', 'Saved words', <IconBookmark className="cap-ico" />, count || null)}
-        {item('review', '/vocab.html#review', 'Review', <IconCards className="cap-ico" />)}
-        {item('reader', '/reader.html', 'Reader', <IconDocument className="cap-ico" />)}
-        {item('tutor', '/sidepanel.html#page', 'AI tutor', <IconSpark className="cap-ico" />)}
-        <div className="cap-nav__group">Settings</div>
-        {SETTINGS_PAGES.map((p) => item(p.id, `/options.html#${p.id}`, p.label))}
+        {item('vocab', '/vocab.html', m.nav.savedWords, <IconBookmark className="cap-ico" />, count || null)}
+        {item('review', '/vocab.html#review', m.nav.review, <IconCards className="cap-ico" />)}
+        {item('reader', '/reader.html', m.nav.reader, <IconDocument className="cap-ico" />)}
+        {item('tutor', '/sidepanel.html#page', m.nav.aiTutor, <IconSpark className="cap-ico" />)}
+        <div className="cap-nav__group">{m.nav.settingsGroup}</div>
+        {SETTINGS_PAGES.map((p) => item(p.id, `/options.html#${p.id}`, m.nav.pages[p.id]))}
       </nav>
       <main className="cap-main">
         <div className={`cap-main__inner${narrow ? ' cap-main__inner--narrow' : ''}`}>{children}</div>

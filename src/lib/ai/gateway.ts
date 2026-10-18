@@ -1,4 +1,5 @@
 import { browser } from '#imports';
+import { getCurrentUILocale, getMessages, syncUILocaleFromSettings } from '../i18n';
 import { getAISettings, getSettings } from '../settings';
 import { cacheKey, getCached, putCached } from './cache';
 import { buildPrompt, parseTranslations } from './prompts';
@@ -57,37 +58,37 @@ export function resolveModel(conn: ProviderConnection, route: Pick<TaskRoute, 'm
 /** Map SDK / fetch errors to user-facing error codes. */
 export function toAIError(err: unknown, conn?: ProviderConnection): AIError {
   if (err instanceof AIError) return err;
+  const m = getMessages(getCurrentUILocale()).runtime.ai;
   const e = err as { name?: string; status?: number; message?: string; code?: string };
   const name = e?.name ?? '';
   const message = String(e?.message ?? err ?? 'Unknown error');
-  if (name === 'AbortError' || name === 'APIUserAbortError') return new AIError('aborted', 'Request cancelled.');
+  if (name === 'AbortError' || name === 'APIUserAbortError') return new AIError('aborted', m.requestCancelled);
   if (name === 'TimeoutError' || name === 'APIConnectionTimeoutError' || /timed? ?out/i.test(message)) {
-    return new AIError('timeout', 'The AI provider took too long to answer. Try again or raise the timeout in Settings.');
+    return new AIError('timeout', m.providerTimeout);
   }
   const status = e?.status;
   const local = conn ? PROVIDERS[conn.kind].local : false;
   if (status === 401 && conn?.kind === 'chatgpt') {
-    return new AIError('auth', 'ChatGPT rejected the sign-in. Sign in again in Settings → AI providers.', status);
+    return new AIError('auth', m.chatgptAuthRejected, status);
   }
-  if (status === 401) return new AIError('auth', 'The API key was rejected. Check it in Settings → AI providers.', status);
+  if (status === 401) return new AIError('auth', m.apiKeyRejected, status);
   if (status === 403) {
     if (conn?.kind === 'ollama') {
-      return new AIError('permission', 'Ollama refused the connection. Restart it with OLLAMA_ORIGINS="chrome-extension://*".', status);
+      return new AIError('permission', m.ollamaOriginRefused, status);
     }
-    return new AIError('auth', `Access denied by the provider: ${message}`, status);
+    return new AIError('auth', m.accessDenied(message), status);
   }
   if (status === 402 || (status === 429 && /quota|insufficient|billing|credit/i.test(message))) {
-    return new AIError('quota', 'Your provider account is out of credit or quota.', status);
+    return new AIError('quota', m.outOfQuota, status);
   }
-  if (status === 429) return new AIError('rate_limit', 'Rate limited by the provider. Wait a moment and try again.', status);
-  if (status === 404) return new AIError('bad_request', `Model or endpoint not found: ${message}`, status);
-  if (status && status >= 400 && status < 500) return new AIError('bad_request', message, status);
-  if (status && status >= 500) return new AIError('unavailable', `The provider is having problems (${status}). Try again later.`, status);
+  if (status === 429) return new AIError('rate_limit', m.rateLimited, status);
+  if (status === 404) return new AIError('bad_request', m.modelOrEndpointNotFound(message), status);
+  if (status && status >= 400 && status < 500) {
+    return new AIError('bad_request', message ? `${m.clientError(status)}: ${message}` : m.clientError(status), status);
+  }
+  if (status && status >= 500) return new AIError('unavailable', m.providerProblems(status), status);
   if (name === 'APIConnectionError' || name === 'TypeError' || /fetch|network|connection/i.test(message)) {
-    return new AIError(
-      'network',
-      local ? `Cannot reach ${conn?.baseUrl}. Is the local server running?` : 'Network error while contacting the AI provider.',
-    );
+    return new AIError('network', local ? m.cannotReachLocal(conn?.baseUrl ?? '') : m.networkError);
   }
   return new AIError('unknown', message, status);
 }
@@ -99,10 +100,8 @@ async function ensureHostPermission(conn: ProviderConnection): Promise<void> {
   if (!origins.length) return;
   const granted = await browser.permissions.contains({ origins });
   if (!granted) {
-    throw new AIError(
-      'permission',
-      `Captionary does not have permission to contact ${new URL(conn.baseUrl).host}. Open Settings → AI providers and click "Grant access".`,
-    );
+    const m = getMessages(getCurrentUILocale()).runtime.ai;
+    throw new AIError('permission', m.missingHostPermission(new URL(conn.baseUrl).host));
   }
 }
 
@@ -115,7 +114,8 @@ async function providerContext(conn: ProviderConnection, forceRefresh = false): 
   }
   const apiKey = await getApiKey(conn.id);
   if (info.requiresKey && !apiKey) {
-    throw new AIError('missing_key', `Add your ${info.name} API key in Settings → AI providers.`);
+    const m = getMessages(getCurrentUILocale()).runtime.ai;
+    throw new AIError('missing_key', m.missingApiKey(info.name));
   }
   return { connection: conn, apiKey };
 }
@@ -177,10 +177,12 @@ async function streamWithParamFallback(conn: ProviderConnection, req: ProviderRe
 
 export async function runJob(job: AIJob, opts: RunOptions = {}): Promise<AIResult> {
   const [ai, settings] = await Promise.all([getAISettings(), getSettings()]);
-  if (!ai.enabled) throw new AIError('disabled', 'AI features are turned off in Settings.');
+  syncUILocaleFromSettings(settings);
+  const m = getMessages(getCurrentUILocale()).runtime.ai;
+  if (!ai.enabled) throw new AIError('disabled', m.aiDisabled);
   const route = ai.routes[job.task];
   const primary = resolveConnection(ai, route.connectionId);
-  if (!primary) throw new AIError('not_configured', 'Add an AI provider in Settings → AI providers to get explanations.');
+  if (!primary) throw new AIError('not_configured', m.noProviderConfigured);
 
   const prompt = buildPrompt(job, { ai, nativeLanguage: settings.nativeLanguage, level: settings.learnerLevel });
   const signal = opts.signal ?? new AbortController().signal;
@@ -188,7 +190,7 @@ export async function runJob(job: AIJob, opts: RunOptions = {}): Promise<AIResul
 
   const attempt = async (conn: ProviderConnection, useRouteModel: boolean): Promise<AIResult> => {
     const model = resolveModel(conn, route, useRouteModel);
-    if (!model) throw new AIError('not_configured', `Choose a model for ${conn.label} in Settings → AI.`);
+    if (!model) throw new AIError('not_configured', m.chooseModelFor(conn.label));
     opts.onMeta?.({ model, provider: conn.kind });
     const req: ProviderRequest = {
       model,
@@ -216,7 +218,7 @@ export async function runJob(job: AIJob, opts: RunOptions = {}): Promise<AIResul
     await assertWithinLimit(ai.dailyRequestLimit);
     const { text, usage } = await streamWithParamFallback(conn, req, opts.onDelta);
     void recordRequest(model, usage, false);
-    if (!text.trim()) throw new AIError('unknown', 'The model returned an empty answer. Try again or pick another model.');
+    if (!text.trim()) throw new AIError('unknown', m.emptyAnswer);
     const result: AIResult = { text, model, provider: conn.kind, cached: false, usage };
     if (key && validate(text)) await putCached(key, result);
     return result;

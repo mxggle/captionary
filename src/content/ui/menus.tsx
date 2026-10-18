@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { getCurrentUILocale, getMessages, useI18n } from '@/lib/i18n';
 import { languageName, sameLang } from '@/lib/languages';
 import type { TrackInfo } from '@/lib/subtitles/types';
 import { PlayerSwitch } from '@/ui/controls';
@@ -77,10 +78,11 @@ export function MenuRadio({
 
 /** Sub-page head with a back arrow, like the host's own quality and speed menus. */
 export function MenuBack({ title, onBack }: { title: string; onBack: () => void }) {
+  const { m } = useI18n();
   return (
     <>
       <div className="cap-menu__head">
-        <button type="button" className="cap-menu__back" aria-label="Back" onClick={onBack}>
+        <button type="button" className="cap-menu__back" aria-label={m.common.back} onClick={onBack}>
           <IconChevronLeft className="cap-ico" />
         </button>
         <span className="cap-menu__label">{title}</span>
@@ -97,8 +99,9 @@ export function originalTracks(tracks: TrackInfo[]): TrackInfo[] {
 
 /** The current original track as menus show it: "Español (auto)". */
 export function originalValue(tracks: TrackInfo[], id: string | null): string {
+  const m = getMessages(getCurrentUILocale());
   const t = tracks.find((x) => x.id === id);
-  return t ? trackLabel(t) : 'None';
+  return t ? trackLabel(t) : m.common.none;
 }
 
 /** Tracks in the same language as the current original, for short inline lists. */
@@ -120,21 +123,25 @@ export function OriginalChoices({
   originalTrackId: string | null;
   onDone?: () => void;
 }) {
+  const { m, locale } = useI18n();
   return (
     <>
-      {tracks.length === 0 && <div className="cap-menu__section">No subtitle tracks</div>}
-      {tracks.map((t) => (
-        <MenuRadio
-          key={t.id}
-          label={trackLabel(t)}
-          meta={t.label.includes(languageName(t.lang)) ? undefined : languageName(t.lang)}
-          checked={t.id === originalTrackId}
-          onClick={() => {
-            if (t.id !== originalTrackId) void controller.selectOriginalTrack(t.id);
-            onDone?.();
-          }}
-        />
-      ))}
+      {tracks.length === 0 && <div className="cap-menu__section">{m.content.playerMenu.noSubtitleTracks}</div>}
+      {tracks.map((t) => {
+        const langLabel = languageName(t.lang, locale);
+        return (
+          <MenuRadio
+            key={t.id}
+            label={trackLabel(t)}
+            meta={t.label.includes(langLabel) || t.label.includes(languageName(t.lang)) ? undefined : langLabel}
+            checked={t.id === originalTrackId}
+            onClick={() => {
+              if (t.id !== originalTrackId) void controller.selectOriginalTrack(t.id);
+              onDone?.();
+            }}
+          />
+        );
+      })}
     </>
   );
 }

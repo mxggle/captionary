@@ -1,6 +1,7 @@
 import { browser } from '#imports';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { TabStatus } from '@/content/controller';
+import { useI18n } from '@/lib/i18n';
 import { bg, type AIStatus } from '@/lib/messaging';
 import { setupProgress, type SetupProgress } from '@/lib/onboarding';
 import type { Settings } from '@/lib/settings';
@@ -74,11 +75,12 @@ function hostOf(url: string | undefined): string | null {
 }
 
 function ThisTab({ s, update }: { s: Settings; update: (fn: (s: Settings) => void) => Promise<unknown> }) {
+  const { m } = useI18n(s);
   const { tab, status, setStatus } = useThisTab();
   if (!tab || status === undefined) {
     return (
-      <section className="cap-tile" aria-label="This tab" aria-busy="true">
-        <div className="cap-tile__sub">On this tab</div>
+      <section className="cap-tile" aria-label={m.popup.thisTabAria} aria-busy="true">
+        <div className="cap-tile__sub">{m.popup.onThisTab}</div>
         <span className="cap-spinner" />
       </section>
     );
@@ -87,7 +89,7 @@ function ThisTab({ s, update }: { s: Settings; update: (fn: (s: Settings) => voi
   const head = (title: string, tag: ReactNode) => (
     <div className="cap-row" style={{ flexWrap: 'nowrap' }}>
       <div className="cap-spacer" style={{ minWidth: 0 }}>
-        <div className="cap-tile__sub">On this tab</div>
+        <div className="cap-tile__sub">{m.popup.onThisTab}</div>
         <div className="cap-tile__title cap-ellipsis">{title}</div>
       </div>
       {tag}
@@ -98,18 +100,18 @@ function ThisTab({ s, update }: { s: Settings; update: (fn: (s: Settings) => voi
   if (!status) {
     if (host && VIDEO_HOSTS.test(host)) {
       return (
-        <section className="cap-tile" aria-label="This tab">
-          {head(tab.title ?? host, <Tag tone="warn">Reload</Tag>)}
-          {text('Reload this tab to start Captionary here.')}
+        <section className="cap-tile" aria-label={m.popup.thisTabAria}>
+          {head(tab.title ?? host, <Tag tone="warn">{m.popup.reloadTag}</Tag>)}
+          {text(m.popup.reloadHint)}
         </section>
       );
     }
     return (
-      <section className="cap-tile" aria-label="This tab">
-        {head(host ? `${host} · ${tab.title ?? ''}` : 'This page', <Tag tone="off">No video</Tag>)}
+      <section className="cap-tile" aria-label={m.popup.thisTabAria}>
+        {head(host ? `${host} · ${tab.title ?? ''}` : m.popup.thisPage, <Tag tone="off">{m.popup.noVideoTag}</Tag>)}
         {host ? (
           <>
-            {text('Read it with clickable words, or select any text and right-click → Explain with Captionary.')}
+            {text(m.popup.readerHint)}
             <div>
               <button
                 className="cap-btn cap-btn--primary cap-btn--sm"
@@ -117,57 +119,53 @@ function ThisTab({ s, update }: { s: Settings; update: (fn: (s: Settings) => voi
                 onClick={() => void bg({ type: 'reader.openTab', tabId: tab.id! }).then(() => window.close())}
               >
                 <IconDocument className="cap-ico" />
-                Open this page in the reader
+                {m.popup.openInReader}
               </button>
             </div>
           </>
         ) : (
-          text('Captionary works on YouTube, Netflix and Apple TV+, and in the reader.')
+          text(m.popup.worksOnHint)
         )}
       </section>
     );
   }
 
-  const site = SITE_NAMES[status.site] ?? 'this site';
+  const site = SITE_NAMES[status.site] ?? m.popup.thisSite;
   const title = status.title ? `${status.title} · ${site}` : site;
   if (!status.enabled) {
     return (
-      <section className="cap-tile" aria-label="This tab">
-        {head(title, <Tag tone="off">Off</Tag>)}
-        {text(
-          s.enabled
-            ? `Captionary is off on ${site}. Turn it on in Settings → General.`
-            : 'Captionary is off. Turn it on with the switch above.',
-        )}
+      <section className="cap-tile" aria-label={m.popup.thisTabAria}>
+        {head(title, <Tag tone="off">{m.common.off}</Tag>)}
+        {text(s.enabled ? m.popup.offOnSiteHint(site) : m.popup.offGlobalHint)}
       </section>
     );
   }
   if (!status.title) {
     return (
-      <section className="cap-tile" aria-label="This tab">
-        {head(site, <Tag tone="off">No video</Tag>)}
-        {text('Open a video and Captionary starts on its own.')}
+      <section className="cap-tile" aria-label={m.popup.thisTabAria}>
+        {head(site, <Tag tone="off">{m.popup.noVideoTag}</Tag>)}
+        {text(m.popup.openVideoHint)}
       </section>
     );
   }
   const tag = status.off ? (
-    <Tag tone="off">Off for this video</Tag>
+    <Tag tone="off">{m.popup.offForVideoTag}</Tag>
   ) : status.status === 'ready' ? (
-    <Tag tone="known">Working</Tag>
+    <Tag tone="known">{m.popup.workingTag}</Tag>
   ) : status.status === 'loading' ? (
-    <Tag tone="loading">Loading</Tag>
+    <Tag tone="loading">{m.popup.loadingTag}</Tag>
   ) : status.status === 'none' ? (
-    <Tag tone="warn">No subtitles</Tag>
+    <Tag tone="warn">{m.popup.noSubtitlesTag}</Tag>
   ) : status.status === 'error' ? (
-    <Tag tone="danger">Error</Tag>
+    <Tag tone="danger">{m.popup.errorTag}</Tag>
   ) : (
-    <Tag tone="off">Waiting</Tag>
+    <Tag tone="off">{m.popup.waitingTag}</Tag>
   );
   return (
-    <section className="cap-tile" aria-label="This tab">
+    <section className="cap-tile" aria-label={m.popup.thisTabAria}>
       {head(title, tag)}
       {(status.status === 'none' || status.status === 'error') && status.message && text(status.message)}
-      <div className="cap-row" role="group" aria-label="This video">
+      <div className="cap-row" role="group" aria-label={m.popup.thisVideoGroup}>
         <button
           className="cap-chip cap-chip--sm"
           aria-pressed={status.listOpen}
@@ -178,24 +176,30 @@ function ThisTab({ s, update }: { s: Settings; update: (fn: (s: Settings) => voi
               .catch(() => undefined)
           }
         >
-          Subtitle list <span className="cap-chip__n">{keyLabel(s.shortcuts.toggleSidebar)}</span>
+          {m.popup.subtitleList} <span className="cap-chip__n">{keyLabel(s.shortcuts.toggleSidebar)}</span>
         </button>
         <button
           className="cap-chip cap-chip--sm"
           aria-pressed={s.playback.autoPause}
           onClick={() => void update((st) => void (st.playback.autoPause = !st.playback.autoPause))}
         >
-          Pause after each line <span className="cap-chip__n">{keyLabel(s.shortcuts.toggleAutoPause)}</span>
+          {m.popup.pauseAfterEachLine} <span className="cap-chip__n">{keyLabel(s.shortcuts.toggleAutoPause, m.common.space)}</span>
         </button>
       </div>
     </section>
   );
 }
 
-function TutorStatus({ ai }: { ai: AIStatus | null }) {
+function TutorStatus({ ai, s }: { ai: AIStatus | null; s: Settings }) {
+  const { m } = useI18n(s);
   if (!ai) return <div className="cap-row cap-popup__foot" />;
   const settings = (
-    <button className="cap-iconbtn cap-iconbtn--sm" aria-label="Settings" title="Settings" onClick={() => open('options', 'general')}>
+    <button
+      className="cap-iconbtn cap-iconbtn--sm"
+      aria-label={m.common.settings}
+      title={m.common.settings}
+      onClick={() => open('options', 'general')}
+    >
       <IconSettings className="cap-ico" />
     </button>
   );
@@ -203,7 +207,7 @@ function TutorStatus({ ai }: { ai: AIStatus | null }) {
     return (
       <div className="cap-row cap-popup__foot">
         <span className="cap-dot cap-dot--off" />
-        <span className="cap-spacer">The tutor is off.</span>
+        <span className="cap-spacer">{m.lookup.tutorOff}</span>
         {settings}
       </div>
     );
@@ -212,7 +216,7 @@ function TutorStatus({ ai }: { ai: AIStatus | null }) {
     return (
       <div className="cap-row cap-popup__foot">
         <span className="cap-dot cap-dot--warn" />
-        <span className="cap-spacer">The tutor isn’t set up.</span>
+        <span className="cap-spacer">{m.popup.tutorNotSetUp}</span>
         <a
           href="/welcome.html#tutor"
           onClick={(e) => {
@@ -220,7 +224,7 @@ function TutorStatus({ ai }: { ai: AIStatus | null }) {
             open('welcome', 'tutor');
           }}
         >
-          Set it up
+          {m.popup.setItUp}
         </a>
       </div>
     );
@@ -229,7 +233,8 @@ function TutorStatus({ ai }: { ai: AIStatus | null }) {
     <div className="cap-row cap-popup__foot">
       <span className="cap-dot" />
       <span className="cap-spacer cap-ellipsis">
-        Tutor: {ai.providerName} · <span className="cap-mono">{ai.model}</span>
+        {m.popup.tutorFooter(ai.providerName ?? '')}
+        <span className="cap-mono">{ai.model}</span>
       </span>
       {settings}
     </div>
@@ -237,19 +242,20 @@ function TutorStatus({ ai }: { ai: AIStatus | null }) {
 }
 
 /** Shown until the setup guide is finished, so closing its tab early does not lose it. */
-function FinishSetup() {
+function FinishSetup({ s }: { s: Settings }) {
+  const { m } = useI18n(s);
   const [progress, setProgress] = useState<SetupProgress | null>(null);
   useEffect(() => {
     void setupProgress.getValue().then(setProgress);
   }, []);
   if (!progress || progress.done) return null;
   return (
-    <section className="cap-tile" aria-label="Finish setting up">
-      <div className="cap-tile__title">Finish setting up Captionary</div>
-      <p style={{ margin: 0, fontSize: 13.5, color: 'var(--ink-muted)' }}>Pick your languages and try it out. About two minutes.</p>
+    <section className="cap-tile" aria-label={m.popup.finishSetupAria}>
+      <div className="cap-tile__title">{m.popup.finishSetupTitle}</div>
+      <p style={{ margin: 0, fontSize: 13.5, color: 'var(--ink-muted)' }}>{m.popup.finishSetupHint}</p>
       <div>
         <button className="cap-btn cap-btn--primary cap-btn--sm" onClick={() => open('welcome')}>
-          Continue setup
+          {m.popup.continueSetup}
         </button>
       </div>
     </section>
@@ -259,6 +265,7 @@ function FinishSetup() {
 /** The toolbar pop-up: this tab, your languages, the tools, the tutor. */
 export function Popup() {
   const [s, update] = useSettings();
+  const { m } = useI18n(s);
   const vocab = useVocabMap();
   const [ai, setAi] = useState<AIStatus | null>(null);
   const [windowId, setWindowId] = useState<number | undefined>();
@@ -278,53 +285,51 @@ export function Popup() {
       <div className="cap-row" style={{ flexWrap: 'nowrap', gap: 10 }}>
         <BrandMark />
         <span className="cap-spacer cap-popup__brand">Captionary</span>
-        <Switch label="Captionary on" checked={s.enabled} onChange={(v) => void update((st) => void (st.enabled = v))} />
+        <Switch label={m.popup.captionaryOn} checked={s.enabled} onChange={(v) => void update((st) => void (st.enabled = v))} />
       </div>
 
-      <FinishSetup />
+      <FinishSetup s={s} />
 
       <ThisTab s={s} update={update} />
 
       <div className="cap-popup__sentence">
-        I’m learning{' '}
+        {m.popup.imLearning}{' '}
         <LanguageSelect
           variant="sentence"
-          label="I’m learning"
+          label={m.popup.imLearning}
           allowAuto
           value={s.targetLanguage}
           onChange={(v) => void update((st) => void (st.targetLanguage = v))}
         />{' '}
-        and I speak{' '}
+        {m.popup.andISpeak}{' '}
         <LanguageSelect
           variant="sentence"
-          label="I speak"
+          label={m.popup.iSpeakLabel}
           value={s.nativeLanguage}
           onChange={(v) => void update((st) => void (st.nativeLanguage = v))}
         />
       </div>
 
-      <nav className="cap-golist" aria-label="Captionary pages">
+      <nav className="cap-golist" aria-label={m.popup.pagesNavAria}>
         <button className="cap-go" onClick={() => open('vocab')}>
           <IconBookmark className="cap-ico" />
           <span className="cap-go__text">
-            <span className="cap-go__title">Saved words</span>
-            <span className="cap-go__sub">
-              {counts.learning} learning · {counts.known} known
-            </span>
+            <span className="cap-go__title">{m.nav.savedWords}</span>
+            <span className="cap-go__sub">{m.popup.savedWordsSub(counts.learning, counts.known)}</span>
           </span>
         </button>
         <button className="cap-go" onClick={() => open('vocab', 'review')}>
           <IconCards className="cap-ico" />
           <span className="cap-go__text">
-            <span className="cap-go__title">Review</span>
-            <span className="cap-go__sub">Flashcards from your words</span>
+            <span className="cap-go__title">{m.nav.review}</span>
+            <span className="cap-go__sub">{m.popup.reviewSub}</span>
           </span>
         </button>
         <button className="cap-go" onClick={() => open('reader')}>
           <IconDocument className="cap-ico" />
           <span className="cap-go__text">
-            <span className="cap-go__title">Reader</span>
-            <span className="cap-go__sub">Text, files, local video</span>
+            <span className="cap-go__title">{m.nav.reader}</span>
+            <span className="cap-go__sub">{m.popup.readerSub}</span>
           </span>
         </button>
         <button
@@ -335,14 +340,14 @@ export function Popup() {
         >
           <IconSpark className="cap-ico" />
           <span className="cap-go__text">
-            <span className="cap-go__title">AI tutor</span>
-            <span className="cap-go__sub">Explain any selection</span>
+            <span className="cap-go__title">{m.nav.aiTutor}</span>
+            <span className="cap-go__sub">{m.popup.aiTutorSub}</span>
           </span>
           <span className="cap-kbd">Alt L</span>
         </button>
       </nav>
 
-      <TutorStatus ai={ai} />
+      <TutorStatus ai={ai} s={s} />
     </div>
   );
 }

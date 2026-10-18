@@ -5,9 +5,9 @@ export default defineConfig({
   srcDir: 'src',
   modules: ['@wxt-dev/module-react'],
   manifest: {
-    name: 'Captionary',
-    description:
-      'Learn languages on YouTube, Netflix and Apple TV+ with dual subtitles, a pop-up dictionary, saved words and AI explanations.',
+    default_locale: 'en',
+    name: '__MSG_extName__',
+    description: '__MSG_extDescription__',
     permissions: ['storage', 'unlimitedStorage', 'contextMenus', 'sidePanel', 'scripting', 'activeTab'],
     // Fixed hosts the extension needs for its own features. AI provider hosts are
     // NOT listed here: they are requested at runtime, one origin at a time, when the
@@ -21,12 +21,12 @@ export default defineConfig({
       ...(process.env.LR_E2E ? ['http://localhost/*'] : []),
     ],
     optional_host_permissions: ['https://*/*', 'http://localhost/*', 'http://127.0.0.1/*'],
-    action: { default_title: 'Captionary' },
+    action: { default_title: '__MSG_actionTitle__' },
     side_panel: { default_path: 'sidepanel.html' },
     commands: {
       'open-side-panel': {
         suggested_key: { default: 'Alt+L' },
-        description: 'Open the AI tutor side panel',
+        description: '__MSG_commandToggleSidepanel__',
       },
     },
   },

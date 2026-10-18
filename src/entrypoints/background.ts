@@ -7,13 +7,14 @@ import { hasApiKey } from '@/lib/ai/secrets';
 import { AIError, type AIJob, type AIStreamEvent } from '@/lib/ai/types';
 import { lookupWiktionary } from '@/lib/dictionary';
 import { getFrequencyList } from '@/lib/frequency';
+import { getCurrentUILocale, getMessages, resolveUILocale, syncUILocaleFromSettings } from '@/lib/i18n';
 import { baseLang } from '@/lib/languages';
 import { setupProgress } from '@/lib/onboarding';
 import { romanizeLine } from '@/lib/text/romanize';
 import { romanizeChinese } from '@/lib/text/romanize-zh';
 import { AI_PORT, type AIStatus, type BgRequest, type BgResponse, type SidePanelPayload } from '@/lib/messaging';
 import { readerImport, sidePanelPayload } from '@/lib/session-items';
-import { aiSettingsItem, getAISettings } from '@/lib/settings';
+import { aiSettingsItem, getAISettings, getSettings, watchSettings, type Settings } from '@/lib/settings';
 
 /** Hosts the background will fetch text from on behalf of content scripts (no open proxy). */
 const FETCH_ALLOWLIST = [/\.nflxvideo\.net$/, /^www\.netflix\.com$/, /^vod-[a-z0-9-]+\.tv\.apple\.com$/];
@@ -37,10 +38,10 @@ async function aiStatus(): Promise<AIStatus> {
 async function fetchText(url: string): Promise<string> {
   const parsed = new URL(url);
   if (parsed.protocol !== 'https:' || !FETCH_ALLOWLIST.some((re) => re.test(parsed.hostname))) {
-    throw new AIError('bad_request', 'URL not allowed');
+    throw new AIError('bad_request', getMessages(getCurrentUILocale()).runtime.ai.urlNotAllowed);
   }
   const res = await fetch(parsed, { credentials: 'omit' });
-  if (!res.ok) throw new AIError('network', `Download failed (${res.status})`);
+  if (!res.ok) throw new AIError('network', getMessages(getCurrentUILocale()).runtime.ai.downloadFailedStatus(res.status), res.status);
   return res.text();
 }
 
@@ -66,9 +67,10 @@ async function handle(msg: BgRequest, sender: { tab?: { id?: number; windowId?: 
     case 'ai.status':
       return aiStatus();
     case 'ai.listModels': {
-      const ai = await getAISettings();
+      const [ai, settings] = await Promise.all([getAISettings(), getSettings()]);
+      syncUILocaleFromSettings(settings);
       const conn = ai.connections.find((c) => c.id === msg.connectionId);
-      if (!conn) throw new AIError('not_configured', 'Unknown provider');
+      if (!conn) throw new AIError('not_configured', getMessages(getCurrentUILocale()).runtime.ai.unknownProvider);
       const models = await listModels(conn);
       // Cache the list on the connection so settings pages can show it offline.
       await aiSettingsItem.setValue({
@@ -78,9 +80,10 @@ async function handle(msg: BgRequest, sender: { tab?: { id?: number; windowId?: 
       return models;
     }
     case 'ai.test': {
-      const ai = await getAISettings();
+      const [ai, settings] = await Promise.all([getAISettings(), getSettings()]);
+      syncUILocaleFromSettings(settings);
       const conn = ai.connections.find((c) => c.id === msg.connectionId);
-      if (!conn) throw new AIError('not_configured', 'Unknown provider');
+      if (!conn) throw new AIError('not_configured', getMessages(getCurrentUILocale()).runtime.ai.unknownProvider);
       return testConnection(conn, msg.model);
     }
     case 'dict.lookup':
@@ -104,12 +107,31 @@ async function handle(msg: BgRequest, sender: { tab?: { id?: number; windowId?: 
       return openInReader({ ...msg.doc, text: msg.doc.text.slice(0, 200_000) });
     case 'reader.openTab':
       // Only from the toolbar pop-up (an extension page), which holds the activeTab grant for that tab.
-      if (sender.tab) throw new AIError('bad_request', 'Not allowed from a web page');
+      if (sender.tab) throw new AIError('bad_request', getMessages(getCurrentUILocale()).runtime.ai.notAllowedFromWebPage);
       return openPageInReader(msg.tabId);
   }
 }
 
+function updateContextMenus(settings: Settings) {
+  syncUILocaleFromSettings(settings);
+  const m = getMessages(resolveUILocale(settings));
+  try {
+    browser.contextMenus.update('lr-explain-selection', { title: m.background.contextExplainSelection }, () => {
+      void browser.runtime.lastError;
+    });
+    browser.contextMenus.update('lr-open-reader', { title: m.background.contextOpenReader }, () => {
+      void browser.runtime.lastError;
+    });
+  } catch {
+    // ignore if context menus do not exist yet
+  }
+}
+
 export default defineBackground(() => {
+  void getSettings()
+    .then(syncUILocaleFromSettings)
+    .catch(() => undefined);
+
   browser.runtime.onMessage.addListener((raw, sender, sendResponse) => {
     const msg = raw as BgRequest;
     if (!msg || typeof msg !== 'object' || typeof msg.type !== 'string') return;
@@ -147,15 +169,18 @@ export default defineBackground(() => {
   });
 
   browser.runtime.onInstalled.addListener(async ({ reason }) => {
+    const s = await getSettings();
+    syncUILocaleFromSettings(s);
+    const m = getMessages(resolveUILocale(s));
     browser.contextMenus.removeAll(() => {
       browser.contextMenus.create({
         id: 'lr-explain-selection',
-        title: 'Explain “%s” with Captionary',
+        title: m.background.contextExplainSelection,
         contexts: ['selection'],
       });
       browser.contextMenus.create({
         id: 'lr-open-reader',
-        title: 'Open this page in the Captionary reader',
+        title: m.background.contextOpenReader,
         contexts: ['page'],
       });
     });
@@ -164,6 +189,8 @@ export default defineBackground(() => {
       await browser.tabs.create({ url: browser.runtime.getURL('/welcome.html') });
     }
   });
+
+  watchSettings(updateContextMenus);
 
   browser.contextMenus.onClicked.addListener((info, tab) => {
     if (info.menuItemId === 'lr-explain-selection' && info.selectionText) {

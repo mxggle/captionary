@@ -13,6 +13,7 @@ import { builtinOptions, getLanguageModel } from '@/lib/ai/providers/chrome';
 import { newConnection, PROVIDER_ORDER, providerOrigins, PROVIDERS, validateBaseUrl } from '@/lib/ai/registry';
 import { getApiKey, maskKey, removeApiKey, setApiKey } from '@/lib/ai/secrets';
 import type { AIError, AISettings, ProviderConnection, ProviderKind } from '@/lib/ai/types';
+import { useI18n } from '@/lib/i18n';
 import { bg } from '@/lib/messaging';
 import type { TestResult } from '@/lib/ai/gateway';
 import { Note, PageHead } from '@/ui/controls';
@@ -22,28 +23,11 @@ import { ModelPicker } from '@/ui/ModelPicker';
 
 type UpdateAI = (fn: (s: AISettings) => void) => Promise<unknown>;
 
-/** Names and one-line notes in the "Add a provider" grid. */
-const PICKS: Record<ProviderKind, { name: string; note: string }> = {
-  openai: { name: 'OpenAI', note: 'API key' },
-  chatgpt: { name: 'ChatGPT', note: 'Sign in · uses your plan' },
-  anthropic: { name: 'Anthropic (Claude)', note: 'API key' },
-  gemini: { name: 'Google Gemini', note: 'API key' },
-  openrouter: { name: 'OpenRouter', note: 'API key · many models' },
-  deepseek: { name: 'DeepSeek', note: 'API key' },
-  groq: { name: 'Groq', note: 'API key · very fast' },
-  mistral: { name: 'Mistral', note: 'API key' },
-  xai: { name: 'xAI (Grok)', note: 'API key' },
-  ollama: { name: 'Ollama', note: 'On this computer · free' },
-  lmstudio: { name: 'LM Studio', note: 'On this computer · free' },
-  'openai-compatible': { name: 'OpenAI-compatible', note: 'Your own endpoint' },
-  'chrome-builtin': { name: 'Chrome built-in AI', note: 'Gemini Nano · no account' },
-};
-
-function hostOf(url: string): string {
+function hostOf(url: string, fallback: string): string {
   try {
     return new URL(url).host;
   } catch {
-    return 'this server';
+    return fallback;
   }
 }
 
@@ -66,6 +50,8 @@ function useHostPermission(conn: ProviderConnection): [boolean | null, () => Pro
 }
 
 function ApiKeyField({ conn }: { conn: ProviderConnection }) {
+  const { m } = useI18n();
+  const ap = m.options.aiProviders;
   const info = PROVIDERS[conn.kind];
   const id = useId();
   const [stored, setStored] = useState<string | null>(null);
@@ -90,11 +76,12 @@ function ApiKeyField({ conn }: { conn: ProviderConnection }) {
     <div className="cap-field">
       <div className="cap-row" style={{ justifyContent: 'space-between' }}>
         <label className="cap-label" htmlFor={id}>
-          API key{info.requiresKey ? '' : ' (optional)'}
+          {ap.apiKeyLabel}
+          {info.requiresKey ? '' : ap.optionalSuffix}
         </label>
         {info.keyUrl && (
           <a href={info.keyUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13 }}>
-            Get a key
+            {ap.getKey}
           </a>
         )}
       </div>
@@ -104,7 +91,7 @@ function ApiKeyField({ conn }: { conn: ProviderConnection }) {
             id={id}
             className="cap-input cap-input--mono"
             type={show ? 'text' : 'password'}
-            placeholder={info.keyPlaceholder ?? 'Paste your API key'}
+            placeholder={info.keyPlaceholder ?? ap.pasteApiKey}
             value={draft}
             autoComplete="off"
             spellCheck={false}
@@ -112,14 +99,14 @@ function ApiKeyField({ conn }: { conn: ProviderConnection }) {
             onKeyDown={(e) => e.key === 'Enter' && void save()}
           />
           <button className="cap-btn" onClick={() => setShow(!show)}>
-            {show ? 'Hide' : 'Show'}
+            {show ? ap.hide : ap.show}
           </button>
           <button className="cap-btn cap-btn--primary" disabled={!draft.trim()} onClick={() => void save()}>
-            Save key
+            {ap.saveKey}
           </button>
           {stored && (
             <button className="cap-btn cap-btn--ghost" onClick={() => setEditing(false)}>
-              Cancel
+              {m.common.cancel}
             </button>
           )}
         </div>
@@ -127,7 +114,7 @@ function ApiKeyField({ conn }: { conn: ProviderConnection }) {
         <div className="cap-row" style={{ flexWrap: 'nowrap' }}>
           <input id={id} className="cap-input cap-input--mono" readOnly value={maskKey(stored)} />
           <button className="cap-btn" onClick={() => setEditing(true)}>
-            Replace
+            {ap.replace}
           </button>
           <button
             className="cap-btn cap-btn--ghost cap-btn--danger"
@@ -137,11 +124,11 @@ function ApiKeyField({ conn }: { conn: ProviderConnection }) {
               setEditing(true);
             }}
           >
-            Remove
+            {m.common.remove}
           </button>
         </div>
       )}
-      <span className="cap-help">Stored only on this computer, never synced or exported, and sent only to {info.name}.</span>
+      <span className="cap-help">{ap.apiKeyHelp(info.name)}</span>
     </div>
   );
 }
@@ -149,6 +136,8 @@ function ApiKeyField({ conn }: { conn: ProviderConnection }) {
 const titleCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 function ChatGPTAccountField({ conn }: { conn: ProviderConnection }) {
+  const { m } = useI18n();
+  const ap = m.options.aiProviders;
   const [account, setAccount] = useState<ChatGPTAccount | null | undefined>(undefined);
   const [pending, setPending] = useState<AbortController | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -164,7 +153,7 @@ function ChatGPTAccountField({ conn }: { conn: ProviderConnection }) {
     setError(null);
     // Ask inside the click so Chrome shows its prompt (no prompt if already granted).
     if (!(await requestOrigins(SIGN_IN_ORIGINS))) {
-      return setError('Captionary needs access to chatgpt.com and auth.openai.com, and to localhost to read the sign-in result.');
+      return setError(ap.chatgptPermissionError);
     }
     const abort = new AbortController();
     setPending(abort);
@@ -180,43 +169,37 @@ function ChatGPTAccountField({ conn }: { conn: ProviderConnection }) {
 
   return (
     <div className="cap-field">
-      <span className="cap-label">ChatGPT account</span>
+      <span className="cap-label">{ap.chatgptAccount}</span>
       {account ? (
         <div className="cap-row" style={{ flexWrap: 'nowrap' }}>
-          <span className="cap-spacer">
-            Signed in{account.email ? ` as ${account.email}` : ''}
-            {account.plan ? ` · ${titleCase(account.plan)} plan` : ''}
-          </span>
+          <span className="cap-spacer">{ap.signedInAs(account.email, account.plan ? titleCase(account.plan) : undefined)}</span>
           <button className="cap-btn cap-btn--ghost cap-btn--danger" onClick={() => void signOutChatGPT(conn.id)}>
-            Sign out
+            {ap.signOut}
           </button>
         </div>
       ) : pending ? (
         <div className="cap-row">
-          <span className="cap-spacer">Finish signing in on the ChatGPT tab. It closes by itself when you are done.</span>
+          <span className="cap-spacer">{ap.finishSignInTab}</span>
           <button className="cap-btn cap-btn--ghost" onClick={() => pending.abort()}>
-            Cancel
+            {m.common.cancel}
           </button>
         </div>
       ) : (
         <div className="cap-row">
           <button className="cap-btn cap-btn--primary" onClick={() => void signIn()}>
-            Sign in with ChatGPT
+            {ap.signInWithChatGPT}
           </button>
         </div>
       )}
       {error && <Note tone="danger">{error}</Note>}
-      <span className="cap-help">
-        You sign in on OpenAI’s own page; Captionary never sees your password. The sign-in is stored only on this computer, never synced or
-        exported, and sent only to OpenAI. Signing out deletes it here; to end the session at OpenAI too, log out of all devices in
-        ChatGPT’s security settings. This uses the sign-in OpenAI made for its Codex app, which OpenAI hasn’t documented for other apps, so
-        it may change or stop working.
-      </span>
+      <span className="cap-help">{ap.chatgptHelp}</span>
     </div>
   );
 }
 
 function ChromeBuiltinStatus() {
+  const { m } = useI18n();
+  const ap = m.options.aiProviders;
   const [state, setState] = useState<string>('checking');
   const [progress, setProgress] = useState<number | null>(null);
   const LM = getLanguageModel();
@@ -232,8 +215,8 @@ function ChromeBuiltinStatus() {
     try {
       const session = await LM.create({
         ...builtinOptions(),
-        monitor(m: EventTarget) {
-          m.addEventListener('downloadprogress', (e) => setProgress((e as unknown as { loaded: number }).loaded));
+        monitor(ev: EventTarget) {
+          ev.addEventListener('downloadprogress', (e) => setProgress((e as unknown as { loaded: number }).loaded));
         },
       });
       session.destroy();
@@ -244,32 +227,33 @@ function ChromeBuiltinStatus() {
   };
   return (
     <div className="cap-field">
-      <span className="cap-label">On-device model</span>
+      <span className="cap-label">{ap.onDeviceModel}</span>
       {state === 'available' && (
         <span className="cap-tag cap-tag--known" style={{ alignSelf: 'flex-start' }}>
-          Ready
+          {ap.readyTag}
         </span>
       )}
-      {state === 'unsupported' && <Note tone="warn">Not available in this browser. It needs a recent desktop Chrome.</Note>}
-      {state === 'unavailable' && <Note tone="warn">This computer does not meet Chrome’s hardware requirements for Gemini Nano.</Note>}
+      {state === 'unsupported' && <Note tone="warn">{ap.chromeUnsupportedWarn}</Note>}
+      {state === 'unavailable' && <Note tone="warn">{ap.chromeUnavailableWarn}</Note>}
       {(state === 'downloadable' || state === 'downloading') && (
         <div className="cap-row">
           <button className="cap-btn cap-btn--primary" disabled={state === 'downloading'} onClick={() => void download()}>
-            {state === 'downloading' ? 'Downloading…' : 'Download model'}
+            {state === 'downloading' ? ap.downloading : ap.downloadModel}
           </button>
           {progress !== null && <span className="cap-help">{Math.round(progress * 100)}%</span>}
         </div>
       )}
       {state.startsWith('error') && <Note tone="danger">{state.replace(/^error: /, '')}</Note>}
-      <span className="cap-help">
-        Gemini Nano runs inside Chrome. Answers are weaker than cloud models, but it is free and nothing leaves this computer.
-      </span>
+      <span className="cap-help">{ap.chromeBuiltinHelp}</span>
     </div>
   );
 }
 
 function ConnectionCard({ conn, ai, updateAI }: { conn: ProviderConnection; ai: AISettings; updateAI: UpdateAI }) {
+  const { m } = useI18n();
+  const ap = m.options.aiProviders;
   const info = PROVIDERS[conn.kind];
+  const hint = ap.hints[conn.kind] ?? info.hint;
   const titleId = useId();
   const modelId = useId();
   const urlId = useId();
@@ -279,7 +263,7 @@ function ConnectionCard({ conn, ai, updateAI }: { conn: ProviderConnection; ai: 
   const [urlError, setUrlError] = useState<string | null>(null);
   const isDefault = (ai.defaultConnectionId ?? ai.connections[0]?.id) === conn.id;
   const models = conn.models.length ? conn.models : info.suggestedModels;
-  const host = hostOf(conn.baseUrl);
+  const host = hostOf(conn.baseUrl, ap.thisServer);
   const patch = (fn: (c: ProviderConnection) => void) =>
     updateAI((s) => {
       const c = s.connections.find((x) => x.id === conn.id);
@@ -291,7 +275,7 @@ function ConnectionCard({ conn, ai, updateAI }: { conn: ProviderConnection; ai: 
     setResult(null);
     try {
       const list = await bg({ type: 'ai.listModels', connectionId: conn.id });
-      setResult({ ok: true, text: `Found ${list.length} models.` });
+      setResult({ ok: true, text: ap.foundModelsResult(list.length) });
       if (!conn.defaultModel && list[0]) await patch((c) => void (c.defaultModel = list[0]));
     } catch (err) {
       setResult({ ok: false, text: (err as Error).message });
@@ -309,11 +293,14 @@ function ConnectionCard({ conn, ai, updateAI }: { conn: ProviderConnection; ai: 
         r.ok
           ? {
               ok: true,
-              text: `Connected in ${r.latencyMs} ms${r.models ? ` · ${r.models.length} models available` : r.reply ? ` · replied “${r.reply}”` : ''}.${
-                info.protocol !== 'chrome' && granted ? ` Network access to ${host} is granted.` : ''
-              }`,
+              text: ap.connectedResult(
+                r.latencyMs ?? 0,
+                r.models?.length,
+                r.reply,
+                info.protocol !== 'chrome' && granted ? host : undefined,
+              ),
             }
-          : { ok: false, text: r.error ?? 'The test failed.' },
+          : { ok: false, text: r.error ?? ap.testFailed },
       );
     } catch (err) {
       setResult({ ok: false, text: (err as Error).message });
@@ -323,10 +310,8 @@ function ConnectionCard({ conn, ai, updateAI }: { conn: ProviderConnection; ai: 
   };
 
   const remove = async () => {
-    const credential = info.signIn
-      ? 'You will be signed out of ChatGPT on this computer.'
-      : 'Its API key will be deleted from this computer.';
-    if (!confirm(`Remove ${conn.label}? ${credential}`)) return;
+    const confirmMsg = info.signIn ? ap.confirmRemoveSignIn(conn.label) : ap.confirmRemoveKey(conn.label);
+    if (!confirm(confirmMsg)) return;
     await (info.signIn ? signOutChatGPT(conn.id) : removeApiKey(conn.id));
     await updateAI((s) => {
       s.connections = s.connections.filter((c) => c.id !== conn.id);
@@ -343,11 +328,7 @@ function ConnectionCard({ conn, ai, updateAI }: { conn: ProviderConnection; ai: 
   };
 
   const where =
-    info.protocol === 'chrome'
-      ? 'Runs inside Chrome · free · private'
-      : info.local
-        ? 'Runs on this computer · free · private'
-        : `${info.name} · ${host}`;
+    info.protocol === 'chrome' ? ap.whereChrome : info.local ? ap.whereLocal : `${ap.picks[conn.kind]?.name ?? info.name} · ${host}`;
 
   return (
     <section className="cap-card" aria-labelledby={titleId}>
@@ -358,30 +339,35 @@ function ConnectionCard({ conn, ai, updateAI }: { conn: ProviderConnection; ai: 
               className="cap-card__title-input"
               value={conn.label}
               onCommit={(v) => void patch((c) => void (c.label = v.trim() || info.name))}
-              aria-label="Provider name"
+              aria-label={ap.providerNameAria}
             />
           </h2>
           <div className="cap-help">{where}</div>
         </div>
         {isDefault ? (
-          <span className="cap-tag cap-tag--accent">Default</span>
+          <span className="cap-tag cap-tag--accent">{m.common.default}</span>
         ) : (
           <button className="cap-btn cap-btn--sm" onClick={() => void updateAI((s) => void (s.defaultConnectionId = conn.id))}>
-            Make default
+            {ap.makeDefault}
           </button>
         )}
-        <button className="cap-iconbtn" aria-label={`Remove ${conn.label}`} title="Remove" onClick={() => void remove()}>
+        <button
+          className="cap-iconbtn"
+          aria-label={ap.removeProviderAria(conn.label)}
+          title={m.common.remove}
+          onClick={() => void remove()}
+        >
           <IconTrash className="cap-ico" />
         </button>
       </div>
       <div className="cap-card__body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {info.hint && conn.kind !== 'anthropic' && <Note tone="plain">{info.hint}</Note>}
+        {hint && conn.kind !== 'anthropic' && <Note tone="plain">{hint}</Note>}
         {info.protocol !== 'chrome' && (
           <>
             {(info.editableBaseUrl || conn.baseUrl !== info.defaultBaseUrl) && (
               <div className="cap-field">
                 <label className="cap-label" htmlFor={urlId}>
-                  {info.local ? 'Server address' : 'Base URL'}
+                  {info.local ? ap.serverAddress : ap.baseUrl}
                 </label>
                 <CommitInput
                   id={urlId}
@@ -400,7 +386,7 @@ function ConnectionCard({ conn, ai, updateAI }: { conn: ProviderConnection; ai: 
                   }}
                 />
                 <span className="cap-help" style={urlError ? { color: 'var(--danger)' } : undefined}>
-                  {urlError ?? 'HTTPS is required except for servers on this computer.'}
+                  {urlError ?? ap.httpsRequiredHelp}
                 </span>
               </div>
             )}
@@ -410,13 +396,11 @@ function ConnectionCard({ conn, ai, updateAI }: { conn: ProviderConnection; ai: 
                 tone="warn"
                 action={
                   <button className="cap-btn cap-btn--sm cap-btn--primary" onClick={() => void grant()}>
-                    Grant access
+                    {ap.grantAccess}
                   </button>
                 }
               >
-                {info.signIn
-                  ? 'Chrome asks you once to let Captionary contact chatgpt.com and auth.openai.com, and localhost only while you sign in. No other site is accessible.'
-                  : `Chrome asks you once to let Captionary contact ${host}. No other site is accessible.`}
+                {info.signIn ? ap.grantAccessSignInNote : ap.grantAccessHostNote(host)}
               </Note>
             )}
           </>
@@ -425,32 +409,30 @@ function ConnectionCard({ conn, ai, updateAI }: { conn: ProviderConnection; ai: 
 
         <div className="cap-field">
           <span className="cap-label" id={modelId}>
-            Default model
+            {ap.defaultModel}
           </span>
           <div className="cap-row">
             <ModelPicker
-              label="Default model"
+              label={ap.defaultModel}
               labelledBy={modelId}
               value={conn.defaultModel}
               models={models}
-              placeholder={info.defaultModel || 'model id'}
+              placeholder={info.defaultModel || ap.modelIdPlaceholder}
               onCommit={(v) => void patch((c) => void (c.defaultModel = v))}
             />
             {info.protocol !== 'chrome' && (
               <button className="cap-btn" disabled={busy !== null} onClick={() => void fetchModels()}>
-                {busy === 'models' ? 'Loading…' : conn.modelsFetchedAt ? 'Refresh list' : 'Fetch models'}
+                {busy === 'models' ? m.common.loading : conn.modelsFetchedAt ? ap.refreshList : ap.fetchModels}
               </button>
             )}
             <button className="cap-btn cap-btn--primary" disabled={busy !== null} onClick={() => void test()}>
-              {busy === 'test' ? 'Testing…' : 'Test connection'}
+              {busy === 'test' ? ap.testing : ap.testConnection}
             </button>
           </div>
           <span className="cap-help">
-            Used for every task unless a task picks its own.
-            {conn.kind === 'anthropic' && info.hint ? ` ${info.hint}` : ''}
-            {conn.modelsFetchedAt
-              ? ` Model list updated ${new Date(conn.modelsFetchedAt).toLocaleString()} (${conn.models.length} models).`
-              : ''}
+            {ap.defaultModelHelp}
+            {conn.kind === 'anthropic' && hint ? ` ${hint}` : ''}
+            {conn.modelsFetchedAt ? ap.modelListUpdated(new Date(conn.modelsFetchedAt).toLocaleString(), conn.models.length) : ''}
           </span>
         </div>
         {result && <Note tone={result.ok ? 'success' : 'danger'}>{result.text}</Note>}
@@ -460,16 +442,18 @@ function ConnectionCard({ conn, ai, updateAI }: { conn: ProviderConnection; ai: 
 }
 
 function AddProvider({ onAdd }: { onAdd: (kind: ProviderKind) => void }) {
+  const { m } = useI18n();
+  const ap = m.options.aiProviders;
   return (
-    <section className="cap-card" aria-label="Add a provider">
+    <section className="cap-card" aria-label={ap.addProviderCard}>
       <div className="cap-card__head">
-        <h2 className="cap-card__title">Add a provider</h2>
+        <h2 className="cap-card__title">{ap.addProviderCard}</h2>
       </div>
       <div className="cap-card__body cap-pick-grid">
         {PROVIDER_ORDER.map((kind) => (
           <button key={kind} className="cap-provider-pick" onClick={() => onAdd(kind)}>
-            {PICKS[kind]?.name ?? PROVIDERS[kind].name}
-            <small>{PICKS[kind]?.note}</small>
+            {ap.picks[kind]?.name ?? PROVIDERS[kind].name}
+            <small>{ap.picks[kind]?.note}</small>
           </button>
         ))}
       </div>
@@ -479,7 +463,9 @@ function AddProvider({ onAdd }: { onAdd: (kind: ProviderKind) => void }) {
 
 export function AIProvidersSection() {
   const [ai, updateAI] = useAISettings();
+  const { m } = useI18n();
   if (!ai) return null;
+  const ap = m.options.aiProviders;
 
   const add = (kind: ProviderKind) => {
     const conn = newConnection(kind);
@@ -494,18 +480,13 @@ export function AIProvidersSection() {
 
   return (
     <>
-      <PageHead
-        title="AI providers"
-        lead="Connect the service that powers the tutor. Add several and give each task its own model under Models per task."
-      />
+      <PageHead title={ap.title} lead={ap.lead} />
       <Note>
-        Requests go straight from your browser to the provider you pick; there is no Captionary server. Keys and sign-ins stay on this
-        computer in Captionary’s own storage, which web pages can’t read, and they are never synced or exported. Only the text you look up,
-        and the context you allow under <a href="#ai-privacy">Privacy &amp; cost</a>, is sent.
+        {ap.privacyNoteBefore}
+        <a href="#ai-privacy">{ap.privacyNoteLink}</a>
+        {ap.privacyNoteAfter}
       </Note>
-      {ai.connections.length === 0 && (
-        <Note tone="warn">No provider yet. Pick one below: Chrome’s built-in AI and Ollama need no account.</Note>
-      )}
+      {ai.connections.length === 0 && <Note tone="warn">{ap.noProviderWarn}</Note>}
       {ai.connections.map((c) => (
         <ConnectionCard key={c.id} conn={c} ai={ai} updateAI={updateAI} />
       ))}

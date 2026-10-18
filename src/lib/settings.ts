@@ -1,5 +1,6 @@
 import { storage } from '#imports';
 import type { AISettings, AITask, TaskRoute } from './ai/types';
+import { normalizeLang } from './languages';
 
 export type ShortcutAction =
   | 'prevLine'
@@ -35,6 +36,9 @@ export type WordStatusHighlight = 'learning' | 'all' | 'none';
 /** Colour scheme of the extension's own pages; video sites always follow the site. */
 export type PageTheme = 'system' | 'light' | 'dark';
 
+/** Interface language for the extension's menus, buttons, and settings pages. */
+export type UILanguage = 'auto' | 'en' | 'zh-CN' | 'zh-TW' | 'ja';
+
 export interface Settings {
   enabled: boolean;
   sites: { youtube: boolean; netflix: boolean; appletv: boolean };
@@ -44,6 +48,7 @@ export interface Settings {
   nativeLanguage: string;
   learnerLevel: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
   pageTheme: PageTheme;
+  uiLanguage?: UILanguage;
   subtitles: {
     showOriginal: boolean;
     showTranslation: boolean;
@@ -105,6 +110,7 @@ export const DEFAULT_SETTINGS: Settings = {
   nativeLanguage: defaultNativeLanguage(),
   learnerLevel: 'B1',
   pageTheme: 'system',
+  uiLanguage: 'auto',
   subtitles: {
     showOriginal: true,
     showTranslation: true,
@@ -191,8 +197,7 @@ export const TASK_LABELS: Record<AITask, { name: string; description: string }> 
 
 function defaultNativeLanguage(): string {
   try {
-    const lang = (globalThis.navigator?.language ?? 'en').split('-')[0];
-    return lang === 'zh' ? 'zh-CN' : lang;
+    return normalizeLang(globalThis.navigator?.language ?? 'en') || 'en';
   } catch {
     return 'en';
   }

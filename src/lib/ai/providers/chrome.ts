@@ -1,3 +1,4 @@
+import { getCurrentUILocale, getMessages } from '../../i18n';
 import { AIError, type ProviderAdapter } from '../types';
 import { TRANSLATION_SCHEMA } from './shared';
 
@@ -32,17 +33,15 @@ export function builtinOptions(outputLang = 'en') {
  */
 export const chromeAdapter: ProviderAdapter = {
   async *stream(_ctx, req) {
+    const m = getMessages(getCurrentUILocale()).runtime.ai;
     const LM = getLanguageModel();
-    if (!LM) throw new AIError('unavailable', 'Chrome built-in AI is not available in this browser.');
+    if (!LM) throw new AIError('unavailable', m.chromeNotAvailable);
     const availability = await LM.availability(builtinOptions());
     if (availability === 'unavailable') {
-      throw new AIError('unavailable', 'Chrome built-in AI is not supported on this device.');
+      throw new AIError('unavailable', m.chromeNotSupported);
     }
     if (availability !== 'available') {
-      throw new AIError(
-        'unavailable',
-        'The on-device model is not downloaded yet. Open Settings → AI providers and click "Download model".',
-      );
+      throw new AIError('unavailable', m.chromeNotDownloaded);
     }
     const history = req.messages.slice(0, -1);
     const last = req.messages[req.messages.length - 1];

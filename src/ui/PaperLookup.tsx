@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
+import { formatAIError, useI18n } from '@/lib/i18n';
 import type { AIStatus } from '@/lib/messaging';
 import type { Settings } from '@/lib/settings';
 import { canSpeak, speak } from '@/lib/tts';
@@ -34,19 +35,20 @@ export function StatusToggle({
   /** Review answers: "Still learning" and "I know it" with their keys. */
   keys?: [string, string];
 }) {
+  const { m } = useI18n();
   const learning = status === 'learning';
   const known = status === 'known';
   const style: CSSProperties | undefined = large ? { height: 44, padding: '0 18px', fontSize: 15 } : undefined;
   return (
-    <div className="cap-status" role="group" aria-label="Word status">
+    <div className="cap-status" role="group" aria-label={m.lookup.wordStatusGroup}>
       <button className="cap-status__btn is-learn" aria-pressed={learning} style={style} onClick={() => onChange('learning')}>
         {learning ? <IconBookmarkFilled className="cap-ico" /> : <IconBookmark className="cap-ico" />}
-        {keys ? 'Still learning' : learning ? 'Learning' : 'Save as learning'}
+        {keys ? m.lookup.stillLearning : learning ? m.common.learning : m.lookup.saveAsLearning}
         {keys && <span className="cap-kbd">{keys[0]}</span>}
       </button>
       <button className="cap-status__btn is-known" aria-pressed={known} style={style} onClick={() => onChange('known')}>
         <IconCheck className="cap-ico" strokeWidth={known ? 2.6 : 2.2} />
-        {keys ? 'I know it' : known ? 'Known' : 'I know it'}
+        {keys ? m.lookup.iKnowIt : known ? m.common.known : m.lookup.iKnowIt}
         {keys && <span className="cap-kbd">{keys[1]}</span>}
       </button>
     </div>
@@ -88,12 +90,13 @@ export function TutorAnswer({
   /** Replaces the link to the setup guide's tutor step (on the guide itself). */
   onSetUpTutor?: () => void;
 }) {
+  const { m } = useI18n();
   const { ai } = lookup;
   const [question, setQuestion] = useState('');
   const label = (
     <div className="cap-tutor__label">
       <IconSpark className="cap-ico" />
-      Tutor
+      {m.lookup.tutorLabel}
     </div>
   );
   const ask = (e: FormEvent) => {
@@ -106,14 +109,14 @@ export function TutorAnswer({
       <div className="cap-tutor">
         {label}
         <p className="cap-tutor__text">
-          {lookup.aiOff ? 'The tutor is off.' : 'Add an AI tutor to get explanations in context.'}{' '}
+          {lookup.aiOff ? m.lookup.tutorOff : m.lookup.addTutorPrompt}{' '}
           {!lookup.aiOff && onSetUpTutor ? (
             <button className="cap-link" onClick={onSetUpTutor}>
-              Set up a tutor
+              {m.lookup.setUpTutor}
             </button>
           ) : (
             <a href={lookup.aiOff ? '/options.html#ai' : '/welcome.html#tutor'} target="_blank" rel="noopener noreferrer">
-              {lookup.aiOff ? 'Open AI settings' : 'Set up a tutor'}
+              {lookup.aiOff ? m.lookup.openAISettings : m.lookup.setUpTutor}
             </a>
           )}
         </p>
@@ -126,7 +129,7 @@ export function TutorAnswer({
       <div className="cap-tutor" style={{ paddingTop: 10 }}>
         <button className="cap-btn cap-btn--primary cap-btn--sm" onClick={lookup.explain}>
           <IconSpark className="cap-ico" />
-          {isWord ? `Explain “${short}” in context` : 'Break down this sentence'}
+          {isWord ? m.lookup.explainWordInContext(short) : m.lookup.breakDownSentence}
         </button>
       </div>
     );
@@ -137,20 +140,25 @@ export function TutorAnswer({
       {ai.status === 'loading' ? (
         <div className="cap-row cap-tutor__text">
           <span className="cap-spinner" />
-          Thinking…
+          {m.common.thinking}
         </div>
       ) : ai.status === 'error' ? (
         <>
           <p className="cap-tutor__text" style={{ color: 'var(--danger)' }}>
-            {ai.error?.message}
+            {formatAIError(ai.error, m).primary}
           </p>
+          {formatAIError(ai.error, m).detail && (
+            <p className="cap-tutor__text" style={{ color: 'var(--muted)', fontSize: 12, marginTop: 2 }}>
+              {formatAIError(ai.error, m).detail}
+            </p>
+          )}
           <div className="cap-row" style={{ marginTop: 8 }}>
             <button className="cap-btn cap-btn--sm" onClick={lookup.explain}>
               <IconRefresh className="cap-ico" />
-              Retry
+              {m.common.retry}
             </button>
             <a href="/options.html#ai" target="_blank" rel="noopener noreferrer" style={{ fontSize: 13 }}>
-              Open AI settings
+              {m.lookup.openAISettings}
             </a>
           </div>
         </>
@@ -175,15 +183,30 @@ export function TutorAnswer({
               <span className="cap-mono" title={ai.provider}>
                 {ai.model}
               </span>
-              {ai.cached && <span className="cap-tag">cached</span>}
+              {ai.cached && <span className="cap-tag">{m.common.cached}</span>}
               <span className="cap-spacer" />
-              <button className="cap-iconbtn cap-iconbtn--sm" aria-label="Copy" title="Copy" onClick={() => lookup.copy(lookup.answerText)}>
+              <button
+                className="cap-iconbtn cap-iconbtn--sm"
+                aria-label={m.common.copy}
+                title={m.common.copy}
+                onClick={() => lookup.copy(lookup.answerText)}
+              >
                 <IconCopy className="cap-ico" />
               </button>
-              <button className="cap-iconbtn cap-iconbtn--sm" aria-label="Save to notes" title="Save to notes" onClick={lookup.saveNotes}>
+              <button
+                className="cap-iconbtn cap-iconbtn--sm"
+                aria-label={m.lookup.saveToNotes}
+                title={m.lookup.saveToNotes}
+                onClick={lookup.saveNotes}
+              >
                 <IconBookmark className="cap-ico" />
               </button>
-              <button className="cap-iconbtn cap-iconbtn--sm" aria-label="Regenerate" title="Regenerate" onClick={lookup.explain}>
+              <button
+                className="cap-iconbtn cap-iconbtn--sm"
+                aria-label={m.lookup.regenerate}
+                title={m.lookup.regenerate}
+                onClick={lookup.explain}
+              >
                 <IconRefresh className="cap-ico" />
               </button>
             </div>
@@ -195,7 +218,7 @@ export function TutorAnswer({
           <div className="cap-tutor__q">{t.q}</div>
           {t.status === 'error' ? (
             <p className="cap-tutor__text" style={{ color: 'var(--danger)' }}>
-              {t.error}
+              {formatAIError({ code: 'unknown', message: t.error }, m).primary}
             </p>
           ) : t.a ? (
             <div className={`cap-tutor__text${t.status === 'streaming' ? ' cap-cursor' : ''}`}>
@@ -209,13 +232,13 @@ export function TutorAnswer({
       {(ai.status === 'done' || lookup.turns.length > 0) && (
         <form className="cap-ask" onSubmit={ask}>
           <input
-            aria-label="Ask the tutor"
-            placeholder="Ask the tutor…"
+            aria-label={m.lookup.askTutorLabel}
+            placeholder={m.lookup.askTutorPlaceholder}
             value={question}
             maxLength={500}
             onChange={(e) => setQuestion(e.target.value)}
           />
-          <button className="cap-iconbtn cap-iconbtn--solid" type="submit" aria-label="Ask" disabled={!question.trim()}>
+          <button className="cap-iconbtn cap-iconbtn--solid" type="submit" aria-label={m.lookup.askButton} disabled={!question.trim()}>
             <IconArrowRight className="cap-ico" />
           </button>
         </form>
@@ -258,6 +281,7 @@ export interface PaperLookupProps {
 
 /** The paper look-up card on extension pages (`LookupCard`, Highlighter): reader, side panel. */
 export function PaperLookup(props: PaperLookupProps) {
+  const { m } = useI18n();
   const { target, settings, vocab, docked, onClose } = props;
   const lookup = useLookup(props);
   const ref = useRef<HTMLElement>(null);
@@ -279,8 +303,9 @@ export function PaperLookup(props: PaperLookupProps) {
     };
   }, [onClose, docked]);
 
-  const band = rankBand(props.rank, !!props.rankKnown);
-  const rankLabel = props.rankKnown && isWord ? (band ?? 'Top 2,000 word') : undefined;
+  const rawBand = rankBand(props.rank, !!props.rankKnown);
+  const band = rawBand === 'rarer' ? m.lookup.rarer : rawBand;
+  const rankLabel = props.rankKnown && isWord ? (band ?? m.lookup.top2000) : undefined;
   const phrase = lookup.identity.kind === 'phrase';
   // Above the word, a streaming answer would grow the card upward and move the text being read;
   // the card takes its full height at once instead and fills from the top.
@@ -296,7 +321,7 @@ export function PaperLookup(props: PaperLookupProps) {
       className={`cap-lookup${docked ? ' cap-lookup--docked' : ' is-floating'}`}
       style={props.style}
       role={docked ? undefined : 'dialog'}
-      aria-label={`Look-up: ${target.text}`}
+      aria-label={m.lookup.lookupAria(target.text)}
       onPointerDown={(e) => e.stopPropagation()}
     >
       <div className="cap-lookup__scroll" style={scrollStyle}>
@@ -317,15 +342,15 @@ export function PaperLookup(props: PaperLookupProps) {
           {canSpeak() && (
             <button
               className="cap-iconbtn cap-iconbtn--solid"
-              aria-label="Listen"
-              title="Listen"
+              aria-label={m.common.listen}
+              title={m.common.listen}
               onClick={() => void speak(target.text, target.lang, settings.dictionary.speechRate)}
             >
               <IconSpeaker className="cap-ico" />
             </button>
           )}
           {!docked && onClose && (
-            <button className="cap-iconbtn" aria-label="Close (Esc)" title="Close (Esc)" onClick={onClose}>
+            <button className="cap-iconbtn" aria-label={m.common.closeEsc} title={m.common.closeEsc} onClick={onClose}>
               <IconClose className="cap-ico" />
             </button>
           )}
@@ -334,7 +359,7 @@ export function PaperLookup(props: PaperLookupProps) {
         {(lookup.pos || (isWord && phrase) || rankLabel) && (
           <div className="cap-lookup__meta">
             {lookup.pos && <span className="cap-tag">{lookup.pos}</span>}
-            {phrase && isWord && <span className="cap-tag">phrase</span>}
+            {phrase && isWord && <span className="cap-tag">{m.common.phrase}</span>}
             {rankLabel && (
               <>
                 <FrequencyBars rank={props.rank} />
@@ -375,11 +400,11 @@ export function PaperLookup(props: PaperLookupProps) {
           />
           {isWord && settings.dictionary.wiktionary && lookup.dictState !== 'idle' && (
             <div className="cap-lookup__dict">
-              <div className="cap-lookup__section">Dictionary · Wiktionary</div>
+              <div className="cap-lookup__section">{m.lookup.dictionaryHeader}</div>
               {lookup.dictState === 'loading' && <span className="cap-spinner" />}
-              {lookup.dictState === 'error' && <div className="cap-help">The dictionary is not answering. Try again later.</div>}
+              {lookup.dictState === 'error' && <div className="cap-help">{m.lookup.dictError}</div>}
               {lookup.dictState === 'done' && lookup.dict?.entries.length === 0 && (
-                <div className="cap-help">No entry for “{target.text}”. It may be an inflected form; the tutor can explain it.</div>
+                <div className="cap-help">{m.lookup.dictEmptyPaper(target.text)}</div>
               )}
               {lookup.dict?.entries.slice(0, 3).map((entry, i) => (
                 <div key={i} style={i ? { marginTop: 6 } : undefined}>

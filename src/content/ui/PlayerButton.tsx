@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { useShallow } from 'zustand/react/shallow';
+import { useI18n } from '@/lib/i18n';
 import { IconGlyph } from '@/ui/icons';
 import { keyName, type SessionController } from '../controller';
 import { setSession, useSession } from '../store';
@@ -19,6 +20,7 @@ export function PlayerButton({
   sizeFrom?: () => (Element | null | undefined)[];
   style?: CSSProperties;
 }) {
+  const { m } = useI18n();
   const s = useSession(
     useShallow((st) => ({
       off: st.off,
@@ -44,7 +46,7 @@ export function PlayerButton({
   }, []);
 
   if (s.adShowing) return null;
-  const key = keyName(s.listKey);
+  const key = keyName(s.listKey, m.common.space);
   return (
     <HostRoot className="cap-playerbtn-root" style={{ display: 'flex', alignItems: 'center', height: '100%' }}>
       <button
@@ -54,7 +56,7 @@ export function PlayerButton({
         aria-pressed={!s.off && s.status === 'ready'}
         aria-haspopup="menu"
         aria-expanded={s.menuOpen}
-        title={key ? `Captionary (${key} opens the subtitle list)` : 'Captionary'}
+        title={key ? m.content.playerButton.titleWithKey(key) : 'Captionary'}
         style={{ ...size, ...style }}
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => {

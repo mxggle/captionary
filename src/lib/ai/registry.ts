@@ -1,3 +1,4 @@
+import { getCurrentUILocale, getMessages } from '../i18n';
 import type { ProviderConnection, ProviderKind, ProviderProtocol } from './types';
 
 export interface ProviderInfo {
@@ -208,16 +209,17 @@ export function providerInfo(kind: ProviderKind): ProviderInfo {
  * clear text; plain HTTP is allowed only for loopback (local model servers).
  */
 export function validateBaseUrl(raw: string): string | null {
+  const m = getMessages(getCurrentUILocale()).runtime.ai;
   let url: URL;
   try {
     url = new URL(raw);
   } catch {
-    return 'Enter a full URL, e.g. https://api.example.com/v1';
+    return m.urlValidateFull;
   }
   const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
-  if (url.protocol === 'http:' && !loopback) return 'Use https:// (plain http is only allowed for localhost).';
-  if (url.protocol !== 'https:' && url.protocol !== 'http:') return 'Only http(s) URLs are supported.';
-  if (url.username || url.password) return 'Do not put credentials in the URL; use the API key field.';
+  if (url.protocol === 'http:' && !loopback) return m.urlValidateHttps;
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') return m.urlValidateProtocol;
+  if (url.username || url.password) return m.urlValidateCredentials;
   return null;
 }
 

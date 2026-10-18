@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { htmlToText, parseWiktionary } from './dictionary';
-import { normalizeLang, sameLang } from './languages';
+import { formatAIError, getMessages, resolveUILocale } from './i18n';
+import { languageName, normalizeLang, sameLang } from './languages';
+import { keyLabel } from '@/ui/controls';
 import { guessLanguage } from './text/detect';
 import { DEFAULT_SETTINGS, mergeDefaults } from './settings';
 import { buildVocabIndex } from '@/ui/vocab-index';
@@ -106,6 +108,85 @@ describe('languages', () => {
     expect(normalizeLang('iw')).toBe('he');
     expect(sameLang('pt-BR', 'pt')).toBe(true);
     expect(sameLang('zh-CN', 'zh-TW')).toBe(false);
+  });
+  it('returns English language names by default and localized names when uiLocale is given', () => {
+    expect(languageName('es')).toBe('Spanish');
+    expect(languageName('es', 'en')).toBe('Spanish');
+    expect(languageName('es', 'zh-CN')).toBe('西班牙语');
+    expect(languageName('es', 'zh-TW')).toBe('西班牙文');
+    expect(languageName('es', 'ja')).toBe('スペイン語');
+  });
+});
+
+describe('i18n', () => {
+  it('resolves UI locale from explicit setting, nativeLanguage, or fallback', () => {
+    expect(resolveUILocale({ uiLanguage: 'ja', nativeLanguage: 'en' })).toBe('ja');
+    expect(resolveUILocale({ uiLanguage: 'auto', nativeLanguage: 'zh-CN' })).toBe('zh-CN');
+    expect(resolveUILocale({ uiLanguage: 'auto', nativeLanguage: 'zh-Hant-HK' })).toBe('zh-TW');
+    expect(resolveUILocale({ uiLanguage: 'auto', nativeLanguage: 'ja-JP' })).toBe('ja');
+    expect(resolveUILocale({ uiLanguage: 'auto', nativeLanguage: 'es' })).toBe('en');
+  });
+
+  it('normalizes script and region variants in uiLanguage settings', () => {
+    expect(resolveUILocale({ uiLanguage: 'zh-Hans' as any })).toBe('zh-CN');
+    expect(resolveUILocale({ uiLanguage: 'zh-Hant' as any })).toBe('zh-TW');
+    expect(resolveUILocale({ uiLanguage: 'zh-HK' as any })).toBe('zh-TW');
+    expect(resolveUILocale({ uiLanguage: 'ja-JP' as any })).toBe('ja');
+    expect(resolveUILocale({ uiLanguage: 'en-US' as any })).toBe('en');
+  });
+
+  it('provides complete and structural matched message catalogs across en, zh-CN, zh-TW, ja', () => {
+    const enCat = getMessages('en');
+    const zhCNCat = getMessages('zh-CN');
+    const zhTWCat = getMessages('zh-TW');
+    const jaCat = getMessages('ja');
+
+    function checkCatalogStructure(base: Record<string, any>, target: Record<string, any>, path = '') {
+      for (const key of Object.keys(base)) {
+        const fullPath = path ? `${path}.${key}` : key;
+        expect(target, `Missing key ${fullPath}`).toHaveProperty(key);
+        const baseVal = base[key];
+        const targetVal = target[key];
+        if (typeof baseVal === 'function') {
+          expect(typeof targetVal, `${fullPath} should be a function`).toBe('function');
+          expect(targetVal.length, `${fullPath} function arity should match`).toBe(baseVal.length);
+        } else if (typeof baseVal === 'object' && baseVal !== null) {
+          expect(typeof targetVal, `${fullPath} should be an object`).toBe('object');
+          checkCatalogStructure(baseVal, targetVal, fullPath);
+        } else {
+          expect(typeof targetVal, `${fullPath} should be a string`).toBe('string');
+        }
+      }
+    }
+
+    checkCatalogStructure(enCat, zhCNCat, 'zh-CN');
+    checkCatalogStructure(enCat, zhTWCat, 'zh-TW');
+    checkCatalogStructure(enCat, jaCat, 'ja');
+  });
+
+  it('formats AI errors into localized primary messages and diagnostics', () => {
+    const mZh = getMessages('zh-CN');
+    const mTw = getMessages('zh-TW');
+    const mJa = getMessages('ja');
+
+    expect(formatAIError({ code: 'quota' }, mZh).primary).toBe(mZh.runtime.ai.outOfQuota);
+    expect(formatAIError({ code: 'rate_limit' }, mTw).primary).toBe(mTw.runtime.ai.rateLimited);
+    expect(formatAIError({ code: 'timeout' }, mJa).primary).toBe(mJa.runtime.ai.providerTimeout);
+
+    const badReq = formatAIError({ code: 'bad_request', status: 400, message: 'Invalid model parameter' }, mZh);
+    expect(badReq.primary).toBe(mZh.runtime.ai.clientError(400));
+    expect(badReq.detail).toBe('Invalid model parameter');
+
+    const unavailable = formatAIError({ code: 'unavailable', status: 503 }, mJa);
+    expect(unavailable.primary).toBe(mJa.runtime.ai.providerProblems(503));
+  });
+
+  it('renders localized key labels with custom space labels', () => {
+    expect(keyLabel(' ')).toBe('Space');
+    expect(keyLabel(' ', getMessages('zh-CN').common.space)).toBe('空格');
+    expect(keyLabel(' ', getMessages('zh-TW').common.space)).toBe('空白鍵');
+    expect(keyLabel(' ', getMessages('ja').common.space)).toBe('スペース');
+    expect(keyLabel('a')).toBe('A');
   });
 });
 

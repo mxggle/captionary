@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { useI18n } from '@/lib/i18n';
 import { isRtl } from '@/lib/languages';
 import type { WordStatusHighlight } from '@/lib/settings';
 import { frequencyClass, frequencyRank } from '@/lib/text/frequency-map';
@@ -45,6 +46,7 @@ const STATUS_CLASS = { learning: 'is-learn', known: 'is-known' } as const;
  * Saved words and phrases are marked by learning status (a dotted underline; see `cap-w` in components.css).
  */
 export const TokenizedText = memo(function TokenizedText({ text, lang, index, highlight, onSelect, className, freq, selected }: Props) {
+  const { m } = useI18n();
   const tokens = useMemo(() => tokenize(text, lang), [text, lang]);
   const phraseOf = useMemo(() => {
     const map = new Map<number, VocabStatus>();
@@ -129,7 +131,7 @@ export const TokenizedText = memo(function TokenizedText({ text, lang, index, hi
               else spans.current.delete(i);
             }}
             className={cls}
-            title={freqCls ? (rank ? `Frequency rank #${rank.toLocaleString()}` : 'Rare word') : undefined}
+            title={freqCls ? (rank ? m.lookup.freqRankTitle(rank.toLocaleString()) : m.lookup.rareWordTitle) : undefined}
             onPointerDown={(e) => {
               if (e.button !== 0) return;
               e.preventDefault();

@@ -5,8 +5,9 @@ import { builtinOptions, getLanguageModel } from '@/lib/ai/providers/chrome';
 import { newConnection, PROVIDERS } from '@/lib/ai/registry';
 import { getApiKey, removeApiKey, setApiKey } from '@/lib/ai/secrets';
 import type { AIError, AIErrorCode, AISettings, ProviderConnection, ProviderKind } from '@/lib/ai/types';
+import { useI18n, type Messages } from '@/lib/i18n';
 import { bg } from '@/lib/messaging';
-import { getAISettings, updateAISettings } from '@/lib/settings';
+import { getAISettings, updateAISettings, type Settings } from '@/lib/settings';
 import { Note } from '@/ui/controls';
 import { useAISettings } from '@/ui/form';
 import { IconExternal } from '@/ui/icons';
@@ -27,27 +28,25 @@ const KEY_PROVIDERS: { kind: ProviderKind; name: string }[] = [
 ];
 
 /** What went wrong, and what to do about it, in words for someone who has never seen an API. */
-function plainError(code: AIErrorCode | undefined, message: string | undefined, provider: string): string {
+function plainError(code: AIErrorCode | undefined, message: string | undefined, provider: string, m: Messages): string {
   switch (code) {
     case 'auth':
     case 'missing_key':
-      return provider === 'ChatGPT'
-        ? 'ChatGPT didn’t accept the sign-in. Check that your plan is Plus, Pro or Business, then sign in again.'
-        : `${provider} didn’t accept that key. Copy it again, all of it, and paste it here.`;
+      return provider === 'ChatGPT' ? m.welcome.tutor.errors.authChatgpt : m.welcome.tutor.errors.authKey(provider);
     case 'quota':
       // ChatGPT's own message names the plan limit, or says the plan lacks Codex.
       if (provider === 'ChatGPT' && message) return message;
-      return `Your ${provider} account has no credit yet. Add a payment method or credit on ${provider}’s website, then try again.`;
+      return m.welcome.tutor.errors.quota(provider);
     case 'rate_limit':
-      return `${provider} is busy right now. Wait a minute, then try again.`;
+      return m.welcome.tutor.errors.rateLimit(provider);
     case 'network':
     case 'timeout':
     case 'unavailable':
-      return `Captionary couldn’t reach ${provider}. Check your internet connection, then try again.`;
+      return m.welcome.tutor.errors.network(provider);
     case 'permission':
-      return `Chrome blocked the connection to ${provider}. Try again and choose Allow when Chrome asks.`;
+      return m.welcome.tutor.errors.permission(provider);
     default:
-      return message || 'Something went wrong. Try again.';
+      return message || m.welcome.tutor.errors.default;
   }
 }
 
@@ -103,7 +102,8 @@ function useBuiltin(): [BuiltinState, (s: BuiltinState) => void] {
   return [state, setState];
 }
 
-export function TutorStep({ go }: StepProps) {
+export function TutorStep({ s, go }: StepProps) {
+  const { m } = useI18n(s);
   const [status, refresh] = useTutorStatus();
   const [path, setPath] = useState<Path | null>(null);
   const [changing, setChanging] = useState(false);
@@ -113,20 +113,20 @@ export function TutorStep({ go }: StepProps) {
   if (!status) return null;
   const ready = status.configured && status.enabled && !busy;
   const showChoices = !ready || changing;
-  const panel = { setBusy, refresh, onConnected: () => setChanging(false) };
+  const panel = { s, setBusy, refresh, onConnected: () => setChanging(false) };
 
   return (
     <Step
-      title="Add an AI tutor"
-      meta="optional"
-      lead="Translations and the dictionary already work without one. A tutor goes further: it explains what a word means in that exact sentence, breaks down the grammar, and answers your questions."
+      title={m.welcome.tutor.title}
+      meta={m.welcome.tutor.optionalMeta}
+      lead={m.welcome.tutor.lead}
       foot={
         <Foot
           onBack={() => go('pin')}
           onNext={() => go('try')}
-          nextLabel={ready ? 'Continue' : 'Skip for now'}
+          nextLabel={ready ? m.common.continue : m.welcome.tutor.skipForNow}
           quiet={!ready}
-          note={ready ? undefined : 'You can add a tutor later in Settings.'}
+          note={ready ? undefined : m.welcome.tutor.addLaterNote}
         />
       }
     >
@@ -135,51 +135,52 @@ export function TutorStep({ go }: StepProps) {
           tone="success"
           action={
             <button className="cap-btn cap-btn--sm" onClick={() => setChanging(true)}>
-              Use a different one
+              {m.welcome.tutor.useDifferentOne}
             </button>
           }
         >
-          Your tutor is ready: <strong>{status.providerName}</strong>
+          {m.welcome.tutor.tutorReady}
+          <strong>{status.providerName}</strong>
           {status.model ? <span className="cap-subtle"> · {status.model}</span> : null}
         </Note>
       )}
       {showChoices && (
         <>
           <fieldset className="cap-wizard__choices">
-            <legend className="cap-wizard__legend">How would you like to add one?</legend>
+            <legend className="cap-wizard__legend">{m.welcome.tutor.howToAddLegend}</legend>
             <Choice
               name="tutor"
               checked={path === 'chatgpt'}
               onSelect={() => setPath('chatgpt')}
-              title="Sign in with ChatGPT"
-              sub="If you pay for ChatGPT Plus, Pro or Business. Uses your plan, nothing extra to pay."
+              title={m.welcome.tutor.chatgptTitle}
+              sub={m.welcome.tutor.chatgptSub}
             />
             {builtin !== 'unsupported' && builtin !== 'unavailable' && (
               <Choice
                 name="tutor"
                 checked={path === 'builtin'}
                 onSelect={() => setPath('builtin')}
-                title="Use Chrome’s free built-in AI"
-                sub="No account needed, and nothing leaves this computer. Its answers are simpler."
+                title={m.welcome.tutor.builtinTitle}
+                sub={m.welcome.tutor.builtinSub}
               />
             )}
             <Choice
               name="tutor"
               checked={path === 'key'}
               onSelect={() => setPath('key')}
-              title="Paste an API key"
-              sub="For OpenAI, Claude, Gemini and others. The provider charges you a little for what you use."
+              title={m.welcome.tutor.keyTitle}
+              sub={m.welcome.tutor.keySub}
             />
           </fieldset>
           {path === 'chatgpt' && <ChatGPTPanel {...panel} />}
           {path === 'builtin' && <BuiltinPanel state={builtin} setState={setBuiltin} {...panel} />}
           {path === 'key' && <KeyPanel {...panel} />}
           <p className="cap-help">
-            Running Ollama, LM Studio or your own server?{' '}
+            {m.welcome.tutor.localServerHelpBefore}
             <a href="/options.html#ai" target="_blank" rel="noopener">
-              Add it in Settings
+              {m.welcome.tutor.localServerHelpLink}
             </a>
-            .
+            {m.welcome.tutor.localServerHelpAfter}
           </p>
         </>
       )}
@@ -188,6 +189,7 @@ export function TutorStep({ go }: StepProps) {
 }
 
 interface PanelProps {
+  s: Settings;
   setBusy: (busy: boolean) => void;
   refresh: () => Promise<void>;
   onConnected: () => void;
@@ -201,6 +203,7 @@ async function settle(p: PanelProps, ok: boolean) {
 }
 
 function ChatGPTPanel(p: PanelProps) {
+  const { m } = useI18n(p.s);
   const [waiting, setWaiting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abort = useRef<AbortController | null>(null);
@@ -210,7 +213,7 @@ function ChatGPTPanel(p: PanelProps) {
     setError(null);
     // Asked inside the click so Chrome shows its prompt (no prompt if already granted).
     if (!(await requestOrigins(SIGN_IN_ORIGINS))) {
-      return setError('Captionary needs your permission to open the ChatGPT sign-in. Click the button again and choose Allow.');
+      return setError(m.welcome.tutor.chatgptPermissionErr);
     }
     const { conn, isNew } = await connectionFor('chatgpt');
     const before = await getAISettings();
@@ -226,9 +229,9 @@ function ChatGPTPanel(p: PanelProps) {
       await setAsTutor(conn);
       const r = await bg({ type: 'ai.test', connectionId: conn.id });
       ok = r.ok;
-      if (!r.ok) setError(plainError(r.code, r.error, 'ChatGPT'));
+      if (!r.ok) setError(plainError(r.code, r.error, 'ChatGPT', m));
     } catch (err) {
-      if ((err as AIError).code !== 'aborted') setError(plainError((err as AIError).code, (err as Error).message, 'ChatGPT'));
+      if ((err as AIError).code !== 'aborted') setError(plainError((err as AIError).code, (err as Error).message, 'ChatGPT', m));
     } finally {
       if (signedIn && !ok) {
         await undoTutor(conn, isNew, before, () =>
@@ -242,29 +245,30 @@ function ChatGPTPanel(p: PanelProps) {
   };
 
   return (
-    <section className="cap-wizard__panel" aria-label="Sign in with ChatGPT">
+    <section className="cap-wizard__panel" aria-label={m.welcome.tutor.chatgptPanelAria}>
       {waiting ? (
         <div className="cap-row">
           <span className="cap-spinner" />
-          <span className="cap-spacer">A ChatGPT tab has opened. Sign in there; it closes by itself and brings you back here.</span>
+          <span className="cap-spacer">{m.welcome.tutor.chatgptWaiting}</span>
           <button className="cap-btn cap-btn--ghost" onClick={() => abort.current?.abort()}>
-            Cancel
+            {m.common.cancel}
           </button>
         </div>
       ) : (
         <div className="cap-row">
           <button className="cap-btn cap-btn--primary cap-btn--lg" onClick={() => void signIn()}>
-            Sign in with ChatGPT
+            {m.welcome.tutor.chatgptSignInBtn}
           </button>
         </div>
       )}
-      <p className="cap-help">You sign in on OpenAI’s own page. Captionary never sees your password.</p>
+      <p className="cap-help">{m.welcome.tutor.chatgptPasswordHelp}</p>
       {error && <Note tone="danger">{error}</Note>}
     </section>
   );
 }
 
 function BuiltinPanel({ state, setState, ...p }: PanelProps & { state: BuiltinState; setState: (s: BuiltinState) => void }) {
+  const { m } = useI18n(p.s);
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -280,8 +284,8 @@ function BuiltinPanel({ state, setState, ...p }: PanelProps & { state: BuiltinSt
         setState('downloading');
         const session = await LM.create({
           ...builtinOptions(),
-          monitor(m: EventTarget) {
-            m.addEventListener('downloadprogress', (e) => setProgress((e as unknown as { loaded: number }).loaded));
+          monitor(ev: EventTarget) {
+            ev.addEventListener('downloadprogress', (e) => setProgress((e as unknown as { loaded: number }).loaded));
           },
         });
         session.destroy();
@@ -291,37 +295,35 @@ function BuiltinPanel({ state, setState, ...p }: PanelProps & { state: BuiltinSt
       ok = true;
     } catch (err) {
       setState('downloadable');
-      setError(`Chrome couldn’t get its AI ready: ${(err as Error).message}`);
+      setError(m.welcome.tutor.chromeAiReadyErr((err as Error).message));
     } finally {
       await settle(p, ok);
     }
   };
 
   return (
-    <section className="cap-wizard__panel" aria-label="Chrome’s built-in AI">
+    <section className="cap-wizard__panel" aria-label={m.welcome.tutor.builtinPanelAria}>
       {state === 'checking' && <span className="cap-spinner" />}
       {state === 'available' && (
         <div className="cap-row">
           <button className="cap-btn cap-btn--primary cap-btn--lg" onClick={() => void start()}>
-            Use Chrome’s AI
+            {m.welcome.tutor.useChromeAiBtn}
           </button>
         </div>
       )}
       {state === 'downloadable' && (
         <>
-          <p className="cap-wizard__text">
-            Chrome downloads its AI model once. It’s large, so this can take a few minutes on a slow connection.
-          </p>
+          <p className="cap-wizard__text">{m.welcome.tutor.builtinDownloadText}</p>
           <div className="cap-row">
             <button className="cap-btn cap-btn--primary cap-btn--lg" onClick={() => void start()}>
-              Download and use it
+              {m.welcome.tutor.downloadAndUseBtn}
             </button>
           </div>
         </>
       )}
       {state === 'downloading' && (
         <div className="cap-wizard__download" aria-live="polite">
-          <span>Downloading Chrome’s AI… {progress !== null && `${Math.round(progress * 100)}%`}</span>
+          <span>{m.welcome.tutor.downloadingChromeAi(progress !== null ? `${Math.round(progress * 100)}%` : '')}</span>
           <div className="cap-progress">
             <span style={{ width: `${Math.round((progress ?? 0) * 100)}%` }} />
           </div>
@@ -333,6 +335,7 @@ function BuiltinPanel({ state, setState, ...p }: PanelProps & { state: BuiltinSt
 }
 
 function KeyPanel(p: PanelProps) {
+  const { m } = useI18n(p.s);
   const [kind, setKind] = useState<ProviderKind>('openai');
   const [key, setKey] = useState('');
   const [show, setShow] = useState(false);
@@ -351,7 +354,7 @@ function KeyPanel(p: PanelProps) {
     setError(null);
     // Asked inside the click so Chrome shows its prompt.
     if (!(await requestOrigins(originsToRequest({ kind, baseUrl: info.defaultBaseUrl })))) {
-      return setError(`Captionary needs your permission to talk to ${name}. Click Connect again and choose Allow.`);
+      return setError(m.welcome.tutor.talkPermissionErr(name));
     }
     setWorking(true);
     p.setBusy(true);
@@ -368,10 +371,10 @@ function KeyPanel(p: PanelProps) {
         setKey('');
       } else {
         await undoTutor(conn, isNew, before, () => setApiKey(conn.id, previousKey));
-        setError(plainError(r.code, r.error, name));
+        setError(plainError(r.code, r.error, name, m));
       }
     } catch (err) {
-      setError(plainError((err as AIError).code, (err as Error).message, name));
+      setError(plainError((err as AIError).code, (err as Error).message, name, m));
     } finally {
       setWorking(false);
       await settle(p, ok);
@@ -379,9 +382,9 @@ function KeyPanel(p: PanelProps) {
   };
 
   return (
-    <section className="cap-wizard__panel" aria-label="Paste an API key">
+    <section className="cap-wizard__panel" aria-label={m.welcome.tutor.keyPanelAria}>
       <fieldset className="cap-wizard__choices cap-wizard__choices--chips">
-        <legend className="cap-wizard__legend">Which company is your key from?</legend>
+        <legend className="cap-wizard__legend">{m.welcome.tutor.whichCompanyLegend}</legend>
         {KEY_PROVIDERS.map((k) => (
           <label key={k.kind} className="cap-chip cap-wizard__chip">
             <input
@@ -404,34 +407,34 @@ function KeyPanel(p: PanelProps) {
           <span>
             {info.keyUrl ? (
               <a href={info.keyUrl} target="_blank" rel="noopener noreferrer">
-                Open {name}’s key page
+                {m.welcome.tutor.openKeyPage(name)}
                 <IconExternal className="cap-ico" />
               </a>
             ) : (
-              `Open ${name}’s website`
-            )}{' '}
-            and sign in, or make an account.
+              m.welcome.tutor.openWebsite(name)
+            )}
+            {m.welcome.tutor.andSignIn}
           </span>
         </li>
         <li>
           <span className="cap-wizard__n">2</span>
-          <span>Create a new key and copy it. It’s a long code{prefix ? ` that starts with ${prefix}` : ''}.</span>
+          <span>{m.welcome.tutor.createNewKey(prefix)}</span>
         </li>
         <li>
           <span className="cap-wizard__n">3</span>
-          <span>Paste it here and click Connect.</span>
+          <span>{m.welcome.tutor.pasteAndConnect}</span>
         </li>
       </ol>
       <div className="cap-field">
         <label className="cap-label" htmlFor={inputId}>
-          Your {name} key
+          {m.welcome.tutor.yourKeyLabel(name)}
         </label>
         <div className="cap-row" style={{ flexWrap: 'nowrap' }}>
           <input
             id={inputId}
             className="cap-input cap-input--mono"
             type={show ? 'text' : 'password'}
-            placeholder={info.keyPlaceholder ?? 'Paste your key'}
+            placeholder={info.keyPlaceholder ?? m.welcome.tutor.pasteYourKeyPlaceholder}
             value={key}
             autoComplete="off"
             spellCheck={false}
@@ -439,23 +442,20 @@ function KeyPanel(p: PanelProps) {
             onKeyDown={(e) => e.key === 'Enter' && void connect()}
           />
           <button className="cap-btn cap-btn--lg" onClick={() => setShow(!show)}>
-            {show ? 'Hide' : 'Show'}
+            {show ? m.options.aiProviders.hide : m.options.aiProviders.show}
           </button>
           <button className="cap-btn cap-btn--primary cap-btn--lg" disabled={!key.trim() || working} onClick={() => void connect()}>
             {working ? (
               <>
                 <span className="cap-spinner" />
-                Checking…
+                {m.welcome.tutor.checking}
               </>
             ) : (
-              'Connect'
+              m.welcome.tutor.connectBtn
             )}
           </button>
         </div>
-        <span className="cap-help">
-          Your key stays on this computer and is sent only to {name}.
-          {limit > 0 && ` Captionary stops after ${limit} requests a day, so costs can’t run away from you.`}
-        </span>
+        <span className="cap-help">{m.welcome.tutor.keyStaysHelp(name, limit)}</span>
       </div>
       {error && <Note tone="danger">{error}</Note>}
     </section>

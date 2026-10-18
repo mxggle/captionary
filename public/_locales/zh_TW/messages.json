@@ -1,0 +1,14 @@
+{
+  "extName": {
+    "message": "Captionary"
+  },
+  "extDescription": {
+    "message": "在 YouTube、Netflix 與 Apple TV+ 上透過雙語字幕、點選查詞、單字庫與 AI 語境解說輕鬆學外語。"
+  },
+  "actionTitle": {
+    "message": "Captionary"
+  },
+  "commandToggleSidepanel": {
+    "message": "開啟 AI 家教側邊欄"
+  }
+}

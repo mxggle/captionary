@@ -1,4 +1,5 @@
 import { storage } from '#imports';
+import { getCurrentUILocale, getMessages } from '../i18n';
 import { AIError, type AIUsage } from './types';
 
 export interface UsageCounter {
@@ -51,7 +52,7 @@ export async function assertWithinLimit(dailyLimit: number): Promise<void> {
   if (!dailyLimit) return;
   const stats = await getUsage();
   if (stats.today.requests >= dailyLimit) {
-    throw new AIError('limit_reached', `Daily AI limit reached (${dailyLimit} requests). Raise it in Settings → AI → Cost & privacy.`);
+    throw new AIError('limit_reached', getMessages(getCurrentUILocale()).runtime.ai.dailyLimitReached(dailyLimit));
   }
 }
 

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
+import { useI18n } from '@/lib/i18n';
 import { IconClose, IconGlyph } from '@/ui/icons';
 import { TokenizedText } from '@/ui/TokenizedText';
 import { useVocabIndex } from '@/ui/vocab-index';
@@ -111,6 +112,7 @@ function useStatusBadge(status: string, message: string | undefined, mediaId: st
 
 /** Everything Captionary draws over the video: captions, toasts, the look-up, the menu and the drawer. */
 export function Overlay({ controller }: { controller: SessionController }) {
+  const { m } = useI18n();
   const s = useSession(
     useShallow((st) => ({
       settings: st.settings,
@@ -207,13 +209,15 @@ export function Overlay({ controller }: { controller: SessionController }) {
             {s.status === 'loading' ? <span className="cap-spinner" /> : <span className="cap-dot cap-dot--warn" />}
             <span className="cap-spacer">
               {s.status === 'loading'
-                ? 'Loading subtitles…'
+                ? m.content.overlay.loadingSubtitles
                 : s.status === 'none'
-                  ? `No subtitles found for this ${s.site === 'youtube' ? 'video' : 'title'}`
+                  ? s.site === 'youtube'
+                    ? m.content.overlay.noSubtitlesVideo
+                    : m.content.overlay.noSubtitlesTitle
                   : s.message}
             </span>
             {s.status !== 'loading' && (
-              <button className="cap-toast__close" aria-label="Dismiss" onClick={badge.dismiss}>
+              <button className="cap-toast__close" aria-label={m.content.overlay.dismiss} onClick={badge.dismiss}>
                 <IconClose className="cap-ico" />
               </button>
             )}
@@ -270,7 +274,7 @@ export function Overlay({ controller }: { controller: SessionController }) {
           )}
           {subtitles.showTranslation && !translation && s.translationStatus === 'loading' && (
             <div className="cap-cap cap-cap--pending" style={{ fontSize: Math.round(fontSize * subtitles.translationScale * 0.8) }}>
-              translating…
+              {m.common.translating}
             </div>
           )}
         </div>

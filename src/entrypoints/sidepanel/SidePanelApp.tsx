@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useI18n } from '@/lib/i18n';
 import { languageName } from '@/lib/languages';
 import type { SidePanelPayload } from '@/lib/messaging';
 import { sidePanelPayload } from '@/lib/session-items';
@@ -25,6 +26,7 @@ function hostOf(url: string | undefined): string | undefined {
 /** The AI tutor: explains selections from any page and answers follow-ups. */
 function Tutor() {
   const [settings] = useSettings();
+  const { m, locale } = useI18n(settings);
   const aiStatus = useAIStatus();
   const vocab = useVocabMap();
   const [payload, setPayload] = useState<SidePanelPayload | null>(null);
@@ -77,13 +79,13 @@ function Tutor() {
     <>
       <div className="cap-card" style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
         <label className="cap-sr" htmlFor="tutor-text">
-          Word or sentence to explain
+          {m.sidepanel.wordOrSentenceAria}
         </label>
         <textarea
           id="tutor-text"
           className="cap-input"
           style={{ minHeight: 70, fontFamily: 'var(--font-sans)', fontSize: 14 }}
-          placeholder="Type or paste a word or sentence…"
+          placeholder={m.sidepanel.inputPlaceholder}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
@@ -97,14 +99,14 @@ function Tutor() {
           <LanguageSelect
             variant="button"
             className="cap-btn--sm"
-            label="Language of the text"
+            label={m.sidepanel.languageOfText}
             value={lang || (settings.targetLanguage === 'auto' ? 'en' : settings.targetLanguage)}
             onChange={setLang}
           />
           <span className="cap-spacer" />
           <button className="cap-btn cap-btn--primary cap-btn--sm" disabled={!draft.trim()} onClick={explain}>
             <IconSpark className="cap-ico" />
-            Explain
+            {m.common.explain}
           </button>
         </div>
       </div>
@@ -113,14 +115,15 @@ function Tutor() {
           <div style={{ fontSize: 12.5, color: 'var(--ink-subtle)' }}>
             {payload?.url ? (
               <>
-                From{' '}
+                {m.sidepanel.fromSource}
                 <a href={payload.url} target="_blank" rel="noopener noreferrer">
                   {host ?? payload.title}
                 </a>{' '}
                 ·{' '}
               </>
             ) : null}
-            {payload?.url ? (target.kind === 'word' ? 'selected text' : 'selected sentence') : 'typed here'} · {languageName(target.lang)}
+            {payload?.url ? (target.kind === 'word' ? m.sidepanel.selectedText : m.sidepanel.selectedSentence) : m.sidepanel.typedHere} ·{' '}
+            {languageName(target.lang, locale)}
           </div>
           <PaperLookup
             key={`${target.kind}:${target.text}:${target.lang}`}
@@ -154,8 +157,9 @@ function Tutor() {
         </>
       ) : (
         <p className="cap-help" style={{ margin: 0 }}>
-          Select text on any web page, right-click and choose <strong>Explain with Captionary</strong>, or choose Open in side panel in a
-          look-up.
+          {m.sidepanel.emptyTipBefore}
+          <strong>{m.sidepanel.emptyTipStrong}</strong>
+          {m.sidepanel.emptyTipAfter}
         </p>
       )}
     </>
@@ -163,12 +167,14 @@ function Tutor() {
 }
 
 export function SidePanelApp() {
+  const [settings] = useSettings();
+  const { m } = useI18n(settings);
   // Opened as a tab from the navigation: the same tutor inside the page shell.
   if (location.hash === '#page') {
-    document.title = 'AI tutor · Captionary';
+    document.title = `${m.sidepanel.pageTitle} · Captionary`;
     return (
       <AppShell current="tutor" narrow>
-        <PageHead title="AI tutor" lead="Explain a word or a sentence from anywhere, then ask follow-up questions." />
+        <PageHead title={m.sidepanel.pageTitle} lead={m.sidepanel.pageLead} />
         <Tutor />
       </AppShell>
     );
@@ -177,14 +183,14 @@ export function SidePanelApp() {
     <div className="cap-sidepanel">
       <div className="cap-row" style={{ flexWrap: 'nowrap' }}>
         <BrandMark />
-        <h1 className="cap-spacer cap-sidepanel__title">AI tutor</h1>
+        <h1 className="cap-spacer cap-sidepanel__title">{m.sidepanel.pageTitle}</h1>
         <a
           className="cap-iconbtn cap-iconbtn--sm"
           href="/options.html#ai"
           target="_blank"
           rel="noopener noreferrer"
-          aria-label="Settings"
-          title="Settings"
+          aria-label={m.common.settings}
+          title={m.common.settings}
         >
           <IconSettings className="cap-ico" />
         </a>

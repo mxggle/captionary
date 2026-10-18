@@ -1,3 +1,4 @@
+import { getCurrentUILocale, getMessages } from '@/lib/i18n';
 import { sameLang } from '@/lib/languages';
 import { bg } from '@/lib/messaging';
 import {
@@ -114,12 +115,12 @@ export class AppleTvAdapter implements SiteAdapter {
 
   async loadTrack(trackId: string): Promise<Cue[]> {
     const rendition = this.renditions.get(trackId);
-    if (!rendition) throw new Error('Unknown subtitle track');
+    if (!rendition) throw new Error(getMessages(getCurrentUILocale()).content.errors.unknownSubtitleTrack);
     this.timeline ??= this.videoTimeline(this.featureAsset);
     const [playlist, timeline] = await Promise.all([fetchText(rendition.uri), this.timeline]);
     if (!timeline) this.timeline = null; // look again on the next load
     const segments = parseMediaPlaylist(playlist, rendition.uri);
-    if (!segments.length) throw new Error('Empty subtitle playlist');
+    if (!segments.length) throw new Error(getMessages(getCurrentUILocale()).content.errors.appletvEmptyPlaylist);
     const parts = planSubtitleParts(segments, this.featureAsset, timeline);
     const cues = await Promise.all(
       parts.map(async ({ uris, offset }) => {

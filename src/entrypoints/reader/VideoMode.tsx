@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useI18n } from '@/lib/i18n';
 import { languageName, normalizeLang } from '@/lib/languages';
 import { parseSubtitleFile } from '@/lib/subtitles/parse';
 import type { Cue, TrackInfo } from '@/lib/subtitles/types';
@@ -53,6 +54,7 @@ async function readSubtitle(file: File, fallbackLang: string): Promise<SubFile> 
 
 /** The reader's local video: the same captions, list, keys and look-ups as on the video sites. */
 export function VideoMode({ onMode }: { onMode: (m: ReaderMode) => void }) {
+  const { m, locale } = useI18n();
   const [settings] = useSettings();
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoName, setVideoName] = useState('');
@@ -114,7 +116,7 @@ export function VideoMode({ onMode }: { onMode: (m: ReaderMode) => void }) {
     if (!file) return;
     try {
       const sub = await readSubtitle(file, which === 'original' ? fallbackLang : settings.nativeLanguage);
-      if (!sub.cues.length) throw new Error(`There are no subtitles in ${file.name}.`);
+      if (!sub.cues.length) throw new Error(m.reader.video.noSubtitlesInFile(file.name));
       if (which === 'original') setOriginal(sub);
       else setTranslation(sub);
       setError(null);
@@ -129,14 +131,14 @@ export function VideoMode({ onMode }: { onMode: (m: ReaderMode) => void }) {
       <div className="cap-row" style={{ gap: 12 }}>
         <a href="/reader.html" className="cap-row" style={{ gap: 10, color: 'var(--ink)', textDecoration: 'none' }}>
           <BrandMark />
-          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 19 }}>Reader</span>
+          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 19 }}>{m.reader.title}</span>
         </a>
         <ModeSwitch mode="video" onMode={onMode} />
         <span className="cap-spacer" />
         <a className="cap-btn cap-btn--ghost" href="/vocab.html">
-          Saved words
+          {m.nav.savedWords}
         </a>
-        <a className="cap-iconbtn" href="/options.html#subtitles" aria-label="Settings" title="Settings">
+        <a className="cap-iconbtn" href="/options.html#subtitles" aria-label={m.common.settings} title={m.common.settings}>
           <IconSettings className="cap-ico" />
         </a>
       </div>
@@ -145,7 +147,7 @@ export function VideoMode({ onMode }: { onMode: (m: ReaderMode) => void }) {
         <div className="cap-row" style={{ gap: 10 }}>
           <label className="cap-btn cap-file-btn">
             <IconFilm className="cap-ico" />
-            {videoName || 'Choose a video file'}
+            {videoName || m.reader.video.chooseVideoFile}
             <input
               type="file"
               accept="video/*,audio/*,.mkv"
@@ -159,14 +161,14 @@ export function VideoMode({ onMode }: { onMode: (m: ReaderMode) => void }) {
           </label>
           <label className="cap-btn cap-file-btn">
             <IconCaptions className="cap-ico" />
-            {original ? original.name : 'Subtitles (.srt, .vtt)'}
+            {original ? original.name : m.reader.video.subtitlesFile}
             <input type="file" accept=".srt,.vtt,.ttml,.dfxp,.xml" onChange={(e) => void pickSub(e.target.files?.[0], 'original')} />
           </label>
           {original && (
             <LanguageSelect
               variant="button"
               className="cap-btn--sm"
-              label="Language of the subtitles"
+              label={m.reader.video.languageOfSubtitles}
               value={original.lang}
               onChange={(lang) => setOriginal({ ...original, lang })}
               style={{ height: 36 }}
@@ -174,14 +176,11 @@ export function VideoMode({ onMode }: { onMode: (m: ReaderMode) => void }) {
           )}
           <label className="cap-btn cap-btn--ghost cap-file-btn">
             <IconCaptions className="cap-ico" />
-            {translation ? translation.name : 'Translation subtitles (optional)'}
+            {translation ? translation.name : m.reader.video.translationSubtitlesOptional}
             <input type="file" accept=".srt,.vtt,.ttml,.dfxp,.xml" onChange={(e) => void pickSub(e.target.files?.[0], 'translation')} />
           </label>
           <span className="cap-spacer" />
-          <span className="cap-help">
-            Files stay on this computer. Without a translation file, lines are translated into {languageName(settings.nativeLanguage)}{' '}
-            on-device or by the tutor.
-          </span>
+          <span className="cap-help">{m.reader.video.localVideoHelp(languageName(settings.nativeLanguage, locale))}</span>
         </div>
       </div>
       {error && <Note tone="danger">{error}</Note>}
@@ -203,15 +202,18 @@ export function VideoMode({ onMode }: { onMode: (m: ReaderMode) => void }) {
             <div className="cap-row" style={{ marginTop: 12, gap: 8 }}>
               <button className="cap-btn" onClick={() => controller.prev()}>
                 <IconPrev className="cap-ico" />
-                Previous{k(keys.prevLine)}
+                {m.reader.video.previous}
+                {k(keys.prevLine)}
               </button>
               <button className="cap-btn" onClick={() => controller.repeat()}>
                 <IconRepeat className="cap-ico" />
-                Repeat{k(keys.repeatLine)}
+                {m.reader.video.repeat}
+                {k(keys.repeatLine)}
               </button>
               <button className="cap-btn" onClick={() => controller.next()}>
                 <IconNext className="cap-ico" />
-                Next{k(keys.nextLine)}
+                {m.reader.video.next}
+                {k(keys.nextLine)}
               </button>
               <button
                 className="cap-chip cap-chip--sm"
@@ -219,12 +221,14 @@ export function VideoMode({ onMode }: { onMode: (m: ReaderMode) => void }) {
                 style={{ height: 36 }}
                 onClick={() => controller.runAction('toggleAutoPause')}
               >
-                Pause after each line{keyName(keys.toggleAutoPause) && <span className="cap-chip__n">{keyName(keys.toggleAutoPause)}</span>}
+                {m.reader.video.pauseAfterEachLine}
+                {keyName(keys.toggleAutoPause) && <span className="cap-chip__n">{keyName(keys.toggleAutoPause)}</span>}
               </button>
               <span className="cap-spacer" />
               <button className="cap-btn cap-btn--primary" onClick={() => controller.explainCurrentLine()}>
                 <IconSpark className="cap-ico" />
-                Break down the line{k(keys.explainLine)}
+                {m.reader.video.breakDownLine}
+                {k(keys.explainLine)}
               </button>
             </div>
           </div>
@@ -233,14 +237,14 @@ export function VideoMode({ onMode }: { onMode: (m: ReaderMode) => void }) {
               <SubtitlePanel
                 controller={controller}
                 variant="page"
-                subtitle={original ? `${original.name} · ${original.cues.length} lines` : undefined}
+                subtitle={original ? m.reader.video.linesCount(original.name, original.cues.length) : undefined}
               />
             </div>
           )}
         </div>
       ) : (
         <p className="cap-help" style={{ margin: 0 }}>
-          Choose a video and its subtitle file. Every line becomes clickable, with the same keys as on YouTube.
+          {m.reader.video.emptyPrompt}
         </p>
       )}
     </div>

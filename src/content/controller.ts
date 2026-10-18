@@ -1,3 +1,4 @@
+import { getMessages, resolveUILocale, syncUILocaleFromSettings } from '@/lib/i18n';
 import { normalizeLang, sameLang } from '@/lib/languages';
 import { bg } from '@/lib/messaging';
 import { getSettings, updateSettings, watchSettings, type Settings, type ShortcutAction } from '@/lib/settings';
@@ -76,11 +77,13 @@ export class SessionController {
 
   async init(): Promise<void> {
     const settings = await getSettings();
+    syncUILocaleFromSettings(settings);
     setSession({ settings, site: this.adapter.site });
     this.applyNativeHidden();
     this.cleanups.push(
       watchSettings((next) => {
         const prev = getSession().settings;
+        syncUILocaleFromSettings(next);
         setSession({ settings: next });
         this.applyNativeHidden();
         if (
@@ -264,7 +267,8 @@ export class SessionController {
     const clamped = Math.round(Math.min(4, Math.max(0.25, rate)) * 100) / 100;
     this.video.playbackRate = clamped;
     setSession({ rate: clamped });
-    toast(`Speed ${clamped}×`);
+    const m = getMessages(resolveUILocale(getSession().settings));
+    toast(m.content.toast.speed(clamped));
   }
 
   hoverStart() {
@@ -410,7 +414,8 @@ export class SessionController {
       translation: translations[i],
       context: this.contextFor(i, media),
     });
-    toast('Line saved', { key: keyName(settings.shortcuts.saveLine), tone: 'learn' });
+    const m = getMessages(resolveUILocale(settings));
+    toast(m.content.toast.lineSaved, { key: keyName(settings.shortcuts.saveLine, m.common.space), tone: 'learn' });
   }
 
   /** Load the subtitles again after an error. */
@@ -463,8 +468,9 @@ export class SessionController {
 
   runAction(action: ShortcutAction) {
     const { settings } = getSession();
+    const m = getMessages(resolveUILocale(settings));
     const patchSettings = (fn: (s: Settings) => void) => void updateSettings(fn);
-    const key = keyName(settings.shortcuts[action]);
+    const key = keyName(settings.shortcuts[action], m.common.space);
     switch (action) {
       case 'prevLine':
         return this.prev();
@@ -476,14 +482,14 @@ export class SessionController {
         return this.togglePlay();
       case 'toggleAutoPause': {
         const on = !settings.playback.autoPause;
-        toast(`Pause after each line is ${on ? 'on' : 'off'}`, { key, tone: on ? 'learn' : undefined });
+        toast(on ? m.content.toast.autoPauseOn : m.content.toast.autoPauseOff, { key, tone: on ? 'learn' : undefined });
         return patchSettings((s) => void (s.playback.autoPause = on));
       }
       case 'toggleTranslation':
-        toast(settings.subtitles.showTranslation ? 'Translation hidden' : 'Translation shown', { key });
+        toast(settings.subtitles.showTranslation ? m.content.toast.translationHidden : m.content.toast.translationShown, { key });
         return patchSettings((s) => void (s.subtitles.showTranslation = !s.subtitles.showTranslation));
       case 'toggleOriginal':
-        toast(settings.subtitles.showOriginal ? 'Original hidden' : 'Original shown', { key });
+        toast(settings.subtitles.showOriginal ? m.content.toast.originalHidden : m.content.toast.originalShown, { key });
         return patchSettings((s) => void (s.subtitles.showOriginal = !s.subtitles.showOriginal));
       case 'toggleSidebar':
         if (getSession().off) this.setOff(false);
@@ -522,6 +528,7 @@ export class SessionController {
     const gen = ++this.generation;
     this.translationAbort?.abort();
     const { settings } = getSession();
+    const m = getMessages(resolveUILocale(settings));
     setSession({
       media,
       tracks,
@@ -539,7 +546,7 @@ export class SessionController {
     this.applyNativeHidden();
     const track = this.pickOriginalTrack(tracks, defaultTrackId, settings);
     if (!track) {
-      setSession({ status: 'none', message: 'This video has no subtitles.', originalTrackId: null, lang: '' });
+      setSession({ status: 'none', message: m.content.errors.noSubtitles, originalTrackId: null, lang: '' });
       return;
     }
     await this.selectOriginalTrack(track.id, gen);
@@ -549,6 +556,7 @@ export class SessionController {
     const track = getSession().tracks.find((t) => t.id === trackId);
     if (!track) return;
     this.translationAbort?.abort();
+    const m = getMessages(resolveUILocale(getSession().settings));
     setSession({
       status: 'loading',
       message: undefined,
@@ -563,7 +571,7 @@ export class SessionController {
       const cues = await this.adapter.loadTrack(trackId);
       if (gen !== this.generation) return;
       if (!cues.length) {
-        setSession({ status: 'none', message: 'The subtitle track is empty.' });
+        setSession({ status: 'none', message: m.content.errors.emptyTrack });
         return;
       }
       setSession({ cues, status: 'ready', translations: new Array(cues.length).fill(undefined) });
@@ -573,7 +581,9 @@ export class SessionController {
       await this.selectTranslation(await this.defaultTranslationSource(), gen);
     } catch (err) {
       if (gen !== this.generation) return;
-      setSession({ status: 'error', message: (err as Error).message || 'Could not load subtitles.' });
+      const raw = (err as Error)?.message;
+      const message = raw ? `${m.content.errors.loadSubtitlesFailed} (${raw})` : m.content.errors.loadSubtitlesFailed;
+      setSession({ status: 'error', message });
     }
   }
 
@@ -633,7 +643,8 @@ export class SessionController {
     this.translationAbort?.abort();
     const abort = new AbortController();
     this.translationAbort = abort;
-    const { cues, lang, originalTrackId } = getSession();
+    const { cues, lang, originalTrackId, settings } = getSession();
+    const m = getMessages(resolveUILocale(settings));
     setSession({
       translationSource: source,
       translations: new Array(cues.length).fill(undefined),
@@ -673,7 +684,7 @@ export class SessionController {
       }
     } catch (err) {
       if (stale()) return;
-      setSession({ translationStatus: 'error', translationMessage: (err as Error).message || 'Translation failed.' });
+      setSession({ translationStatus: 'error', translationMessage: (err as Error).message || m.content.errors.translationFailed });
     }
   }
 
@@ -697,7 +708,7 @@ export class SessionController {
 }
 
 /** A shortcut key as it is shown next to a label ("Q", "Space"); empty when unassigned. */
-export function keyName(key: string | undefined): string | undefined {
+export function keyName(key: string | undefined, spaceLabel = 'Space'): string | undefined {
   if (!key) return undefined;
-  return key === ' ' ? 'Space' : key.toUpperCase();
+  return key === ' ' ? spaceLabel : key.toUpperCase();
 }

@@ -1,3 +1,4 @@
+import { getCurrentUILocale, getMessages } from '../../i18n';
 import { isChatModel } from '../registry';
 import { AIError, type ProviderAdapter, type ReasoningEffort } from '../types';
 import { fetchWithRetry, parseSSE, TRANSLATION_SCHEMA, withThinkingHeadroom } from './shared';
@@ -37,6 +38,7 @@ function base(url: string) {
  */
 export const geminiAdapter: ProviderAdapter = {
   async *stream(ctx, req) {
+    const m = getMessages(getCurrentUILocale()).runtime.ai;
     const model = req.model.replace(/^models\//, '');
     const thinking = thinkingConfig(model, req.effort);
     const generationConfig: Record<string, unknown> = {
@@ -50,7 +52,7 @@ export const geminiAdapter: ProviderAdapter = {
     }
     const body = {
       systemInstruction: { parts: [{ text: req.system }] },
-      contents: req.messages.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
+      contents: req.messages.map((msg) => ({ role: msg.role === 'assistant' ? 'model' : 'user', parts: [{ text: msg.content }] })),
       generationConfig,
     };
     const res = await fetchWithRetry(
@@ -62,18 +64,18 @@ export const geminiAdapter: ProviderAdapter = {
       },
       req,
     );
-    if (!res.body) throw new AIError('network', 'Empty response from Gemini.');
+    if (!res.body) throw new AIError('network', m.geminiEmptyResponse);
     for await (const msg of parseSSE(res.body)) {
       const chunk = JSON.parse(msg.data) as GeminiChunk;
       if (chunk.promptFeedback?.blockReason) {
-        throw new AIError('refusal', `Gemini blocked the request (${chunk.promptFeedback.blockReason}).`);
+        throw new AIError('refusal', m.geminiBlocked(chunk.promptFeedback.blockReason));
       }
       const candidate = chunk.candidates?.[0];
       for (const part of candidate?.content?.parts ?? []) {
         if (part.text && !part.thought) yield { type: 'text', text: part.text };
       }
       if (candidate?.finishReason === 'SAFETY' || candidate?.finishReason === 'PROHIBITED_CONTENT') {
-        throw new AIError('refusal', 'Gemini stopped the answer for safety reasons.');
+        throw new AIError('refusal', m.geminiSafetyStopped);
       }
       if (chunk.usageMetadata) {
         yield {

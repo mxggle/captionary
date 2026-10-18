@@ -8,6 +8,7 @@ import { AppleTvAdapter, PLAYER_DIALOG } from '@/content/sites/appletv';
 import { getSession, setSession, useSession } from '@/content/store';
 import { Overlay } from '@/content/ui/Overlay';
 import { PlayerButton } from '@/content/ui/PlayerButton';
+import { getMessages, resolveUILocale } from '@/lib/i18n';
 import { watchSettings } from '@/lib/settings';
 
 /**
@@ -112,7 +113,8 @@ export default defineContentScript({
               status: 'loading',
             });
           } else if (getSession().status === 'loading' && Date.now() - pendingSince > 20_000) {
-            setSession({ status: 'error', message: 'No subtitles found for this title. Reload the page and press play again.' });
+            const m = getMessages(resolveUILocale(settings));
+            setSession({ status: 'error', message: m.content.errors.appletvNoSubtitlesFound });
           }
           return;
         }

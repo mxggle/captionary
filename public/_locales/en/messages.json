@@ -1,0 +1,14 @@
+{
+  "extName": {
+    "message": "Captionary"
+  },
+  "extDescription": {
+    "message": "Learn languages on YouTube, Netflix and Apple TV+ with dual subtitles, a pop-up dictionary, saved words and AI explanations."
+  },
+  "actionTitle": {
+    "message": "Captionary"
+  },
+  "commandToggleSidepanel": {
+    "message": "Open the AI tutor side panel"
+  }
+}

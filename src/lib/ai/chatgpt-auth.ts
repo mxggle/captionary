@@ -1,4 +1,5 @@
 import { browser, storage } from '#imports';
+import { getCurrentUILocale, getMessages } from '../i18n';
 import { AIError, type AIErrorCode } from './types';
 
 /**
@@ -27,7 +28,6 @@ const REFRESH_WINDOW_MS = 5 * 60_000;
 const SIGN_IN_TIMEOUT_MS = 10 * 60_000;
 /** A token request that takes longer has stalled; every request on the connection waits for it. */
 const TOKEN_TIMEOUT_MS = 30_000;
-const SIGN_IN_FIRST = 'Sign in with ChatGPT in Settings → AI providers.';
 const AUTH_CLAIM = 'https://api.openai.com/auth';
 const PROFILE_CLAIM = 'https://api.openai.com/profile';
 
@@ -104,14 +104,14 @@ export function isCallbackUrl(url: string | undefined): url is string {
 
 /** Read the authorization code from the redirect, checking it answers our request. */
 export function parseCallback(url: string, expectedState: string): string {
+  const m = getMessages(getCurrentUILocale()).runtime.ai;
   const params = new URL(url).searchParams;
   const error = params.get('error');
-  if (error) throw new AIError('auth', `ChatGPT sign-in failed: ${params.get('error_description') || error}`);
+  if (error) throw new AIError('auth', m.chatgptSignInFailed(params.get('error_description') || error));
   // ChatGPT may append a suffix to the state it echoes back; Codex accepts the prefix too.
-  if (!params.get('state')?.startsWith(expectedState))
-    throw new AIError('auth', 'ChatGPT sign-in failed: the response did not match the request.');
+  if (!params.get('state')?.startsWith(expectedState)) throw new AIError('auth', m.chatgptStateMismatch);
   const code = params.get('code');
-  if (!code) throw new AIError('auth', 'ChatGPT sign-in failed: no authorization code was returned.');
+  if (!code) throw new AIError('auth', m.chatgptNoAuthCode);
   return code;
 }
 
@@ -135,13 +135,14 @@ interface TokenResponse {
 
 /** Build stored tokens from a token response; `previous` fills fields a refresh omits. */
 export function toTokens(res: TokenResponse, previous?: ChatGPTTokens, now = Date.now()): ChatGPTTokens {
-  if (!res.access_token) throw new AIError('auth', 'ChatGPT did not return an access token.');
+  const m = getMessages(getCurrentUILocale()).runtime.ai;
+  if (!res.access_token) throw new AIError('auth', m.chatgptNoAccessToken);
   const id = decodeJwt(res.id_token);
   const access = decodeJwt(res.access_token);
   const auth = (id[AUTH_CLAIM] ?? access[AUTH_CLAIM] ?? {}) as Record<string, unknown>;
   const orgs = id.organizations as { id?: string }[] | undefined;
   const accountId = String(auth.chatgpt_account_id ?? orgs?.[0]?.id ?? previous?.accountId ?? '');
-  if (!accountId) throw new AIError('auth', 'This sign-in has no ChatGPT workspace. Try again and pick a workspace.');
+  if (!accountId) throw new AIError('auth', m.chatgptNoWorkspace);
   const exp = typeof access.exp === 'number' ? access.exp * 1000 : undefined;
   const profile = (id[PROFILE_CLAIM] ?? {}) as { email?: string };
   return {
@@ -160,6 +161,7 @@ export function toTokens(res: TokenResponse, previous?: ChatGPTTokens, now = Dat
 // Token endpoint
 
 async function tokenRequest(body: Record<string, string>): Promise<TokenResponse> {
+  const m = getMessages(getCurrentUILocale()).runtime.ai;
   let res: Response;
   let text: string;
   try {
@@ -172,9 +174,8 @@ async function tokenRequest(body: Record<string, string>): Promise<TokenResponse
     });
     text = await res.text();
   } catch (err) {
-    if ((err as Error).name === 'TimeoutError')
-      throw new AIError('timeout', 'OpenAI’s sign-in service took too long to answer. Try again.');
-    throw new AIError('network', 'Captionary couldn’t reach OpenAI’s sign-in service. Check your connection and try again.');
+    if ((err as Error).name === 'TimeoutError') throw new AIError('timeout', m.chatgptServiceTimeout);
+    throw new AIError('network', m.chatgptServiceUnreachable);
   }
   if (!res.ok) {
     let reason = text.slice(0, 200);
@@ -187,7 +188,7 @@ async function tokenRequest(body: Record<string, string>): Promise<TokenResponse
     }
     // A busy or failing server says nothing about the sign-in: keep it, and let a fallback provider answer.
     const code: AIErrorCode = res.status === 429 ? 'rate_limit' : res.status >= 500 ? 'unavailable' : 'auth';
-    throw new AIError(code, `ChatGPT sign-in failed (${res.status}): ${reason}`, res.status);
+    throw new AIError(code, m.chatgptSignInStatusFailed(res.status, reason), res.status);
   }
   return JSON.parse(text) as TokenResponse;
 }
@@ -205,7 +206,7 @@ async function replacedTokens(connectionId: string, current: ChatGPTTokens): Pro
 }
 
 function orSignIn(tokens: ChatGPTTokens | null): ChatGPTTokens {
-  if (!tokens) throw new AIError('missing_key', SIGN_IN_FIRST);
+  if (!tokens) throw new AIError('missing_key', getMessages(getCurrentUILocale()).runtime.ai.chatgptSignInFirst);
   return tokens;
 }
 
@@ -225,7 +226,7 @@ async function refresh(connectionId: string, current: ChatGPTTokens): Promise<Ch
       const replaced = await replacedTokens(connectionId, current);
       if (replaced !== undefined) return orSignIn(replaced);
       await signOutChatGPT(connectionId);
-      throw new AIError('auth', 'Your ChatGPT sign-in has expired. Sign in again in Settings → AI providers.', 401);
+      throw new AIError('auth', getMessages(getCurrentUILocale()).runtime.ai.chatgptSessionExpired, 401);
     }
     throw err;
   }
@@ -243,7 +244,7 @@ export function chatGPTCredentials(connectionId: string, force = false): Promise
   // about-to-expire token and spend the refresh token a second time.
   const job = (async () => {
     const tokens = await tokensItem(connectionId).getValue();
-    if (!tokens) throw new AIError('missing_key', SIGN_IN_FIRST);
+    if (!tokens) throw new AIError('missing_key', getMessages(getCurrentUILocale()).runtime.ai.chatgptSignInFirst);
     if (!force && tokens.expiresAt - Date.now() > REFRESH_WINDOW_MS) return tokens;
     return refresh(connectionId, tokens);
   })().finally(() => refreshing.delete(connectionId));
@@ -257,6 +258,7 @@ export function chatGPTCredentials(connectionId: string, force = false): Promise
 /** Watch a tab until it reaches the redirect URL; rejects if the tab is closed first. */
 function waitForCallback(tabId: number, signal?: AbortSignal): Promise<string> {
   return new Promise((resolve, reject) => {
+    const m = getMessages(getCurrentUILocale()).runtime.ai;
     const done = (fn: () => void) => {
       browser.tabs.onUpdated.removeListener(onUpdated);
       browser.tabs.onRemoved.removeListener(onRemoved);
@@ -270,10 +272,10 @@ function waitForCallback(tabId: number, signal?: AbortSignal): Promise<string> {
       if (url) done(() => resolve(url));
     };
     const onRemoved = (id: number) => {
-      if (id === tabId) done(() => reject(new AIError('aborted', 'Sign-in was cancelled.')));
+      if (id === tabId) done(() => reject(new AIError('aborted', m.chatgptSignInCancelled)));
     };
-    const onAbort = () => done(() => reject(new AIError('aborted', 'Sign-in was cancelled.')));
-    const timer = setTimeout(() => done(() => reject(new AIError('timeout', 'Sign-in timed out. Try again.'))), SIGN_IN_TIMEOUT_MS);
+    const onAbort = () => done(() => reject(new AIError('aborted', m.chatgptSignInCancelled)));
+    const timer = setTimeout(() => done(() => reject(new AIError('timeout', m.chatgptSignInTimedOut))), SIGN_IN_TIMEOUT_MS);
     browser.tabs.onUpdated.addListener(onUpdated);
     browser.tabs.onRemoved.addListener(onRemoved);
     signal?.addEventListener('abort', onAbort);
@@ -289,7 +291,7 @@ export async function signInWithChatGPT(connectionId: string, signal?: AbortSign
   const state = randomToken(32);
   const self = await browser.tabs.getCurrent();
   const tab = await browser.tabs.create({ url: authorizeUrl(challenge, state), openerTabId: self?.id });
-  if (tab.id === undefined) throw new AIError('unknown', 'Could not open the sign-in tab.');
+  if (tab.id === undefined) throw new AIError('unknown', getMessages(getCurrentUILocale()).runtime.ai.chatgptOpenTabFailed);
   let callback: string;
   try {
     callback = await waitForCallback(tab.id, signal);

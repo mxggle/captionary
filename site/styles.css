@@ -10,8 +10,9 @@
   font-weight: 500 800;
   font-display: swap;
   src: url('fonts/BricolageGrotesque-latin.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC,
-    U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191,
+    U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 @font-face {
   font-family: 'Bricolage Grotesque';
@@ -19,8 +20,9 @@
   font-weight: 500 800;
   font-display: swap;
   src: url('fonts/BricolageGrotesque-latin-ext.woff2') format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
-    U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113,
+    U+2C60-2C7F, U+A720-A7FF;
 }
 @font-face {
   font-family: 'Atkinson Hyperlegible Next';
@@ -28,8 +30,9 @@
   font-weight: 400 700;
   font-display: swap;
   src: url('fonts/AtkinsonHyperlegibleNext-latin.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC,
-    U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191,
+    U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 @font-face {
   font-family: 'Atkinson Hyperlegible Next';
@@ -37,8 +40,9 @@
   font-weight: 400 700;
   font-display: swap;
   src: url('fonts/AtkinsonHyperlegibleNext-latin-ext.woff2') format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
-    U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113,
+    U+2C60-2C7F, U+A720-A7FF;
 }
 @font-face {
   font-family: 'Atkinson Hyperlegible Mono';
@@ -79,10 +83,16 @@
   --caption-plate: #080808bf;
   --caption-selected: #ffffff40;
 
-  --font-display: 'Bricolage Grotesque', 'Atkinson Hyperlegible Next', system-ui, sans-serif;
-  --font-sans: 'Atkinson Hyperlegible Next', system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans', 'PingFang SC', 'Noto Sans CJK JP', sans-serif;
+  --font-display:
+    'Bricolage Grotesque', 'Atkinson Hyperlegible Next', system-ui, -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
+    'PingFang TC', 'Hiragino Sans', 'Yu Gothic', 'Meiryo', sans-serif;
+  --font-sans:
+    'Atkinson Hyperlegible Next', system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'PingFang TC',
+    'Hiragino Sans', 'Yu Gothic', 'Meiryo', 'Noto Sans CJK JP', sans-serif;
   --font-mono: 'Atkinson Hyperlegible Mono', ui-monospace, 'SF Mono', Menlo, monospace;
-  --font-host: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Hiragino Sans', 'PingFang SC', sans-serif;
+  --font-host:
+    system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
+    'PingFang TC', 'Hiragino Sans', 'Yu Gothic', 'Meiryo', sans-serif;
 
   --fs-h1: clamp(2.5rem, 1.35rem + 4.4vw, 4.4rem);
   --fs-h2: clamp(1.8rem, 1.3rem + 1.9vw, 2.7rem);
@@ -352,6 +362,37 @@ kbd {
 .head-nav a:hover {
   color: var(--ink);
 }
+.head-end {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.lang-select {
+  height: 36px;
+  padding: 0 28px 0 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  background-color: var(--raised);
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 9px) 50%;
+  background-size:
+    5px 5px,
+    5px 5px;
+  background-repeat: no-repeat;
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+.lang-select:hover {
+  background-color: var(--hover);
+}
 
 /* ---------- hero ---------- */
 .hero {
@@ -367,6 +408,30 @@ kbd {
   font-size: var(--fs-h1);
   line-height: 1.02;
   letter-spacing: -0.03em;
+}
+:lang(zh-CN) .hero h1,
+:lang(zh-TW) .hero h1,
+:lang(ja) .hero h1 {
+  max-width: 22ch;
+  line-height: 1.18;
+  letter-spacing: -0.01em;
+}
+:lang(zh-CN) .band h2,
+:lang(zh-TW) .band h2,
+:lang(ja) .band h2,
+:lang(zh-CN) .final h2,
+:lang(zh-TW) .final h2,
+:lang(ja) .final h2,
+:lang(zh-CN) .legal h1,
+:lang(zh-TW) .legal h1,
+:lang(ja) .legal h1 {
+  line-height: 1.22;
+  letter-spacing: -0.01em;
+}
+:lang(zh-CN) body,
+:lang(zh-TW) body,
+:lang(ja) body {
+  line-height: 1.7;
 }
 .lead {
   max-width: 62ch;
@@ -453,8 +518,7 @@ kbd {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(120% 90% at 30% 20%, #2b3346 0%, transparent 60%),
-    radial-gradient(90% 80% at 85% 85%, #3a2a2a 0%, transparent 65%),
+    radial-gradient(120% 90% at 30% 20%, #2b3346 0%, transparent 60%), radial-gradient(90% 80% at 85% 85%, #3a2a2a 0%, transparent 65%),
     linear-gradient(170deg, #1b2130 0%, #101217 55%, #0b0c0f 100%);
 }
 .bokeh {
@@ -917,6 +981,21 @@ kbd {
   font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+:lang(zh-CN) .gloss-rows dt,
+:lang(zh-TW) .gloss-rows dt,
+:lang(ja) .gloss-rows dt,
+:lang(zh-CN) .panel-label,
+:lang(zh-TW) .panel-label,
+:lang(ja) .panel-label,
+:lang(zh-CN) .v-tag,
+:lang(zh-TW) .v-tag,
+:lang(ja) .v-tag,
+:lang(zh-CN) .mark,
+:lang(zh-TW) .mark,
+:lang(ja) .mark {
+  font-family: var(--font-sans);
+  letter-spacing: 0.02em;
 }
 .gloss-rows dt {
   color: var(--ink-subtle);
@@ -1415,6 +1494,16 @@ kbd {
 @media (max-width: 640px) {
   :root {
     --gutter: 16px;
+  }
+  .head-row {
+    gap: 12px;
+  }
+  .head-end {
+    gap: 8px;
+  }
+  .lang-select {
+    padding: 0 24px 0 9px;
+    font-size: 0.8125rem;
   }
   .grid3 {
     grid-template-columns: minmax(0, 1fr);

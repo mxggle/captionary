@@ -1,5 +1,6 @@
 import { storage } from '#imports';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useI18n } from '@/lib/i18n';
 import { languageName, normalizeLang, sameLang } from '@/lib/languages';
 import { bg } from '@/lib/messaging';
 import { readerImport } from '@/lib/session-items';
@@ -51,6 +52,7 @@ function placeLookup(rect: PopupTarget['rect'], wrap: HTMLElement | null): { sty
 }
 
 function TextMode({ onMode }: { onMode: (m: ReaderMode) => void }) {
+  const { m, locale } = useI18n();
   const [settings] = useSettings();
   const aiStatus = useAIStatus();
   const vocab = useVocabMap();
@@ -126,7 +128,7 @@ function TextMode({ onMode }: { onMode: (m: ReaderMode) => void }) {
     };
   }, [showRoman, sentences, doc]);
 
-  const load = async (text: string, title = 'Pasted text', url?: string) => {
+  const load = async (text: string, title = m.reader.pastedTextTitle, url?: string) => {
     const detected = await detectLanguage(text);
     const fallback = settings && settings.targetLanguage !== 'auto' ? settings.targetLanguage : 'en';
     setDoc({ title, url, text, lang: detected ? normalizeLang(detected) : fallback });
@@ -213,29 +215,33 @@ function TextMode({ onMode }: { onMode: (m: ReaderMode) => void }) {
   if (!doc) {
     return (
       <AppShell current="reader" narrow>
-        <PageHead title="Reader" lead="Any text, with every word clickable: look-ups, translations and the tutor, as on the video sites.">
+        <PageHead title={m.reader.title} lead={m.reader.lead}>
           <ModeSwitch mode="text" onMode={onMode} />
         </PageHead>
-        <section className="cap-card" aria-label="Text to read" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <section
+          className="cap-card"
+          aria-label={m.reader.textToReadAria}
+          style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 12 }}
+        >
           <label className="cap-label" htmlFor="reader-text">
-            Paste text
+            {m.reader.pasteText}
           </label>
           <textarea
             id="reader-text"
             className="cap-input"
             style={{ minHeight: 220, fontFamily: 'var(--font-sans)', fontSize: 15 }}
-            placeholder="An article, song lyrics, a dialogue…"
+            placeholder={m.reader.pastePlaceholder}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
           />
           <div className="cap-row">
             <button className="cap-btn cap-btn--primary cap-btn--lg" disabled={!draft.trim()} onClick={() => void load(draft)}>
-              Read
+              {m.reader.readBtn}
             </button>
-            <span className="cap-help">or</span>
+            <span className="cap-help">{m.common.or}</span>
             <label className="cap-btn cap-btn--lg cap-file-btn">
               <IconDocument className="cap-ico" />
-              Open a file
+              {m.reader.openFileBtn}
               <input
                 type="file"
                 accept=".txt,.md,.srt,.vtt,text/plain"
@@ -245,18 +251,19 @@ function TextMode({ onMode }: { onMode: (m: ReaderMode) => void }) {
                 }}
               />
             </label>
-            <span className="cap-help">.txt, .srt or .vtt — subtitle files become plain text</span>
+            <span className="cap-help">{m.reader.fileTypesHelp}</span>
           </div>
         </section>
         <div className={`cap-drop${dragging ? ' is-dragging' : ''}`} aria-hidden="true">
           <IconUpload className="cap-ico-lg" />
-          <span>Drop a file anywhere on this page</span>
+          <span>{m.reader.dropFileHint}</span>
         </div>
         <div className="cap-note cap-note--plain">
           <IconInfo className="cap-ico" />
           <div>
-            On any web page, right-click and choose <strong>Open this page in the Captionary reader</strong>. The article comes here without
-            the site’s menus and ads.
+            {m.reader.contextMenuTipBefore}
+            <strong>{m.reader.contextMenuTipStrong}</strong>
+            {m.reader.contextMenuTipAfter}
           </div>
         </div>
       </AppShell>
@@ -282,28 +289,28 @@ function TextMode({ onMode }: { onMode: (m: ReaderMode) => void }) {
             </h1>
             {doc.url ? (
               <a href={doc.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13 }}>
-                {source} · opened from the page
+                {m.reader.openedFromPage(source)}
               </a>
             ) : (
-              <span className="cap-help">{languageName(doc.lang)}</span>
+              <span className="cap-help">{languageName(doc.lang, locale)}</span>
             )}
           </div>
-          <LanguageSelect variant="button" label="Language of the text" value={doc.lang} onChange={(v) => setDoc({ ...doc, lang: v })} />
+          <LanguageSelect variant="button" label={m.reader.languageOfText} value={doc.lang} onChange={(v) => setDoc({ ...doc, lang: v })} />
           <button className="cap-btn" disabled={sameLang(doc.lang, native) || !!busy} onClick={() => void translateAll()}>
             {busy ? (
               <>
                 <span className="cap-spinner" />
-                Translating {done} of {sentences.length}
+                {m.reader.translatingProgress(done, sentences.length)}
               </>
             ) : (
-              `Translate to ${languageName(native)}`
+              m.reader.translateTo(languageName(native, locale))
             )}
           </button>
           <button className="cap-btn cap-btn--ghost" onClick={() => setDoc(null)}>
-            New text
+            {m.reader.newText}
           </button>
         </div>
-        {translating?.error && <Note tone="danger">The translation failed: {translating.error}</Note>}
+        {translating?.error && <Note tone="danger">{m.reader.translationFailed(translating.error)}</Note>}
         <div className="cap-reader-wrap" ref={wrapRef}>
           <div className="cap-reader">
             {paragraphs.map((p, pi) => (
@@ -328,16 +335,16 @@ function TextMode({ onMode }: { onMode: (m: ReaderMode) => void }) {
                     <span className="cap-sent__tools">
                       <button
                         className="cap-iconbtn cap-iconbtn--sm"
-                        aria-label="Listen to the sentence"
-                        title="Listen"
+                        aria-label={m.reader.listenSentence}
+                        title={m.common.listen}
                         onClick={() => void speak(s.text, doc.lang, settings.dictionary.speechRate)}
                       >
                         <IconSpeaker className="cap-ico" />
                       </button>
                       <button
                         className="cap-iconbtn cap-iconbtn--sm"
-                        aria-label="Break down the sentence"
-                        title="Break down"
+                        aria-label={m.reader.breakDownSentence}
+                        title={m.reader.breakDownShort}
                         onClick={(e) => {
                           const r = (e.currentTarget.closest('.cap-sent') as HTMLElement).getBoundingClientRect();
                           openPopup('sentence', s.text, s.i, { left: r.left, top: r.top, width: r.width, height: r.height });
@@ -390,9 +397,10 @@ function TextMode({ onMode }: { onMode: (m: ReaderMode) => void }) {
 }
 
 export function ReaderApp() {
+  const { m } = useI18n();
   const [mode, setMode] = useState<ReaderMode>(() => (location.hash === '#video' ? 'video' : 'text'));
   useEffect(() => {
-    document.title = mode === 'video' ? 'Local video · Captionary' : 'Reader · Captionary';
-  }, [mode]);
+    document.title = `${mode === 'video' ? m.reader.modeVideo : m.reader.title} · Captionary`;
+  }, [mode, m]);
   return mode === 'text' ? <TextMode onMode={setMode} /> : <VideoMode onMode={setMode} />;
 }

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useI18n } from '@/lib/i18n';
 import { formatTime } from '@/lib/subtitles/parse';
 import { IconChevronDown, IconClose, IconGlyph } from '@/ui/icons';
 import { TokenizedText } from '@/ui/TokenizedText';
@@ -14,6 +15,7 @@ import { useContainWheel } from './wheel';
  * the player menu.
  */
 export function SubtitleDrawer({ controller, width }: { controller: SessionController; width: number }) {
+  const { m } = useI18n();
   const s = useSubtitleData();
   const ref = useRef<HTMLElement>(null);
   const listRef = useRef<HTMLOListElement>(null);
@@ -39,15 +41,15 @@ export function SubtitleDrawer({ controller, width }: { controller: SessionContr
   const closeKey = keyName(keys.toggleSidebar);
 
   return (
-    <aside ref={ref} className="cap-drawer cap-overlay__drawer" style={{ width }} aria-label="Captionary subtitles">
+    <aside ref={ref} className="cap-drawer cap-overlay__drawer" style={{ width }} aria-label={m.content.panel.subtitlesAria}>
       <div className="cap-drawer__head">
         <div className="cap-spacer">
-          <h2 className="cap-drawer__title">Subtitles</h2>
+          <h2 className="cap-drawer__title">{m.content.panel.subtitlesTitle}</h2>
           {s.lang && (
             <button
               className="cap-drawer__sub"
               aria-haspopup="menu"
-              title="Choose the subtitle tracks"
+              title={m.content.drawer.chooseTracksTitle}
               onClick={(e) => {
                 const r = e.currentTarget.getBoundingClientRect();
                 controller.openMenu({ left: r.left, top: r.top, width: r.width, height: r.height });
@@ -59,14 +61,14 @@ export function SubtitleDrawer({ controller, width }: { controller: SessionContr
           )}
         </div>
         {s.theme === 'appletv' ? (
-          <button className="cap-drawer__close" aria-label={`Close subtitle list${closeKey ? ` (${closeKey})` : ''}`} onClick={close}>
+          <button className="cap-drawer__close" aria-label={m.content.panel.closeListAria(closeKey)} onClick={close}>
             <IconClose width={14} height={14} strokeWidth={3} />
           </button>
         ) : (
           <button
             className="cap-picon"
             style={{ color: 'var(--player-ink)' }}
-            aria-label={`Close subtitle list${closeKey ? ` (${closeKey})` : ''}`}
+            aria-label={m.content.panel.closeListAria(closeKey)}
             onClick={close}
           >
             <IconClose className="cap-ico-lg" />
@@ -74,8 +76,8 @@ export function SubtitleDrawer({ controller, width }: { controller: SessionContr
         )}
       </div>
       <ol className="cap-drawer__list" ref={listRef} {...follow}>
-        {s.status === 'loading' && <li className="cap-drawer__empty">Loading subtitles…</li>}
-        {s.status === 'none' && <li className="cap-drawer__empty">No subtitles for this title.</li>}
+        {s.status === 'loading' && <li className="cap-drawer__empty">{m.content.panel.loadingSubtitles}</li>}
+        {s.status === 'none' && <li className="cap-drawer__empty">{m.content.drawer.noSubtitlesTitle}</li>}
         {s.status === 'error' && <li className="cap-drawer__empty">{s.message}</li>}
         {s.cues.map((cue, i) => {
           const tr = settings.sidebar.showTranslations ? s.translations[i] : undefined;
@@ -83,7 +85,11 @@ export function SubtitleDrawer({ controller, width }: { controller: SessionContr
           const selected = s.popup?.surface === 'drawer' && s.popup.cueIndex === i ? s.popup.tokenRange : undefined;
           return (
             <li key={i} data-i={i} className="cap-lyric" aria-current={i === current || undefined}>
-              <button className="cap-lyric__time" aria-label={`Play from ${formatTime(cue.start)}`} onClick={() => controller.playCue(i)}>
+              <button
+                className="cap-lyric__time"
+                aria-label={m.content.panel.playFromAria(formatTime(cue.start))}
+                onClick={() => controller.playCue(i)}
+              >
                 {formatTime(cue.start)}
               </button>
               <div>
@@ -119,7 +125,7 @@ export function SubtitleDrawer({ controller, width }: { controller: SessionContr
         <span className="cap-spacer">Captionary</span>
         {lineKeys.every(Boolean) && (
           <span>
-            <kbd>{lineKeys[0]}</kbd> <kbd>{lineKeys[1]}</kbd> <kbd>{lineKeys[2]}</kbd> previous · repeat · next
+            <kbd>{lineKeys[0]}</kbd> <kbd>{lineKeys[1]}</kbd> <kbd>{lineKeys[2]}</kbd> {m.content.drawer.prevRepeatNext}
           </span>
         )}
       </div>

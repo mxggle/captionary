@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react';
 import { useShallow } from 'zustand/react/shallow';
+import { useI18n } from '@/lib/i18n';
 import { sameLang } from '@/lib/languages';
 import { bg } from '@/lib/messaging';
 import { updateSettings, type Settings } from '@/lib/settings';
@@ -43,6 +44,7 @@ function placeMenu(anchor: AnchorRect | null, bounds: DOMRect, width: number, al
  * checks on Apple TV+, two columns on Netflix.
  */
 export function PlayerMenu({ controller, boundsRef }: { controller: SessionController; boundsRef: RefObject<HTMLElement | null> }) {
+  const { m, locale } = useI18n();
   const s = useSession(
     useShallow((st) => ({
       menuOpen: st.menuOpen,
@@ -63,7 +65,7 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
   );
   const [page, setPage] = useState<Page>('main');
   const ref = useRef<HTMLDivElement>(null);
-  const choices = useMemo(() => translationChoices(s), [s.tracks, s.originalTrackId, s.site, s.settings, s.aiStatus]);
+  const choices = useMemo(() => translationChoices(s), [s.tracks, s.originalTrackId, s.site, s.settings, s.aiStatus, locale]);
   const learning = useMemo(
     () => Object.values(s.vocab).filter((v) => v.status === 'learning' && (!s.lang || sameLang(v.lang, s.lang))).length,
     [s.vocab, s.lang],
@@ -100,11 +102,16 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
   };
 
   const onSwitch = (
-    <PlayerSwitch role="menuitemcheckbox" label="Captionary on for this video" checked={!s.off} onChange={(on) => controller.setOff(!on)} />
+    <PlayerSwitch
+      role="menuitemcheckbox"
+      label={m.content.playerMenu.onForVideoAria}
+      checked={!s.off}
+      onChange={(on) => controller.setOff(!on)}
+    />
   );
   const pause = (
     <MenuSwitch
-      label="Pause after each line"
+      label={m.content.playerMenu.pauseAfterEachLine}
       keyName={skin === 'appletv' ? undefined : keyName(keys.toggleAutoPause)}
       checked={settings.playback.autoPause}
       onChange={(v) => set((st) => void (st.playback.autoPause = v))}
@@ -112,14 +119,14 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
   );
   const blur = (
     <MenuSwitch
-      label="Blur translation until hover"
+      label={m.content.playerMenu.blurTranslation}
       checked={settings.subtitles.blurTranslation}
       onChange={(v) => set((st) => void (st.subtitles.blurTranslation = v))}
     />
   );
   const list = (
     <MenuSwitch
-      label="Subtitle list"
+      label={m.content.playerMenu.subtitleList}
       keyName={skin === 'appletv' ? undefined : keyName(keys.toggleSidebar)}
       checked={controller.isListOpen()}
       onChange={() => {
@@ -130,8 +137,8 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
   );
   const links = (
     <>
-      <MenuRow label="Saved words" value={`${learning} learning`} onClick={() => open('vocab')} />
-      <MenuRow label="All Captionary settings" onClick={() => open('options', 'subtitles')} />
+      <MenuRow label={m.content.playerMenu.savedWords} value={m.content.playerMenu.learningCount(learning)} onClick={() => open('vocab')} />
+      <MenuRow label={m.content.playerMenu.allSettings} onClick={() => open('options', 'subtitles')} />
     </>
   );
 
@@ -139,7 +146,7 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
   if (page === 'original') {
     body = (
       <>
-        <MenuBack title="Original subtitles" onBack={() => setPage('main')} />
+        <MenuBack title={m.content.playerMenu.originalSubtitles} onBack={() => setPage('main')} />
         <OriginalChoices
           controller={controller}
           tracks={originalTracks(s.tracks)}
@@ -151,7 +158,7 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
   } else if (page === 'translation') {
     body = (
       <>
-        <MenuBack title="Translation" onBack={() => setPage('main')} />
+        <MenuBack title={m.content.playerMenu.translation} onBack={() => setPage('main')} />
         <TranslationChoices controller={controller} choices={choices} current={s.translationSource} onDone={() => setPage('main')} />
       </>
     );
@@ -164,12 +171,12 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
           <span className="cap-menu__label" style={{ fontWeight: 700 }}>
             Captionary
           </span>
-          <span className="cap-menu__muted">{s.off ? 'Off for this title' : 'On for this title'}</span>
+          <span className="cap-menu__muted">{s.off ? m.content.playerMenu.offForTitle : m.content.playerMenu.onForTitle}</span>
           {onSwitch}
         </div>
         <div className="cap-menu__cols">
-          <div className="cap-menu__col" role="group" aria-label="Original subtitles">
-            <div className="cap-menu__colhead">Original</div>
+          <div className="cap-menu__col" role="group" aria-label={m.content.playerMenu.originalSubtitles}>
+            <div className="cap-menu__colhead">{m.content.playerMenu.originalShort}</div>
             {originalTracks(s.tracks).map((t) => (
               <button
                 key={t.id}
@@ -183,8 +190,8 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
               </button>
             ))}
           </div>
-          <div className="cap-menu__col" role="group" aria-label="Translation">
-            <div className="cap-menu__colhead">Translation</div>
+          <div className="cap-menu__col" role="group" aria-label={m.content.playerMenu.translation}>
+            <div className="cap-menu__colhead">{m.content.playerMenu.translation}</div>
             {choices.map((c) => (
               <button
                 key={c.key}
@@ -205,7 +212,11 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
           {pause}
           {list}
           {blur}
-          <MenuRow label="Saved words" value={`${learning} learning`} onClick={() => open('vocab')} />
+          <MenuRow
+            label={m.content.playerMenu.savedWords}
+            value={m.content.playerMenu.learningCount(learning)}
+            onClick={() => open('vocab')}
+          />
         </div>
       </>
     );
@@ -219,12 +230,14 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
           <span className="cap-menu__label">Captionary</span>
           {onSwitch}
         </div>
-        <div className="cap-menu__section">Original</div>
+        <div className="cap-menu__section">{m.content.playerMenu.originalShort}</div>
         <OriginalChoices controller={controller} tracks={inline} originalTrackId={s.originalTrackId} />
-        {more && <MenuRow label="Other languages" onClick={() => setPage('original')} />}
-        <div className="cap-menu__section">Translation</div>
+        {more && <MenuRow label={m.content.playerMenu.otherLanguages} onClick={() => setPage('original')} />}
+        <div className="cap-menu__section">{m.content.playerMenu.translation}</div>
         <TranslationChoices controller={controller} choices={choices.filter((c) => c.primary)} current={s.translationSource} />
-        {choices.some((c) => !c.primary) && <MenuRow label="Other subtitle tracks" onClick={() => setPage('translation')} />}
+        {choices.some((c) => !c.primary) && (
+          <MenuRow label={m.content.playerMenu.otherSubtitleTracks} onClick={() => setPage('translation')} />
+        )}
         <div className="cap-menu__sep" />
         {pause}
         {blur}
@@ -242,8 +255,16 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
           {onSwitch}
         </div>
         <div className="cap-menu__sep" />
-        <MenuRow label="Original subtitles" value={originalValue(s.tracks, s.originalTrackId)} onClick={() => setPage('original')} />
-        <MenuRow label="Translation" value={translationValue(choices, s.translationSource)} onClick={() => setPage('translation')} />
+        <MenuRow
+          label={m.content.playerMenu.originalSubtitles}
+          value={originalValue(s.tracks, s.originalTrackId)}
+          onClick={() => setPage('original')}
+        />
+        <MenuRow
+          label={m.content.playerMenu.translation}
+          value={translationValue(choices, s.translationSource)}
+          onClick={() => setPage('translation')}
+        />
         {pause}
         {blur}
         {list}

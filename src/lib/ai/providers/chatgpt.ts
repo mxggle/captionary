@@ -1,3 +1,4 @@
+import { getCurrentUILocale, getMessages } from '../../i18n';
 import { ORIGINATOR } from '../chatgpt-auth';
 import { PROVIDERS } from '../registry';
 import { AIError, type ProviderAdapter, type ProviderContext } from '../types';
@@ -63,31 +64,26 @@ const isPlanLimit = (body: string) => PLAN_LIMITS.has(planErrorKind(body).kind ?
 /** Turn the backend's structured errors (plan limits, plan without Codex) into clear messages. */
 function planError(err: unknown): unknown {
   if (!(err instanceof HttpError)) return err;
+  const m = getMessages(getCurrentUILocale()).runtime.ai;
   const { kind, detail } = planErrorKind(err.body);
   if (kind === 'usage_limit_reached') {
-    const resets = detail?.resets_at ? ` It resets ${new Date(detail.resets_at * 1000).toLocaleString()}.` : '';
-    return new AIError('quota', `You have reached your ChatGPT plan’s usage limit.${resets}`, err.status);
+    const resets = detail?.resets_at ? new Date(detail.resets_at * 1000).toLocaleString() : undefined;
+    return new AIError('quota', m.chatgptUsageLimitReached(resets), err.status);
   }
   if (kind === 'usage_not_included') {
-    return new AIError(
-      'quota',
-      'Your ChatGPT plan does not include Codex, which this sign-in uses. Plus, Pro and Business plans do.',
-      err.status,
-    );
+    return new AIError('quota', m.chatgptPlanNoCodex, err.status);
   }
   return err;
 }
 
 /** Why the backend stopped an answer partway (`response.incomplete`). */
 function incompleteError(reason: string | undefined): AIError {
-  if (reason === 'content_filter') return new AIError('refusal', 'ChatGPT’s content filter stopped this answer partway.');
+  const m = getMessages(getCurrentUILocale()).runtime.ai;
+  if (reason === 'content_filter') return new AIError('refusal', m.chatgptContentFilter);
   if (reason === 'max_output_tokens') {
-    return new AIError(
-      'unknown',
-      'ChatGPT reached its output limit before finishing the answer. Try again, or lower the reasoning effort in Settings → AI.',
-    );
+    return new AIError('unknown', m.chatgptMaxOutputTokens);
   }
-  return new AIError('unknown', 'ChatGPT stopped before finishing the answer. Try again.');
+  return new AIError('unknown', m.chatgptIncomplete);
 }
 
 /**
@@ -97,13 +93,14 @@ function incompleteError(reason: string | undefined): AIError {
  */
 export const chatgptAdapter: ProviderAdapter = {
   async *stream(ctx, req) {
+    const m = getMessages(getCurrentUILocale()).runtime.ai;
     const body: Record<string, unknown> = {
       model: req.model,
       instructions: req.system,
-      input: req.messages.map((m) => ({
+      input: req.messages.map((msg) => ({
         type: 'message',
-        role: m.role,
-        content: [{ type: m.role === 'assistant' ? 'output_text' : 'input_text', text: m.content }],
+        role: msg.role,
+        content: [{ type: msg.role === 'assistant' ? 'output_text' : 'input_text', text: msg.content }],
       })),
       stream: true,
       store: false,
@@ -127,7 +124,7 @@ export const chatgptAdapter: ProviderAdapter = {
     } catch (err) {
       throw planError(err);
     }
-    if (!res.body) throw new AIError('network', 'Empty response from ChatGPT.');
+    if (!res.body) throw new AIError('network', m.chatgptEmptyResponse);
     for await (const msg of parseSSE(res.body)) {
       if (msg.data === '[DONE]') break;
       const event = JSON.parse(msg.data) as ResponsesEvent;
@@ -135,7 +132,7 @@ export const chatgptAdapter: ProviderAdapter = {
       if (type === 'response.output_text.delta' && event.delta) {
         yield { type: 'text', text: event.delta };
       } else if (type === 'response.refusal.done') {
-        throw new AIError('refusal', 'The model declined to answer this request.');
+        throw new AIError('refusal', m.modelDeclined);
       } else if (type === 'response.completed') {
         const usage = event.response?.usage;
         if (usage) yield { type: 'usage', usage: { inputTokens: usage.input_tokens, outputTokens: usage.output_tokens } };
@@ -144,7 +141,7 @@ export const chatgptAdapter: ProviderAdapter = {
         throw incompleteError(event.response?.incomplete_details?.reason);
       } else if (type === 'response.failed' || type === 'error') {
         const error = event.response?.error ?? event.error;
-        throw new AIError('unavailable', error?.message ?? event.message ?? 'ChatGPT could not answer this request.');
+        throw new AIError('unavailable', error?.message ?? event.message ?? m.chatgptFailed);
       }
     }
   },

@@ -1,97 +1,233 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Privacy policy · Captionary</title>
-  <meta name="description" content="How the Captionary Chrome extension handles subtitles, your study data and optional AI requests.">
-  <meta name="color-scheme" content="light dark">
-  <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="icon" href="icon-128.png" type="image/png" sizes="128x128">
-  <link rel="preload" href="fonts/BricolageGrotesque-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="fonts/AtkinsonHyperlegibleNext-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-  <a class="skip" href="#main">Skip to content</a>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Privacy policy · Captionary</title>
+    <meta name="description" content="How the Captionary Chrome extension handles subtitles, your study data and optional AI requests." />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="icon-128.png" type="image/png" sizes="128x128" />
+    <link rel="preload" href="fonts/BricolageGrotesque-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="fonts/AtkinsonHyperlegibleNext-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body data-page="privacy">
+    <a class="skip" href="#main" data-i18n="skip">Skip to content</a>
 
-  <header class="site-head">
-    <div class="wrap head-row">
-      <a class="brand" href="index.html" aria-label="Captionary home">
-        <svg class="brand-mark" viewBox="0 0 128 128" aria-hidden="true">
-          <rect x="4" y="4" width="120" height="120" rx="30" class="bm-bg"/>
-          <path d="M52 26 L84 45 L52 64 Z" class="bm-fg"/>
-          <rect x="18" y="76" width="27" height="14" rx="7" class="bm-fg"/>
-          <rect x="49" y="76" width="32" height="14" rx="7" class="bm-learn"/>
-          <rect x="85" y="76" width="25" height="14" rx="7" class="bm-fg"/>
-          <rect x="30" y="96" width="68" height="11" rx="5.5" class="bm-fg" opacity="0.55"/>
-        </svg>
-        <span>Captionary</span>
-      </a>
-      <nav class="head-nav" aria-label="Sections">
-        <a href="index.html#phrases">Phrases</a>
-        <a href="index.html#ai">AI tutor</a>
-        <a href="index.html#compare">vs Language Reactor</a>
-        <a href="index.html#faq">FAQ</a>
-      </nav>
-      <a class="btn btn-primary btn-sm" href="https://chromewebstore.google.com/detail/captionary/imcclapmlgkhceckdmnhhcchmgjkcbci" data-cta="header">Add to Chrome</a>
-    </div>
-  </header>
+    <header class="site-head">
+      <div class="wrap head-row">
+        <a class="brand" href="index.html" data-preserve-lang aria-label="Captionary home" data-i18n-aria="brandAria">
+          <svg class="brand-mark" viewBox="0 0 128 128" aria-hidden="true">
+            <rect x="4" y="4" width="120" height="120" rx="30" class="bm-bg" />
+            <path d="M52 26 L84 45 L52 64 Z" class="bm-fg" />
+            <rect x="18" y="76" width="27" height="14" rx="7" class="bm-fg" />
+            <rect x="49" y="76" width="32" height="14" rx="7" class="bm-learn" />
+            <rect x="85" y="76" width="25" height="14" rx="7" class="bm-fg" />
+            <rect x="30" y="96" width="68" height="11" rx="5.5" class="bm-fg" opacity="0.55" />
+          </svg>
+          <span>Captionary</span>
+        </a>
+        <nav class="head-nav" aria-label="Sections" data-i18n-aria="navAria">
+          <a href="index.html#phrases" data-preserve-lang data-i18n="navPhrases">Phrases</a>
+          <a href="index.html#ai" data-preserve-lang data-i18n="navAi">AI tutor</a>
+          <a href="index.html#compare" data-preserve-lang data-i18n="navCompare">vs Language Reactor</a>
+          <a href="index.html#faq" data-preserve-lang data-i18n="navFaq">FAQ</a>
+        </nav>
+        <div class="head-end">
+          <select class="lang-select" data-site-lang-select aria-label="Page language" data-i18n-aria="langAria">
+            <option value="en">English</option>
+            <option value="zh-CN">简体中文</option>
+            <option value="zh-TW">繁體中文</option>
+            <option value="ja">日本語</option>
+          </select>
+          <a
+            class="btn btn-primary btn-sm"
+            href="https://chromewebstore.google.com/detail/captionary/imcclapmlgkhceckdmnhhcchmgjkcbci"
+            data-cta="header"
+            data-i18n="ctaHeader"
+            >Add to Chrome</a
+          >
+        </div>
+      </div>
+    </header>
 
-  <main id="main">
-    <article class="wrap legal">
-      <h1>Captionary Privacy Policy</h1>
+    <main id="main">
+      <article class="wrap legal">
+        <h1 data-i18n="h1">Captionary Privacy Policy</h1>
 
-      <p class="updated">Last updated October 18, 2026.</p>
+        <p class="updated" data-i18n="updated">Last updated October 18, 2026.</p>
 
-      <p>Captionary helps you learn languages from video subtitles and reading material. This policy describes how the extension handles that material, your study data, and optional AI requests.</p>
-      <h2 id="stored">Data stored in your browser</h2>
-      <p>Captionary stores settings, language preferences, saved words and phrases, notes, context sentences, source titles and URLs, video timestamps, configured AI services, and local usage counters in your browser’s extension storage. It may cache AI answers and downloaded word-frequency lists locally. Imported reading material and side-panel context are passed between extension pages using browser session storage. The reader also keeps the last document you opened (its title, address, language, and text) in local extension storage so you can return to it; opening another document replaces it.</p>
-      <p>Provider API keys are stored separately in local extension storage. They are excluded from settings exports and sent to the configured provider when needed to authenticate requests. Web pages cannot read extension storage, but local storage is not an encrypted credential vault. Protect your browser profile and device.</p>
-      <p>Captionary does not use Chrome Sync for this data. The current extension does not include a developer-operated account service, analytics SDK, or advertising integration.</p>
-      <h2 id="content">Video and reading content</h2>
-      <p>On supported video sites, Captionary reads subtitle tracks and playback information to display subtitles, look up words, and provide study controls. When you explicitly open a page in the reader, it reads the selected or readable page text, title, URL, and language. It does not read Chrome’s browsing-history database. Source information may be retained with your saved vocabulary or imported reading material.</p>
-      <p>Local video and text files are opened for the reader or local video feature. Captionary does not upload the video file as part of playback. If you use cloud AI on text or subtitles from a local file, that text can be sent to the configured AI service.</p>
-      <h2 id="requests">Requests to other services</h2>
-      <ul class="plain">
-        <li>Video platforms and their subtitle hosts receive the requests required to obtain the subtitles you study.</li>
-        <li>Wiktionary lookup is on by default. While it is enabled, the word or phrase you look up is sent to Wiktionary for definitions.</li>
-        <li>When word-frequency coloring is enabled, Captionary downloads a frequency list for the relevant language from a GitHub-hosted dataset.</li>
-        <li>External dictionary and search links open the selected service with the lookup term in the URL when you choose them.</li>
-        <li>Pronunciation uses the browser’s speech-synthesis voices. Some voices may use an online service; processing depends on the voice and browser.</li>
-      </ul>
-      <p>These services can receive ordinary network information, such as your IP address, and apply their own privacy policies.</p>
-      <h2 id="ai">Optional AI features</h2>
-      <p>No cloud AI provider is configured by default. If you add one and use an AI feature, Captionary sends the relevant word, phrase, sentence, subtitle text, prompt, or chat to that provider. Requests can also contain your selected languages and learning level. Depending on the task and your privacy settings, requests may include nearby subtitle lines, an existing translation, or the media title. Title sharing is on by default; in the reader, the title is the web page’s title. Follow-up chat includes recent conversation turns; subtitle translation sends batches of subtitle lines.</p>
-      <p>If you choose a fallback provider, a request the main provider cannot answer (for example during an outage, a rate limit, or a usage limit) is sent to the fallback provider instead, with the same content.</p>
-      <p>Captionary asks Chrome for access to each AI service’s site when you add the service, and removes that access when you remove the service, unless another configured service uses the same site.</p>
-      <p>After configuration, optional automatic explanations or AI subtitle translation can make requests as you use those features. Review your settings before studying private material. Avoid sending sensitive personal information to a provider unless you intend to do so.</p>
-      <p>You can change the explanation context scope and title-sharing setting, choose another provider, disable automatic explanations, or use a local AI service instead. Supported Chrome on-device AI and translation process supported tasks on your device, although setup may require model or language-pack downloads. A localhost provider runs through the service you configure; that service’s own configuration determines whether it makes further network requests.</p>
-      <p>Each cloud provider controls its own retention, training, account, and billing practices. Captionary cannot delete data that a provider has already received. Consult that provider’s policy and account controls.</p>
-      <h2 id="chatgpt">Optional ChatGPT account sign-in</h2>
-      <p>If you choose ChatGPT sign-in, Captionary opens OpenAI’s authentication page at auth.openai.com using an OAuth authorization flow with PKCE. It uses the public sign-in client that OpenAI publishes for its Codex command-line tool; OpenAI has not documented this sign-in for other apps, so it may change or stop working. Captionary is not affiliated with or endorsed by OpenAI. Captionary never sees your OpenAI password.</p>
-      <p>The sign-in requests the openid, profile, email, and offline_access scopes. The authorization code returns through a localhost callback URL observed in the sign-in tab, then is exchanged at OpenAI’s token endpoint. No local server is started by Captionary for that callback. Reading that callback address needs temporary access to http://localhost; Captionary gives it back as soon as the sign-in ends, unless a local AI service you configured uses localhost.</p>
-      <p>Captionary stores the resulting access token, refresh token, expiration time, account/workspace identifier, and any returned email, plan, or account-type metadata in local extension storage under a key separate from exported settings. Tokens are not synced or included in settings exports. The email and plan can be displayed in the provider settings. The current implementation refreshes expiring access tokens through auth.openai.com.</p>
-      <p>AI requests and model-list requests for this provider go only to chatgpt.com/backend-api/codex, with the access token and account identifier in request headers. They also identify Captionary to OpenAI with an “originator: captionary” header, and for accounts OpenAI marks as FedRAMP accounts, a header saying so. These requests omit browser cookies. When you connect ChatGPT or test the connection, Captionary sends one short test request (“Reply with the single word OK”), which counts toward your plan’s usage like any other request. The response request sets store to false; this request parameter is not a guarantee about OpenAI’s overall retention practices. OpenAI’s account terms, availability, usage limits, and privacy practices apply.</p>
-      <p>Signing out deletes the locally stored tokens and account metadata and keeps the provider, with its access to chatgpt.com and auth.openai.com, so you can sign in again. Removing the provider also deletes the tokens and gives back that site access. Neither action calls a server-side token revocation endpoint or erases OpenAI-side records; to end the session at OpenAI as well, log out of all devices in ChatGPT’s security settings. You can also manage the extension’s site permissions in Chrome.</p>
-      <h2 id="purpose">Purpose and sharing</h2>
-      <p>Captionary uses the data described here to provide its language-learning features. The current extension has no data-sale, advertising, or credit-scoring feature. It does not send your study data to a developer-operated backend. Data can leave your device through the service requests described above and through exports or links you choose to use.</p>
-      <p>The use of information received from Google APIs will adhere to the Chrome Web Store User Data Policy, including its Limited Use requirements.</p>
-      <h2 id="retention">Retention and your controls</h2>
-      <p>Saved vocabulary and settings remain in local storage until you remove them, reset extension data, or remove the browser profile or extension. Cached AI answers have a configurable retention period and can be cleared in settings. Downloaded word-frequency data may remain cached locally. Local usage counters can be reset.</p>
-      <p>“Delete everything” under Settings → Data &amp; backup removes settings, saved vocabulary, AI provider connections, API keys, ChatGPT sign-in tokens, the reader’s last document, cached AI answers, and downloaded word-frequency lists, and gives back the site access granted for AI services.</p>
-      <p>You can delete saved vocabulary entries, remove AI provider connections and their stored keys, clear cached AI answers, and use the extension’s data-reset controls. Export any study data you want to keep before resetting or uninstalling. Exported files are under your control and are not automatically deleted by the extension. Removing local data does not remove data already received by third-party services.</p>
-      <h2 id="contact">Changes and contact</h2>
-      <p>Update this policy when Captionary’s data practices change, and revise the date when publishing a new version.</p>
-      <p>Public support contact: <a href="https://github.com/mxggle/captionary/issues">github.com/mxggle/captionary/issues</a>.</p>
-    </article>
-  </main>
+        <p data-i18n="intro">
+          Captionary helps you learn languages from video subtitles and reading material. This policy describes how the extension handles
+          that material, your study data, and optional AI requests.
+        </p>
+        <h2 id="stored" data-i18n="storedH2">Data stored in your browser</h2>
+        <p data-i18n="storedP1">
+          Captionary stores settings, language preferences, saved words and phrases, notes, context sentences, source titles and URLs, video
+          timestamps, configured AI services, and local usage counters in your browser’s extension storage. It may cache AI answers and
+          downloaded word-frequency lists locally. Imported reading material and side-panel context are passed between extension pages using
+          browser session storage. The reader also keeps the last document you opened (its title, address, language, and text) in local
+          extension storage so you can return to it; opening another document replaces it.
+        </p>
+        <p data-i18n="storedP2">
+          Provider API keys are stored separately in local extension storage. They are excluded from settings exports and sent to the
+          configured provider when needed to authenticate requests. Web pages cannot read extension storage, but local storage is not an
+          encrypted credential vault. Protect your browser profile and device.
+        </p>
+        <p data-i18n="storedP3">
+          Captionary does not use Chrome Sync for this data. The current extension does not include a developer-operated account service,
+          analytics SDK, or advertising integration.
+        </p>
+        <h2 id="content" data-i18n="contentH2">Video and reading content</h2>
+        <p data-i18n="contentP1">
+          On supported video sites, Captionary reads subtitle tracks and playback information to display subtitles, look up words, and
+          provide study controls. When you explicitly open a page in the reader, it reads the selected or readable page text, title, URL,
+          and language. It does not read Chrome’s browsing-history database. Source information may be retained with your saved vocabulary
+          or imported reading material.
+        </p>
+        <p data-i18n="contentP2">
+          Local video and text files are opened for the reader or local video feature. Captionary does not upload the video file as part of
+          playback. If you use cloud AI on text or subtitles from a local file, that text can be sent to the configured AI service.
+        </p>
+        <h2 id="requests" data-i18n="requestsH2">Requests to other services</h2>
+        <ul class="plain">
+          <li data-i18n="requestsLi1">
+            Video platforms and their subtitle hosts receive the requests required to obtain the subtitles you study.
+          </li>
+          <li data-i18n="requestsLi2">
+            Wiktionary lookup is on by default. While it is enabled, the word or phrase you look up is sent to Wiktionary for definitions.
+          </li>
+          <li data-i18n="requestsLi3">
+            When word-frequency coloring is enabled, Captionary downloads a frequency list for the relevant language from a GitHub-hosted
+            dataset.
+          </li>
+          <li data-i18n="requestsLi4">
+            External dictionary and search links open the selected service with the lookup term in the URL when you choose them.
+          </li>
+          <li data-i18n="requestsLi5">
+            Pronunciation uses the browser’s speech-synthesis voices. Some voices may use an online service; processing depends on the voice
+            and browser.
+          </li>
+        </ul>
+        <p data-i18n="requestsP">
+          These services can receive ordinary network information, such as your IP address, and apply their own privacy policies.
+        </p>
+        <h2 id="ai" data-i18n="aiH2">Optional AI features</h2>
+        <p data-i18n="aiP1">
+          No cloud AI provider is configured by default. If you add one and use an AI feature, Captionary sends the relevant word, phrase,
+          sentence, subtitle text, prompt, or chat to that provider. Requests can also contain your selected languages and learning level.
+          Depending on the task and your privacy settings, requests may include nearby subtitle lines, an existing translation, or the media
+          title. Title sharing is on by default; in the reader, the title is the web page’s title. Follow-up chat includes recent
+          conversation turns; subtitle translation sends batches of subtitle lines.
+        </p>
+        <p data-i18n="aiP2">
+          If you choose a fallback provider, a request the main provider cannot answer (for example during an outage, a rate limit, or a
+          usage limit) is sent to the fallback provider instead, with the same content.
+        </p>
+        <p data-i18n="aiP3">
+          Captionary asks Chrome for access to each AI service’s site when you add the service, and removes that access when you remove the
+          service, unless another configured service uses the same site.
+        </p>
+        <p data-i18n="aiP4">
+          After configuration, optional automatic explanations or AI subtitle translation can make requests as you use those features.
+          Review your settings before studying private material. Avoid sending sensitive personal information to a provider unless you
+          intend to do so.
+        </p>
+        <p data-i18n="aiP5">
+          You can change the explanation context scope and title-sharing setting, choose another provider, disable automatic explanations,
+          or use a local AI service instead. Supported Chrome on-device AI and translation process supported tasks on your device, although
+          setup may require model or language-pack downloads. A localhost provider runs through the service you configure; that service’s
+          own configuration determines whether it makes further network requests.
+        </p>
+        <p data-i18n="aiP6">
+          Each cloud provider controls its own retention, training, account, and billing practices. Captionary cannot delete data that a
+          provider has already received. Consult that provider’s policy and account controls.
+        </p>
+        <h2 id="chatgpt" data-i18n="chatgptH2">Optional ChatGPT account sign-in</h2>
+        <p data-i18n="chatgptP1">
+          If you choose ChatGPT sign-in, Captionary opens OpenAI’s authentication page at auth.openai.com using an OAuth authorization flow
+          with PKCE. It uses the public sign-in client that OpenAI publishes for its Codex command-line tool; OpenAI has not documented this
+          sign-in for other apps, so it may change or stop working. Captionary is not affiliated with or endorsed by OpenAI. Captionary
+          never sees your OpenAI password.
+        </p>
+        <p data-i18n="chatgptP2">
+          The sign-in requests the openid, profile, email, and offline_access scopes. The authorization code returns through a localhost
+          callback URL observed in the sign-in tab, then is exchanged at OpenAI’s token endpoint. No local server is started by Captionary
+          for that callback. Reading that callback address needs temporary access to http://localhost; Captionary gives it back as soon as
+          the sign-in ends, unless a local AI service you configured uses localhost.
+        </p>
+        <p data-i18n="chatgptP3">
+          Captionary stores the resulting access token, refresh token, expiration time, account/workspace identifier, and any returned
+          email, plan, or account-type metadata in local extension storage under a key separate from exported settings. Tokens are not
+          synced or included in settings exports. The email and plan can be displayed in the provider settings. The current implementation
+          refreshes expiring access tokens through auth.openai.com.
+        </p>
+        <p data-i18n="chatgptP4">
+          AI requests and model-list requests for this provider go only to chatgpt.com/backend-api/codex, with the access token and account
+          identifier in request headers. They also identify Captionary to OpenAI with an “originator: captionary” header, and for accounts
+          OpenAI marks as FedRAMP accounts, a header saying so. These requests omit browser cookies. When you connect ChatGPT or test the
+          connection, Captionary sends one short test request (“Reply with the single word OK”), which counts toward your plan’s usage like
+          any other request. The response request sets store to false; this request parameter is not a guarantee about OpenAI’s overall
+          retention practices. OpenAI’s account terms, availability, usage limits, and privacy practices apply.
+        </p>
+        <p data-i18n="chatgptP5">
+          Signing out deletes the locally stored tokens and account metadata and keeps the provider, with its access to chatgpt.com and
+          auth.openai.com, so you can sign in again. Removing the provider also deletes the tokens and gives back that site access. Neither
+          action calls a server-side token revocation endpoint or erases OpenAI-side records; to end the session at OpenAI as well, log out
+          of all devices in ChatGPT’s security settings. You can also manage the extension’s site permissions in Chrome.
+        </p>
+        <h2 id="purpose" data-i18n="purposeH2">Purpose and sharing</h2>
+        <p data-i18n="purposeP1">
+          Captionary uses the data described here to provide its language-learning features. The current extension has no data-sale,
+          advertising, or credit-scoring feature. It does not send your study data to a developer-operated backend. Data can leave your
+          device through the service requests described above and through exports or links you choose to use.
+        </p>
+        <p data-i18n="purposeP2">
+          The use of information received from Google APIs will adhere to the Chrome Web Store User Data Policy, including its Limited Use
+          requirements.
+        </p>
+        <h2 id="retention" data-i18n="retentionH2">Retention and your controls</h2>
+        <p data-i18n="retentionP1">
+          Saved vocabulary and settings remain in local storage until you remove them, reset extension data, or remove the browser profile
+          or extension. Cached AI answers have a configurable retention period and can be cleared in settings. Downloaded word-frequency
+          data may remain cached locally. Local usage counters can be reset.
+        </p>
+        <p data-i18n="retentionP2">
+          “Delete everything” under Settings → Data &amp; backup removes settings, saved vocabulary, AI provider connections, API keys,
+          ChatGPT sign-in tokens, the reader’s last document, cached AI answers, and downloaded word-frequency lists, and gives back the
+          site access granted for AI services.
+        </p>
+        <p data-i18n="retentionP3">
+          You can delete saved vocabulary entries, remove AI provider connections and their stored keys, clear cached AI answers, and use
+          the extension’s data-reset controls. Export any study data you want to keep before resetting or uninstalling. Exported files are
+          under your control and are not automatically deleted by the extension. Removing local data does not remove data already received
+          by third-party services.
+        </p>
+        <h2 id="contact" data-i18n="contactH2">Changes and contact</h2>
+        <p data-i18n="contactP1">
+          Update this policy when Captionary’s data practices change, and revise the date when publishing a new version.
+        </p>
+        <p data-i18n-html="contactP2">
+          Public support contact: <a href="https://github.com/mxggle/captionary/issues">github.com/mxggle/captionary/issues</a>.
+        </p>
+      </article>
+    </main>
 
-  <footer class="site-foot">
-    <div class="wrap foot-row">
-      <p>Captionary · <a href="https://github.com/mxggle/captionary">Code on GitHub</a> · <a href="https://github.com/mxggle/captionary/issues">Report a problem</a> · <a href="privacy.html" aria-current="page">Privacy</a></p>
-      <p class="fine">Captionary is independent and is not affiliated with or endorsed by YouTube, Netflix, Apple or Dioco (Language Reactor). Product names are trademarks of their owners.</p>
-    </div>
-  </footer>
-</body>
+    <footer class="site-foot">
+      <div class="wrap foot-row">
+        <p data-i18n-html="footLinks">
+          Captionary · <a href="https://github.com/mxggle/captionary">Code on GitHub</a> ·
+          <a href="https://github.com/mxggle/captionary/issues">Report a problem</a> ·
+          <a href="privacy.html" data-preserve-lang aria-current="page">Privacy</a>
+        </p>
+        <p class="fine" data-i18n="footFine">
+          Captionary is independent and is not affiliated with or endorsed by YouTube, Netflix, Apple or Dioco (Language Reactor). Product
+          names are trademarks of their owners.
+        </p>
+      </div>
+    </footer>
+
+    <script src="i18n.js" defer></script>
+  </body>
 </html>

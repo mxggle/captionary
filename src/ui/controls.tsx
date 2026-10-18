@@ -219,9 +219,9 @@ export function Kbd({ children, large }: { children: ReactNode; large?: boolean 
 }
 
 /** Show a key as the learner presses it. */
-export function keyLabel(key: string): string {
+export function keyLabel(key: string, spaceLabel = 'Space'): string {
   if (!key) return '';
-  if (key === ' ') return 'Space';
+  if (key === ' ') return spaceLabel;
   return key.length === 1 ? key.toUpperCase() : key;
 }
 

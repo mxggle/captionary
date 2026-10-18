@@ -1,5 +1,6 @@
 import { useEffect, useRef, type RefObject } from 'react';
 import { useShallow } from 'zustand/react/shallow';
+import { getCurrentUILocale, getMessages, resolveUILocale } from '@/lib/i18n';
 import { languageName, sameLang } from '@/lib/languages';
 import { bg } from '@/lib/messaging';
 import { toPlainText } from '@/lib/subtitles/parse';
@@ -62,15 +63,17 @@ export interface TranslationChoice {
 export function translationChoices(
   s: Pick<SessionState, 'tracks' | 'originalTrackId' | 'site' | 'settings' | 'aiStatus'>,
 ): TranslationChoice[] {
+  const locale = resolveUILocale(s.settings);
+  const m = getMessages(locale);
   const native = s.settings.nativeLanguage;
-  const nativeName = languageName(native);
+  const nativeName = languageName(native, locale);
   const out: TranslationChoice[] = [];
   const tracks = s.tracks.filter((t) => t.id !== s.originalTrackId && !t.forced);
   for (const t of tracks.filter((t) => sameLang(t.lang, native))) {
     out.push({
       key: `track:${t.id}`,
       label: trackLabel(t),
-      meta: 'subtitle track',
+      meta: m.content.subtitles.metaSubtitleTrack,
       source: { type: 'track', trackId: t.id },
       primary: true,
     });
@@ -79,19 +82,25 @@ export function translationChoices(
     out.push({
       key: 'platform-mt',
       label: nativeName,
-      meta: 'auto-translate',
+      meta: m.content.subtitles.metaAutoTranslate,
       source: { type: 'platform-mt', lang: native },
       primary: true,
     });
   }
-  out.push({ key: 'chrome', label: nativeName, meta: 'on-device', source: { type: 'chrome', lang: native }, primary: true });
-  out.push({ key: 'ai', label: nativeName, meta: 'AI', source: { type: 'ai', lang: native }, primary: true });
-  out.push({ key: 'none', label: 'Off', source: { type: 'none' }, primary: true });
+  out.push({
+    key: 'chrome',
+    label: nativeName,
+    meta: m.content.subtitles.metaOnDevice,
+    source: { type: 'chrome', lang: native },
+    primary: true,
+  });
+  out.push({ key: 'ai', label: nativeName, meta: m.content.subtitles.metaAi, source: { type: 'ai', lang: native }, primary: true });
+  out.push({ key: 'none', label: m.common.off, source: { type: 'none' }, primary: true });
   for (const t of tracks.filter((t) => !sameLang(t.lang, native))) {
     out.push({
       key: `track:${t.id}`,
       label: trackLabel(t),
-      meta: 'subtitle track',
+      meta: m.content.subtitles.metaSubtitleTrack,
       source: { type: 'track', trackId: t.id },
       primary: false,
     });
@@ -100,24 +109,28 @@ export function translationChoices(
 }
 
 export function trackLabel(t: TrackInfo): string {
-  return `${t.label}${t.auto && !/auto/i.test(t.label) ? ' (auto)' : ''}`;
+  const m = getMessages(getCurrentUILocale());
+  return `${t.label}${t.auto && !/auto/i.test(t.label) ? m.content.subtitles.autoSuffix : ''}`;
 }
 
 /** "English · auto-translate", "Off": the current translation as the menus show it. */
 export function translationValue(choices: TranslationChoice[], source: TranslationSource): string {
+  const m = getMessages(getCurrentUILocale());
   const c = choices.find((x) => x.key === sourceKey(source));
-  if (!c) return 'Off';
+  if (!c) return m.common.off;
   return c.meta ? `${c.label} · ${c.meta}` : c.label;
 }
 
 /** "Spanish · English translation" under the list title. */
 export function languagePair(d: Pick<SubtitleData, 'lang' | 'translationSource' | 'tracks' | 'settings'>, short = false): string {
   if (!d.lang) return '';
-  const orig = languageName(d.lang);
+  const locale = resolveUILocale(d.settings);
+  const m = getMessages(locale);
+  const orig = languageName(d.lang, locale);
   const src = d.translationSource;
   if (src.type === 'none') return orig;
   const trLang = src.type === 'track' ? (d.tracks.find((t) => t.id === src.trackId)?.lang ?? '') : src.lang;
-  return `${orig} · ${trLang ? languageName(trLang) : 'translation'}${short ? '' : ' translation'}`;
+  return m.content.subtitles.pairTranslation(orig, trLang ? languageName(trLang, locale) : '', short);
 }
 
 export function downloadText(name: string, content: string, type = 'text/plain') {
@@ -135,10 +148,11 @@ export function fileBase(title: string | undefined): string {
 
 /** Send the whole transcript to the reader as text. */
 export function openInReader(d: Pick<SubtitleData, 'cues' | 'translations' | 'media' | 'lang'>) {
+  const m = getMessages(getCurrentUILocale());
   void bg({
     type: 'reader.import',
     doc: {
-      title: d.media?.title ?? 'Subtitles',
+      title: d.media?.title ?? m.content.subtitles.subtitlesFallbackTitle,
       url: d.media?.url ?? location.href,
       text: toPlainText(d.cues, []),
       lang: d.lang,

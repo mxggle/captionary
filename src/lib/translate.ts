@@ -1,6 +1,7 @@
+import { parseTranslations } from './ai/prompts';
+import { getCurrentUILocale, getMessages } from './i18n';
 import { baseLang } from './languages';
 import { runJob } from './messaging';
-import { parseTranslations } from './ai/prompts';
 import { guessLanguage } from './text/detect';
 
 // ---------- Chrome built-in Translator API (on-device) ----------
@@ -42,7 +43,7 @@ const translators = new Map<string, Promise<ChromeTranslator>>();
  */
 export function getChromeTranslator(src: string, tgt: string): Promise<ChromeTranslator> {
   const api = translatorApi();
-  if (!api) return Promise.reject(new Error('Translator API not supported'));
+  if (!api) return Promise.reject(new Error(getMessages(getCurrentUILocale()).runtime.translate.translatorNotSupported));
   const key = `${baseLang(src)}>${baseLang(tgt)}`;
   let t = translators.get(key);
   if (!t) {
@@ -51,10 +52,7 @@ export function getChromeTranslator(src: string, tgt: string): Promise<ChromeTra
     t = Promise.race([
       api.create({ sourceLanguage: baseLang(src), targetLanguage: baseLang(tgt) }),
       new Promise<never>((_, reject) =>
-        setTimeout(
-          () => reject(new Error('On-device translation is not ready. Choose it again in the subtitle list to download it.')),
-          20_000,
-        ),
+        setTimeout(() => reject(new Error(getMessages(getCurrentUILocale()).runtime.translate.onDeviceNotReady)), 20_000),
       ),
     ]);
     translators.set(key, t);
@@ -102,7 +100,7 @@ async function translateAiBatch(lines: string[], opts: BatchOptions): Promise<st
     const mid = Math.ceil(lines.length / 2);
     return [...(await translateAiBatch(lines.slice(0, mid), opts)), ...(await translateAiBatch(lines.slice(mid), opts))];
   }
-  throw new Error('The model returned malformed translations.');
+  throw new Error(getMessages(getCurrentUILocale()).runtime.translate.malformedTranslations);
 }
 
 /** Translate many lines in batches, reporting each finished batch. */

@@ -10,6 +10,7 @@ import { HostRoot } from '@/content/ui/HostRoot';
 import { Overlay } from '@/content/ui/Overlay';
 import { PlayerButton } from '@/content/ui/PlayerButton';
 import { SubtitlePanel } from '@/content/ui/SubtitlePanel';
+import { getMessages, resolveUILocale } from '@/lib/i18n';
 import { updateSettings, watchSettings } from '@/lib/settings';
 
 function useActive() {
@@ -119,7 +120,8 @@ export default defineContentScript({
       if (currentId !== id) return;
       controller.attachVideo(adapter.getVideo());
       if (!data) {
-        setSession({ status: 'error', message: 'Could not read the YouTube player. Reload the page.' });
+        const m = getMessages(resolveUILocale(settings));
+        setSession({ status: 'error', message: m.content.errors.youtubePlayerNotRead });
         return;
       }
       const { tracks, defaultId } = adapter.trackInfos(data);

@@ -6,7 +6,22 @@
 
   const W = (t, pos, tr, ex, extra = {}) => ({ t, pos, tr, ex, ...extra });
 
-  const DEMOS = {
+  const FALLBACK_PACK = {
+    ui: {
+      listen: 'Listen',
+      close: 'Close (Esc)',
+      lookupTitle: (text) => `Look up “${text}” instead`,
+      phraseBadge: 'Phrase',
+      learning: 'Learning',
+      save: 'Save',
+      known: 'Known',
+      explain: 'Explain',
+      savedAs: (baseHtml) => `Saved as ${baseHtml}, its dictionary form.`,
+      sampleAnswer: 'Sample answer. In Captionary, the AI you connect writes this.',
+      lookupAria: (text) => `Look-up: ${text}`,
+      otherEx:
+        'That’s a word-by-word gloss. This page only knows a few phrases; in the extension, your tutor explains any selection in the context of the line.',
+    },
     es: {
       lang: 'es',
       speech: 'es-ES',
@@ -14,7 +29,9 @@
       translation: 'In the end, my brother realized I was right.',
       start: 6,
       line: [
-        W('Al', 'contraction', 'to the; at the', 'A contraction of *a* + *el*. With *final* it makes *al final*, “in the end”.', { chunk: 'alfinal' }),
+        W('Al', 'contraction', 'to the; at the', 'A contraction of *a* + *el*. With *final* it makes *al final*, “in the end”.', {
+          chunk: 'alfinal',
+        }),
         ' ',
         W('final', 'noun', 'end', '*Final* is “end”. *Al final* is a set phrase: “in the end”, “eventually”.', { chunk: 'alfinal' }),
         ', ',
@@ -22,16 +39,36 @@
         ' ',
         W('hermano', 'noun', 'brother', '*Hermano* is “brother”. *Hermana* is “sister”, and *hermanos* can mean “siblings”.'),
         ' ',
-        W('se', 'pronoun', 'himself (reflexive)', 'Here *se* belongs to *darse cuenta*: the verb is used reflexively, so word by word it reads “he gave himself account”.', { chunk: 'cuenta' }),
+        W(
+          'se',
+          'pronoun',
+          'himself (reflexive)',
+          'Here *se* belongs to *darse cuenta*: the verb is used reflexively, so word by word it reads “he gave himself account”.',
+          { chunk: 'cuenta' },
+        ),
         ' ',
-        W('dio', 'verb', 'gave', '*Dio* is the past tense of *dar*, “to give”. With *se* and *cuenta* it means “realized”.', { chunk: 'cuenta' }),
-        ' ',
-        W('cuenta', 'noun', 'bill; account', 'On its own *cuenta* is a bill or an account. In this line it’s part of *darse cuenta*, “to realize”.', {
+        W('dio', 'verb', 'gave', '*Dio* is the past tense of *dar*, “to give”. With *se* and *cuenta* it means “realized”.', {
           chunk: 'cuenta',
-          warn: 'Don’t read it as “bill” here.',
         }),
         ' ',
-        W('de', 'preposition', 'of; from', '*Darse cuenta de algo* is “to realize something”, so this *de* belongs to the phrase before it.', { chunk: 'cuenta' }),
+        W(
+          'cuenta',
+          'noun',
+          'bill; account',
+          'On its own *cuenta* is a bill or an account. In this line it’s part of *darse cuenta*, “to realize”.',
+          {
+            chunk: 'cuenta',
+            warn: 'Don’t read it as “bill” here.',
+          },
+        ),
+        ' ',
+        W(
+          'de',
+          'preposition',
+          'of; from',
+          '*Darse cuenta de algo* is “to realize something”, so this *de* belongs to the phrase before it.',
+          { chunk: 'cuenta' },
+        ),
         ' ',
         W('que', 'conjunction', 'that', '*Que* is “that”. It introduces what he realized.'),
         ' ',
@@ -49,6 +86,7 @@
         alfinal: {
           range: [0, 1],
           base: 'al final',
+          pos: 'phrase',
           tr: 'in the end',
           meaning: 'in the end, eventually',
           ex: '*Al final* means “in the end” or “eventually”. It’s a set phrase, so read it as one unit.',
@@ -56,6 +94,7 @@
         cuenta: {
           range: [4, 6],
           base: 'darse cuenta',
+          pos: 'phrase',
           tr: 'realized',
           meaning: 'to realize, to notice',
           ex: '*Darse cuenta (de)* means “to realize” or “to notice”. *Se dio cuenta* is the past: “he realized”. The same pattern gives *me di cuenta*, “I realized”.',
@@ -64,6 +103,7 @@
         razon: {
           range: [10, 11],
           base: 'tener razón',
+          pos: 'phrase',
           tr: 'was right',
           meaning: 'to be right',
           ex: '*Tener razón* means “to be right”. *Tenía razón* is the imperfect: “I was right”.',
@@ -77,22 +117,43 @@
       translation: 'Before I knew it, it was already morning.',
       start: 0,
       line: [
-        W('気', 'noun', 'mind; attention', '*気* (ki) is “mind” or “attention”. *気がつく*, literally “attention attaches”, means “to notice”.', { chunk: 'kigatsuku' }),
+        W(
+          '気',
+          'noun',
+          'mind; attention',
+          '*気* (ki) is “mind” or “attention”. *気がつく*, literally “attention attaches”, means “to notice”.',
+          { chunk: 'kigatsuku' },
+        ),
         W('が', 'particle', 'subject marker', '*が* marks *気* as the subject of *つく*.', { chunk: 'kigatsuku' }),
-        W('ついたら', 'verb', 'when it attached', '*ついたら* is *つく* (“to attach”) with *～たら* (“when”). After *気が* it means “when I noticed”.', {
-          chunk: 'kigatsuku',
-        }),
+        W(
+          'ついたら',
+          'verb',
+          'when it attached',
+          '*ついたら* is *つく* (“to attach”) with *～たら* (“when”). After *気が* it means “when I noticed”.',
+          {
+            chunk: 'kigatsuku',
+          },
+        ),
         '、',
         W('もう', 'adverb', 'already', '*もう* means “already”. With a past verb it stresses that the change has already happened.'),
-        W('朝', 'noun', 'morning', '*朝* (asa) is “morning”. *朝になる*, “to become morning”, is how Japanese says morning comes.', { chunk: 'asa' }),
+        W('朝', 'noun', 'morning', '*朝* (asa) is “morning”. *朝になる*, “to become morning”, is how Japanese says morning comes.', {
+          chunk: 'asa',
+        }),
         W('に', 'particle', 'into; to', '*に* marks what something turns into, as in *朝になる*.', { chunk: 'asa' }),
-        W('なっていた', 'verb', 'had become', '*なっていた* is *なる* (“to become”) in the *～ていた* form: a state that was already in place.', { chunk: 'asa' }),
+        W(
+          'なっていた',
+          'verb',
+          'had become',
+          '*なっていた* is *なる* (“to become”) in the *～ていた* form: a state that was already in place.',
+          { chunk: 'asa' },
+        ),
         '。',
       ],
       phrases: {
         kigatsuku: {
           range: [0, 2],
           base: '気がつく',
+          pos: 'phrase',
           tr: 'before I knew it',
           meaning: 'to notice',
           ex: '*気がつく* means “to notice” or “to come to”. With *～たら*, *気がついたら* is a set way to say “before I knew it”.',
@@ -100,6 +161,7 @@
         asa: {
           range: [4, 6],
           base: '朝になる',
+          pos: 'phrase',
           tr: 'it had become morning',
           meaning: 'morning comes',
           ex: '*朝になる* means “morning comes”. *になっていた* says it was already morning by the time I noticed.',
@@ -107,6 +169,19 @@
       },
     },
   };
+
+  function getPack() {
+    const i18n = window.CaptionaryI18n;
+    if (i18n && typeof i18n.getDemoPack === 'function') {
+      return i18n.getDemoPack(i18n.getLang());
+    }
+    return FALLBACK_PACK;
+  }
+
+  function getSiteLang() {
+    const i18n = window.CaptionaryI18n;
+    return i18n && typeof i18n.getLang === 'function' ? i18n.getLang() : 'en';
+  }
 
   const $ = (id) => document.getElementById(id);
   const demo = $('demo');
@@ -121,6 +196,7 @@
   const state = {
     lang: 'es',
     sel: null, // [first, last] word index
+    fromChunk: false,
     entry: null,
     explain: false,
     saved: { es: {}, ja: {} }, // dictionary form -> { status, range }
@@ -136,7 +212,8 @@
 
   // ---------- the line ----------
   function renderLine() {
-    const d = DEMOS[state.lang];
+    const pack = getPack();
+    const d = pack[state.lang];
     orig.lang = d.lang;
     orig.textContent = '';
     words = [];
@@ -164,7 +241,7 @@
       orig.append(b);
     }
     trLine.textContent = d.translation;
-    trLine.lang = 'en';
+    trLine.lang = getSiteLang();
     if (hint) hint.textContent = d.hint;
     paintLine();
   }
@@ -174,18 +251,24 @@
     const sel = state.sel;
     buttons.forEach((b, i) => {
       b.classList.toggle('is-sel', !!sel && i >= sel[0] && i <= sel[1]);
-      b.classList.toggle('is-learn', learning.some((s) => i >= s.range[0] && i <= s.range[1]));
+      b.classList.toggle(
+        'is-learn',
+        learning.some((s) => i >= s.range[0] && i <= s.range[1]),
+      );
     });
     gaps.forEach((g) => {
       const i = Number(g.dataset.after);
       g.classList.toggle('is-sel', !!sel && i >= sel[0] && i < sel[1]);
-      g.classList.toggle('is-learn', learning.some((s) => i >= s.range[0] && i < s.range[1]));
+      g.classList.toggle(
+        'is-learn',
+        learning.some((s) => i >= s.range[0] && i < s.range[1]),
+      );
     });
   }
 
   // The text exactly as written between two words, separators included.
   function textOf([a, b]) {
-    const d = DEMOS[state.lang];
+    const d = getPack()[state.lang];
     let out = '';
     let i = -1;
     for (const part of d.line) {
@@ -201,11 +284,22 @@
 
   // ---------- what a selection looks up ----------
   function resolve(range, fromChunk) {
-    const d = DEMOS[state.lang];
+    const pack = getPack();
+    const d = pack[state.lang];
     const [a, b] = range;
     if (a === b && !fromChunk) {
       const w = words[a];
-      return { kind: 'word', text: w.t, pos: w.pos, tr: w.tr, ex: w.ex, warn: w.warn, base: w.t, chunk: w.chunk ? d.phrases[w.chunk] : null, range };
+      return {
+        kind: 'word',
+        text: w.t,
+        pos: w.pos,
+        tr: w.tr,
+        ex: w.ex,
+        warn: w.warn,
+        base: w.t,
+        chunk: w.chunk ? d.phrases[w.chunk] : null,
+        range,
+      };
     }
     // A selection inside a known phrase, or a phrase with at most one extra word, looks up that phrase.
     let best = null;
@@ -217,18 +311,28 @@
     const text = textOf(range);
     if (best) {
       const p = best.p;
-      return { kind: 'phrase', text, pos: 'phrase', tr: p.tr, ex: p.ex, warn: p.warn, base: p.base, chunk: null, range };
+      return {
+        kind: 'phrase',
+        text,
+        pos: p.pos || pack.ui.phraseBadge,
+        tr: p.tr,
+        ex: p.ex,
+        warn: p.warn,
+        base: p.base,
+        chunk: null,
+        range,
+      };
     }
     const gloss = words
       .slice(a, b + 1)
-      .map((w) => w.tr.split(';')[0])
+      .map((w) => w.tr.split(/[;；]/)[0])
       .join(' · ');
     return {
       kind: 'other',
       text,
       pos: '',
       tr: gloss,
-      ex: 'That’s a word-by-word gloss. This page only knows a few phrases; in the extension, your tutor explains any selection in the context of the line.',
+      ex: pack.ui.otherEx,
       base: text,
       chunk: null,
       range,
@@ -237,6 +341,7 @@
 
   function open(range, { fromChunk = false, explain = false, quiet = false } = {}) {
     state.sel = [Math.min(...range), Math.max(...range)];
+    state.fromChunk = fromChunk;
     state.entry = resolve(state.sel, fromChunk);
     // Following a phrase the tutor named explains it at once, as the extension does.
     state.explain = explain || fromChunk;
@@ -255,7 +360,9 @@
   function renderCard(animate) {
     const e = state.entry;
     if (!e) return;
-    const d = DEMOS[state.lang];
+    const pack = getPack();
+    const ui = pack.ui;
+    const d = pack[state.lang];
     const saved = state.saved[state.lang][e.base];
     const learning = saved?.status === 'learning';
     const known = saved?.status === 'known';
@@ -264,37 +371,38 @@
     let html = '<div class="lk-body">';
     html += '<div class="lk-head">';
     html += `<span class="lk-word" lang="${d.lang}">${esc(e.text)}</span>`;
-    if (canSpeak) html += `<button type="button" class="lk-icon" data-act="speak" aria-label="Listen">${icon('i-speaker')}</button>`;
+    if (canSpeak)
+      html += `<button type="button" class="lk-icon" data-act="speak" aria-label="${esc(ui.listen)}">${icon('i-speaker')}</button>`;
     if (e.pos) html += `<span class="lk-pos">${esc(e.pos)}</span>`;
-    html += `<button type="button" class="lk-icon" data-act="close" aria-label="Close (Esc)"${e.pos ? '' : ' style="margin-left:auto"'}>${icon('i-close')}</button>`;
+    html += `<button type="button" class="lk-icon" data-act="close" aria-label="${esc(ui.close)}"${e.pos ? '' : ' style="margin-left:auto"'}>${icon('i-close')}</button>`;
     html += '</div>';
     html += `<div class="lk-tr">${esc(e.tr)}</div>`;
     if (showChunk) {
       const c = e.chunk;
-      html += `<button type="button" class="lk-chunk" data-act="chunk" title="Look up “${esc(textOf(c.range))}” instead">`;
-      html += `<span class="lk-chunk-label">Phrase</span><span class="lk-chunk-text" lang="${d.lang}">${esc(c.base)}</span>`;
+      html += `<button type="button" class="lk-chunk" data-act="chunk" title="${esc(ui.lookupTitle(textOf(c.range)))}">`;
+      html += `<span class="lk-chunk-label">${esc(ui.phraseBadge)}</span><span class="lk-chunk-text" lang="${d.lang}">${esc(c.base)}</span>`;
       html += `<span class="lk-chunk-meaning">${esc(c.meaning)}</span>${icon('i-chevron')}</button>`;
     }
     html += '<div class="lk-sep"></div>';
     html += '<div class="lk-actions">';
-    html += `<button type="button" class="lk-btn" data-act="save" aria-pressed="${learning}">${learning ? icon('i-bookmark-on', 'is-learn') : icon('i-bookmark')}${learning ? 'Learning' : 'Save'}</button>`;
-    html += `<button type="button" class="lk-btn" data-act="known" aria-pressed="${known}">${icon('i-check')}Known</button>`;
-    html += `<button type="button" class="lk-btn" data-act="explain" aria-pressed="${state.explain}">${icon('i-spark')}Explain</button>`;
+    html += `<button type="button" class="lk-btn" data-act="save" aria-pressed="${learning}">${learning ? icon('i-bookmark-on', 'is-learn') : icon('i-bookmark')}${esc(learning ? ui.learning : ui.save)}</button>`;
+    html += `<button type="button" class="lk-btn" data-act="known" aria-pressed="${known}">${icon('i-check')}${esc(ui.known)}</button>`;
+    html += `<button type="button" class="lk-btn" data-act="explain" aria-pressed="${state.explain}">${icon('i-spark')}${esc(ui.explain)}</button>`;
     html += '</div>';
     if (saved && e.base !== e.text) {
-      html += `<p class="lk-note">Saved as <b lang="${d.lang}">${esc(e.base)}</b>, its dictionary form.</p>`;
+      html += `<p class="lk-note">${ui.savedAs(`<b lang="${d.lang}">${esc(e.base)}</b>`)}</p>`;
     }
     if (state.explain) {
       html += '<div class="lk-sep"></div><div class="lk-ai">';
       html += `<p>${md(e.ex)}</p>`;
       if (e.warn) html += `<p class="lk-warn">⚠ ${md(e.warn)}</p>`;
-      if (e.kind !== 'other') html += '<p class="lk-meta">Sample answer. In Captionary, the AI you connect writes this.</p>';
+      if (e.kind !== 'other') html += `<p class="lk-meta">${esc(ui.sampleAnswer)}</p>`;
       html += '</div>';
     }
     html += '</div><span class="lk-arrow" aria-hidden="true"></span>';
 
     card.innerHTML = html;
-    card.setAttribute('aria-label', `Look-up: ${e.text}`);
+    card.setAttribute('aria-label', ui.lookupAria(e.text));
     card.hidden = false;
     if (animate) {
       card.classList.remove('is-in');
@@ -328,7 +436,7 @@
     if (act === 'speak' && canSpeak) {
       speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(state.entry.text);
-      u.lang = DEMOS[state.lang].speech;
+      u.lang = getPack()[state.lang].speech;
       u.rate = 0.9;
       speechSynthesis.speak(u);
     }
@@ -427,7 +535,7 @@
     if (ev.key === 'Escape' && !card.hidden) close();
   });
 
-  // ---------- language switch ----------
+  // ---------- demo language switch (Spanish / Japanese sample line) ----------
   const seg = document.querySelectorAll('.seg [data-lang]');
   seg.forEach((btn) =>
     btn.addEventListener('click', () => {
@@ -440,10 +548,19 @@
     }),
   );
 
+  // ---------- site UI language switch ----------
+  window.addEventListener('captionary:langchange', () => {
+    renderLine();
+    if (!card.hidden && state.sel) {
+      state.entry = resolve(state.sel, state.fromChunk);
+      renderCard(false);
+    }
+  });
+
   // Open on a word whose meaning changes inside a phrase, with the tutor's answer already in, so the
   // page shows the point before anyone clicks.
   function start() {
-    const i = DEMOS[state.lang].start;
+    const i = getPack()[state.lang].start;
     anchor = i;
     open([i, i], { explain: true, quiet: true });
   }
