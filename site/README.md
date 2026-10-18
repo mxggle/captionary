@@ -18,11 +18,14 @@ python3 -m http.server 4178 --directory site
   `<link rel="canonical">` and `og:url`, and change `og:image` from `og.png` to the absolute URL. Most
   link previews ignore a relative image. Then enter the homepage and `privacy.html` URLs in the store
   listing.
-- **Privacy policy.** `privacy.html` is the text of `docs/chrome-web-store/privacy-policy.md`, linked
-  from both footers, and it is still a draft. Once the policy is approved: replace the
-  `[PUBLISHER TO ADD BEFORE PUBLICATION]` placeholder with the support contact, remove the draft notice
-  at the top (an HTML comment marks it), and give the page its publication date. Edit the Markdown file
-  and the page together.
+- **Privacy policy.** `privacy.html` is the text of `docs/chrome-web-store/privacy-policy.md`, linked from both
+  footers, with the GitHub issues page as the public contact. Edit the Markdown file and the page together and
+  change the "Last updated" date when the policy changes.
+
+## Deploying to Vercel
+
+Import the repo, set **Root Directory** to `site`, Framework Preset **Other**, no build command. `vercel.json`
+adds security headers and long caching for fonts.
 
 ## Share image
 
