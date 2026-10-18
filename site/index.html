@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Captionary: learn languages from YouTube, Netflix and Apple TV+</title>
+  <meta name="description" content="Free Chrome extension with dual subtitles, phrase look-up and an AI tutor you choose: your ChatGPT plan, your own API key or a local model.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Captionary">
+  <meta property="og:title" content="Captionary: look up whole phrases in the shows you watch">
+  <meta property="og:description" content="Dual subtitles on YouTube, Netflix and Apple TV+, phrase look-up, and an AI tutor that runs on your ChatGPT plan, your own API key or a local model. Free.">
+  <meta name="twitter:card" content="summary">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="icon-128.png" type="image/png" sizes="128x128">
+  <link rel="preload" href="fonts/BricolageGrotesque-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/AtkinsonHyperlegibleNext-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="styles.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Captionary",
+    "applicationCategory": "EducationalApplication",
+    "operatingSystem": "Chrome",
+    "description": "Chrome extension for learning languages on YouTube, Netflix and Apple TV+: dual subtitles, phrase look-up, saved words with Anki export, and an AI tutor that uses your ChatGPT plan, your own API key or a local model.",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+  }
+  </script>
+</head>
+<body>
+  <svg class="sprite" aria-hidden="true" focusable="false">
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m6 4 14 8-14 8V4Z" fill="currentColor"/></symbol>
+    <symbol id="i-next" viewBox="0 0 24 24"><path d="m5 4 10 8-10 8V4Z" fill="currentColor"/><path d="M19 5v14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-volume" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5Z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-glyph" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="4"/><path d="M7 10h3M7 15h10"/></g><rect x="12.5" y="8.8" width="4.5" height="2.4" rx="1.2" fill="currentColor"/></symbol>
+    <symbol id="i-cc" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M10.5 10.2a2.4 2.4 0 1 0 0 3.6M17.5 10.2a2.4 2.4 0 1 0 0 3.6" stroke-linecap="round"/></g></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></g></symbol>
+    <symbol id="i-full" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-speaker" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M15.5 8.5a5 5 0 0 1 0 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+    <symbol id="i-bookmark-on" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16Z" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  </svg>
+
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="site-head">
+    <div class="wrap head-row">
+      <a class="brand" href="#top" aria-label="Captionary home">
+        <svg class="brand-mark" viewBox="0 0 128 128" aria-hidden="true">
+          <rect x="4" y="4" width="120" height="120" rx="30" class="bm-bg"/>
+          <path d="M52 26 L84 45 L52 64 Z" class="bm-fg"/>
+          <rect x="18" y="76" width="27" height="14" rx="7" class="bm-fg"/>
+          <rect x="49" y="76" width="32" height="14" rx="7" class="bm-learn"/>
+          <rect x="85" y="76" width="25" height="14" rx="7" class="bm-fg"/>
+          <rect x="30" y="96" width="68" height="11" rx="5.5" class="bm-fg" opacity="0.55"/>
+        </svg>
+        <span>Captionary</span>
+      </a>
+      <nav class="head-nav" aria-label="Sections">
+        <a href="#phrases">Phrases</a>
+        <a href="#ai">AI tutor</a>
+        <a href="#compare">vs Language Reactor</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+      <a class="btn btn-primary btn-sm" href="https://chromewebstore.google.com/detail/captionary/imcclapmlgkhceckdmnhhcchmgjkcbci" data-cta="header">Add to Chrome</a>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top">
+      <div class="wrap hero-text">
+        <h1>Look up <mark class="hl">whole phrases</mark> in the shows you watch.</h1>
+        <p class="lead">Captionary is a free Chrome extension for YouTube, Netflix and Apple TV+. It puts a translation under the original subtitle. Click a word or drag across a phrase, and a tutor explains it in context using the AI you choose: your ChatGPT plan, your own API key, or a model on your own computer.</p>
+        <div class="cta-row">
+          <a class="btn btn-primary btn-lg" href="https://chromewebstore.google.com/detail/captionary/imcclapmlgkhceckdmnhhcchmgjkcbci" data-cta="hero">Add to Chrome, it’s free</a>
+          <a class="btn btn-quiet btn-lg" href="#compare">Compare with Language Reactor</a>
+        </div>
+        <p class="cta-note">No account needed. Your saved words stay in your browser. Works on youtube.com, netflix.com and tv.apple.com.</p>
+        <p class="phone-note">Captionary runs in Chrome on a computer. Open this page there to install it.</p>
+      </div>
+
+      <div class="wrap">
+        <figure class="demo" id="demo">
+          <div class="demo-bar">
+            <p class="demo-hint" id="demo-hint">Try it. Click a word in the top line, or drag across a few words.</p>
+            <div class="seg" role="radiogroup" aria-label="Demo language">
+              <button type="button" role="radio" aria-checked="true" data-lang="es" id="demo-lang-es">Spanish</button>
+              <button type="button" role="radio" aria-checked="false" data-lang="ja" id="demo-lang-ja">Japanese</button>
+            </div>
+          </div>
+          <div class="player" id="player">
+            <div class="scene" aria-hidden="true">
+              <span class="bokeh b1"></span><span class="bokeh b2"></span><span class="bokeh b3"></span><span class="bokeh b4"></span>
+            </div>
+            <div class="captions">
+              <div class="cap cap-orig" id="cap-orig" lang="es">Al final, mi hermano se dio cuenta de que yo tenía razón.</div>
+              <div class="cap cap-tr" id="cap-tr">In the end, my brother realized I was right.</div>
+            </div>
+            <div class="controls" aria-hidden="true">
+              <div class="scrub"><span class="scrub-fill"></span><span class="scrub-knob"></span></div>
+              <div class="ctl-row">
+                <svg class="ctl"><use href="#i-play"/></svg>
+                <svg class="ctl"><use href="#i-next"/></svg>
+                <svg class="ctl"><use href="#i-volume"/></svg>
+                <span class="ctl-time">12:04 / 41:30</span>
+                <span class="ctl-gap"></span>
+                <svg class="ctl ctl-on"><use href="#i-glyph"/></svg>
+                <svg class="ctl"><use href="#i-cc"/></svg>
+                <svg class="ctl"><use href="#i-gear"/></svg>
+                <svg class="ctl"><use href="#i-full"/></svg>
+              </div>
+            </div>
+          </div>
+          <div class="lk" id="lk" role="dialog" aria-label="Look-up" hidden></div>
+          <figcaption>A working copy of the look-up card with sample answers. In the extension, the AI you connect writes them.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="band" id="phrases" aria-labelledby="phrases-h">
+      <div class="wrap split">
+        <div class="split-text">
+          <h2 id="phrases-h">Some meanings only exist as phrases</h2>
+          <p>Look up <i lang="es">cuenta</i> and you get “bill”. In <i lang="es">se dio cuenta</i> it means “realized”, and no single word in the line tells you that. Phrasal verbs, idioms and set expressions work the same way in every language.</p>
+          <ul class="ticks">
+            <li>Drag across the words, or click one and Shift+click another.</li>
+            <li>With a tutor connected, click a single word and it names the phrase the word belongs to. One more click looks up the phrase instead.</li>
+            <li>Phrases are saved in dictionary form. <i lang="es">Se dio cuenta</i> goes into your list as <i lang="es">darse cuenta</i>.</li>
+            <li>Works in Chinese, Japanese and Thai too, where words aren’t separated by spaces.</li>
+          </ul>
+        </div>
+        <div class="gloss" aria-label="Word by word versus as a phrase">
+          <p class="gloss-line" lang="es">mi hermano <mark class="hl">se dio cuenta</mark> de que…</p>
+          <dl class="gloss-rows">
+            <div>
+              <dt>Word by word</dt>
+              <dd>himself · gave · bill</dd>
+            </div>
+            <div>
+              <dt>As a phrase</dt>
+              <dd><b lang="es">darse cuenta</b> · to realize</dd>
+            </div>
+          </dl>
+        </div>
+      </div>
+    </section>
+
+    <section class="band" id="ai" aria-labelledby="ai-h">
+      <div class="wrap split split-flip">
+        <div class="split-text">
+          <h2 id="ai-h">Bring the AI you already pay for</h2>
+          <p>Captionary doesn’t sell AI credits or lock you to one model. Connect what you have and switch whenever you like.</p>
+          <dl class="ways">
+            <div>
+              <dt>Sign in with ChatGPT</dt>
+              <dd>Use your ChatGPT Plus, Pro or Business plan. No API key and nothing extra to pay; requests count toward your plan’s Codex usage limits.</dd>
+            </div>
+            <div>
+              <dt>Use your own API key</dt>
+              <dd>OpenAI, Anthropic (Claude), Google Gemini, OpenRouter, DeepSeek, Groq, Mistral, xAI, or any OpenAI-compatible endpoint. You pay the provider directly, at their prices.</dd>
+            </div>
+            <div>
+              <dt>Run it on your computer</dt>
+              <dd>Ollama, LM Studio, or Chrome’s built-in Gemini Nano. Nothing leaves your machine.</dd>
+            </div>
+          </dl>
+          <p class="small">Give each job its own model: a fast, cheap one for word look-ups and a stronger one for sentence breakdowns. Add a fallback for outages and rate limits. Answers are cached, and an optional daily cap stops runaway spending.</p>
+        </div>
+        <figure class="panel-fig">
+          <div class="panel">
+            <div class="panel-head">AI providers</div>
+            <ul class="prov">
+              <li><span class="prov-name">ChatGPT</span><span class="prov-state is-ok">Signed in</span></li>
+              <li><span class="prov-name">Anthropic (Claude)</span><span class="prov-state">API key ••••3f9a</span></li>
+              <li><span class="prov-name">Ollama</span><span class="prov-state">On this computer</span></li>
+            </ul>
+            <div class="panel-label">Model for each task</div>
+            <dl class="route">
+              <div><dt>Word look-up</dt><dd>Ollama · Qwen 2.5</dd></div>
+              <div><dt>Sentence breakdown</dt><dd>ChatGPT · GPT-5.5</dd></div>
+              <div><dt>Follow-up chat</dt><dd>Claude Sonnet 5.5</dd></div>
+              <div><dt>Subtitle translation</dt><dd>Claude Haiku 5.5</dd></div>
+              <div><dt>If a provider fails</dt><dd>Try ChatGPT</dd></div>
+            </dl>
+          </div>
+          <figcaption>Example settings: three providers, a model picked for each task.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="band" id="words" aria-labelledby="words-h">
+      <div class="wrap split">
+        <div class="split-text">
+          <h2 id="words-h">Your word list is free, and it stays yours</h2>
+          <p>Save a word or phrase as learning or known. Captionary keeps the sentence, its translation, the video and the timestamp it came from. Learning words get a dotted underline wherever they turn up again: in subtitles, the subtitle list and the reader.</p>
+          <ul class="ticks">
+            <li>Review with flashcards.</li>
+            <li>Export to Anki or CSV, or keep a JSON backup.</li>
+            <li>No account and no subscription. The list lives in your browser.</li>
+          </ul>
+        </div>
+        <figure class="panel-fig">
+          <div class="panel">
+            <div class="panel-head">Saved words <span class="panel-count">3</span></div>
+            <ul class="vocab">
+              <li>
+                <div class="v-top"><b lang="es">darse cuenta</b><span class="v-tag is-learn">Learning</span></div>
+                <div class="v-mean">to realize</div>
+                <div class="v-ctx" lang="es">Al final, mi hermano <u>se dio cuenta</u> de que yo tenía razón.</div>
+              </li>
+              <li>
+                <div class="v-top"><b lang="ja">気がつく</b><span class="v-tag is-learn">Learning</span></div>
+                <div class="v-mean">to notice; <i>気がついたら</i>, before I knew it</div>
+                <div class="v-ctx" lang="ja"><u>気がついたら</u>、もう朝になっていた。</div>
+              </li>
+              <li>
+                <div class="v-top"><b lang="es">tener razón</b><span class="v-tag">Known</span></div>
+                <div class="v-mean">to be right</div>
+              </li>
+            </ul>
+            <div class="panel-actions"><span class="fake-btn">Review</span><span class="fake-btn">Export to Anki</span></div>
+          </div>
+          <figcaption>Example list. Each entry keeps the line it came from.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="band" id="compare" aria-labelledby="compare-h">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 id="compare-h">Captionary and Language Reactor compared</h2>
+          <p>Language Reactor is the best-known tool for learning from Netflix and YouTube, with two million Chrome users, and it does a lot well. This is where the two differ. We checked every Language Reactor detail against its own pages on October 18, 2026.</p>
+        </div>
+
+        <div class="table-scroll" role="region" aria-labelledby="compare-h" tabindex="0">
+          <table class="compare">
+            <thead>
+              <tr>
+                <th scope="col"><span class="sr">Feature</span></th>
+                <th scope="col" class="col-us">Captionary</th>
+                <th scope="col">Language Reactor</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">Look up several words at once</th>
+                <td class="col-us" data-label="Captionary"><span class="mark yes">Yes</span>Drag across them, or Shift+click</td>
+                <td data-label="Language Reactor"><span class="mark no">No</span>One word at a time. Its team said in June 2026 that it’s under consideration.<a class="fn" href="#src-1" aria-label="Source 1">1</a></td>
+              </tr>
+              <tr>
+                <th scope="row">Save words and phrases</th>
+                <td class="col-us" data-label="Captionary"><span class="mark yes">Free</span>Flashcards, Anki and CSV export included</td>
+                <td data-label="Language Reactor"><span class="mark part">Pro</span>Free only inside its PhrasePump drills<a class="fn" href="#src-2" aria-label="Source 2">2</a></td>
+              </tr>
+              <tr>
+                <th scope="row">AI explanations</th>
+                <td class="col-us" data-label="Captionary"><span class="mark yes">No daily cap</span>Word explanations, sentence breakdowns and follow-up chat, limited only by your provider</td>
+                <td data-label="Language Reactor"><span class="mark part">5 a day</span>Lexa AI: five free questions a day when signed in, unlimited with Pro<a class="fn" href="#src-3" aria-label="Source 3">3</a></td>
+              </tr>
+              <tr>
+                <th scope="row">Choose the AI model</th>
+                <td class="col-us" data-label="Captionary"><span class="mark yes">Yes</span>ChatGPT sign-in, 8 cloud providers with your own key, any OpenAI-compatible endpoint, or local models</td>
+                <td data-label="Language Reactor"><span class="mark no">No</span>Language Reactor’s own AI</td>
+              </tr>
+              <tr>
+                <th scope="row">Translation on Netflix when there’s no subtitle in your language</th>
+                <td class="col-us" data-label="Captionary"><span class="mark yes">Free</span>Chrome’s on-device translator, or your AI</td>
+                <td data-label="Language Reactor"><span class="mark part">Pro</span>Machine translation, about 5 hours of new content a day<a class="fn" href="#src-4" aria-label="Source 4">4</a></td>
+              </tr>
+              <tr>
+                <th scope="row">Apple TV+</th>
+                <td class="col-us" data-label="Captionary"><span class="mark yes">Yes</span>Plus YouTube and Netflix</td>
+                <td data-label="Language Reactor"><span class="mark no">No</span>YouTube and Netflix<a class="fn" href="#src-5" aria-label="Source 5">5</a></td>
+              </tr>
+              <tr>
+                <th scope="row">Account</th>
+                <td class="col-us" data-label="Captionary"><span class="mark yes">None</span>Everything is stored in your browser</td>
+                <td data-label="Language Reactor"><span class="mark part">Needed</span>For Pro, Lexa questions and sync</td>
+              </tr>
+              <tr>
+                <th scope="row">Price</th>
+                <td class="col-us" data-label="Captionary"><span class="mark yes">Free</span>Your AI provider bills you for what you use, if anything</td>
+                <td data-label="Language Reactor"><span class="mark part">Freemium</span>Pro is a monthly, 3-month or yearly subscription<a class="fn" href="#src-2" aria-label="Source 2">2</a></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="fair">
+          <div class="fair-col">
+            <h3>Where Language Reactor is ahead</h3>
+            <ul class="plain">
+              <li>Its website works on phones and tablets. Captionary is desktop Chrome only.</li>
+              <li>Settings, saved words and chats live in your account and follow you across devices. Captionary has no sync; you move a JSON backup yourself.</li>
+              <li>With Pro, it makes subtitles by speech recognition, including for dubbed Netflix audio.</li>
+              <li>It has a catalog of videos, books and podcasts, a chat partner called Aria, and an English course in beta.</li>
+              <li>Its Anki export includes images and audio. Captionary exports text: the word, its meaning and the sentence.</li>
+            </ul>
+          </div>
+          <div class="fair-col">
+            <h3>What both do</h3>
+            <p>Dual subtitles, a subtitle list, auto-pause and line repeat, keyboard shortcuts, transliteration, word-frequency colors, a text reader, local video files with your own subtitles, and Anki export.</p>
+            <h3>Which to pick</h3>
+            <p>Pick Captionary if you want to look up phrases, choose your own AI, or keep a word list without paying. Pick Language Reactor if you study on your phone, want your words in an online account, or watch dubbed Netflix shows that have no subtitles.</p>
+          </div>
+        </div>
+
+        <ol class="sources">
+          <li id="src-1">Language Reactor forum, staff reply of June 26, 2026: <a href="https://forum.languagelearningwithnetflix.com/t/how-to-select-multiple-word-definitions/41477">How to select multiple word definitions?</a></li>
+          <li id="src-2"><a href="https://www.languagereactor.com/pro-mode">Language Reactor Pro page</a></li>
+          <li id="src-3"><a href="https://www.languagereactor.com/help/updates">Language Reactor update history</a>, September 2026</li>
+          <li id="src-4"><a href="https://www.languagereactor.com/help/faq">Language Reactor FAQ</a></li>
+          <li id="src-5"><a href="https://chromewebstore.google.com/detail/language-reactor/hoombieeljmmljlkjmnheibnpciblicm">Language Reactor on the Chrome Web Store</a></li>
+        </ol>
+        <p class="fine">Language Reactor is made by Dioco. Captionary is independent and not affiliated with it. If something here is out of date, <a href="https://github.com/mxggle/captionary/issues">open an issue</a> and we’ll correct it.</p>
+      </div>
+    </section>
+
+    <section class="band" id="toolkit" aria-labelledby="toolkit-h">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 id="toolkit-h">The rest of the toolkit</h2>
+        </div>
+        <dl class="grid3">
+          <div>
+            <dt>Fits each player</dt>
+            <dd>Captionary’s button sits in the player’s own control bar, and its menus and look-up card take the site’s look and font.</dd>
+          </div>
+          <div>
+            <dt>Translation from the best source</dt>
+            <dd>A human subtitle track when there is one, then YouTube’s auto-translate, then Chrome’s on-device translator, then your AI. Blur it until you hover, to test yourself.</dd>
+          </div>
+          <div>
+            <dt>Subtitle list</dt>
+            <dd>Follows playback. Search it, jump to any line, copy it, or download an .srt with both languages.</dd>
+          </div>
+          <div>
+            <dt>Romanization</dt>
+            <dd>Pinyin with tone marks, romaji for kana, and romanized Korean, Russian, Greek and more, under the original line.</dd>
+          </div>
+          <div>
+            <dt>Sentence breakdown</dt>
+            <dd>Press <kbd>E</kbd> for the current line’s translation, a literal gloss, its chunks and its grammar points.</dd>
+          </div>
+          <div>
+            <dt>Playback for study</dt>
+            <dd>Pause after every line, repeat it, step back or forward, change speed. <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> by default, and every shortcut can be remapped.</dd>
+          </div>
+          <div>
+            <dt>Word frequency</dt>
+            <dd>Optional underlines show how rare a word is in film and TV subtitles, so you know which ones are worth saving.</dd>
+          </div>
+          <div>
+            <dt>Reader</dt>
+            <dd>Paste text, open .txt, .srt or .vtt files, or right-click any web page to read it with clickable words.</dd>
+          </div>
+          <div>
+            <dt>Your own videos</dt>
+            <dd>Play a video file from your disk with its subtitle file and get the same overlay, list and look-ups.</dd>
+          </div>
+        </dl>
+      </div>
+    </section>
+
+    <section class="band" id="privacy" aria-labelledby="privacy-h">
+      <div class="wrap split">
+        <div class="split-text">
+          <h2 id="privacy-h">Your keys and your words stay in your browser</h2>
+          <p>There’s no Captionary account, no analytics and no ads. The code is <a href="https://github.com/mxggle/captionary">on GitHub</a>, so you can check all of this yourself.</p>
+        </div>
+        <ul class="ticks ticks-wide">
+          <li>API keys and ChatGPT sign-in tokens are kept in the extension’s local storage. They’re never synced or exported, and only the extension’s background worker reads them. Web pages never see them.</li>
+          <li>Chrome asks your permission for each AI service when you add it. Captionary ships with no AI hosts in its manifest.</li>
+          <li>You choose how much context goes with a request: just the word, the sentence, or a couple of lines around it, and whether the video title is included.</li>
+          <li>Subtitle text is marked as untrusted in every prompt, and answers can’t load images or HTML.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="band" id="faq" aria-labelledby="faq-h">
+      <div class="wrap faq-wrap">
+        <h2 id="faq-h">Questions</h2>
+        <div class="faq">
+          <details>
+            <summary>Is Captionary really free?</summary>
+            <p>Yes. The extension is free. If you connect a paid API, the provider bills you for what you use. With ChatGPT sign-in, a local model or Chrome’s built-in AI, there’s nothing extra to pay.</p>
+          </details>
+          <details>
+            <summary>Do I need an API key?</summary>
+            <p>No. Dual subtitles, translations, the dictionary, saving words and review all work without any AI. For the tutor, you can sign in with ChatGPT, run a local model, or use Chrome’s built-in AI instead of a key.</p>
+          </details>
+          <details>
+            <summary>How does “Sign in with ChatGPT” work?</summary>
+            <p>You sign in on OpenAI’s own page, the same way OpenAI’s Codex CLI does, and Captionary uses your ChatGPT Plus, Pro or Business plan. Requests count toward the plan’s Codex usage limits. OpenAI hasn’t documented this route for other apps, so it could change. If it does, API keys and local models keep working.</p>
+          </details>
+          <details>
+            <summary>How much will my API key cost me?</summary>
+            <p>That depends on the provider and model you pick. Captionary keeps it down: explanations are only generated when you ask, answers are cached, and you can set a daily request limit. The settings page counts requests and tokens for each model.</p>
+          </details>
+          <details>
+            <summary>Which languages does it support?</summary>
+            <p>Any language the video has subtitles in. Phrase selection also works in Chinese, Japanese and Thai, and romanization covers Chinese, Japanese kana, Korean, Russian, Ukrainian, Bulgarian, Serbian, Greek and more. The tutor answers in your own language.</p>
+          </details>
+          <details>
+            <summary>Which browsers and devices?</summary>
+            <p>Desktop Chrome. Captionary doesn’t run on phones or tablets.</p>
+          </details>
+          <details>
+            <summary>Is Captionary connected to YouTube, Netflix, Apple or Language Reactor?</summary>
+            <p>No. Captionary is an independent extension. Netflix and Apple TV+ need their own subscriptions, and subtitle availability depends on the video.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section class="band final" aria-labelledby="final-h">
+      <div class="wrap final-inner">
+        <h2 id="final-h">Try it on the next thing you watch</h2>
+        <p>A short setup guide asks which language you’re learning and helps you connect a tutor, or skip that for now.</p>
+        <a class="btn btn-primary btn-lg" href="https://chromewebstore.google.com/detail/captionary/imcclapmlgkhceckdmnhhcchmgjkcbci" data-cta="footer">Add to Chrome, it’s free</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-foot">
+    <div class="wrap foot-row">
+      <p>Captionary · <a href="https://github.com/mxggle/captionary">Code on GitHub</a> · <a href="https://github.com/mxggle/captionary/issues">Report a problem</a></p>
+      <p class="fine">Captionary is independent and is not affiliated with or endorsed by YouTube, Netflix, Apple or Dioco (Language Reactor). Product names are trademarks of their owners.</p>
+    </div>
+  </footer>
+
+  <script src="demo.js" defer></script>
+</body>
+</html>
