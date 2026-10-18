@@ -58,7 +58,7 @@ async function connectionFor(kind: ProviderKind): Promise<{ conn: ProviderConnec
 }
 
 /** Save the connection and make it the tutor. */
-async function setAsTutor(conn: ProviderConnection) {
+export async function setAsTutor(conn: ProviderConnection) {
   await updateAISettings((s) => {
     if (!s.connections.some((c) => c.id === conn.id)) s.connections.push(conn);
     s.defaultConnectionId = conn.id;
@@ -67,12 +67,14 @@ async function setAsTutor(conn: ProviderConnection) {
 }
 
 /** Undo `setAsTutor` for a connection the guide added (a key or sign-in that did not work). */
-async function forget(conn: ProviderConnection, previousDefault: string | null) {
+async function forget(conn: ProviderConnection, before: AISettings) {
   await (PROVIDERS[conn.kind].signIn ? signOutChatGPT(conn.id) : removeApiKey(conn.id));
   await updateAISettings((s) => {
     s.connections = s.connections.filter((c) => c.id !== conn.id);
+    const previousDefault = before.defaultConnectionId;
     s.defaultConnectionId =
       previousDefault && s.connections.some((c) => c.id === previousDefault) ? previousDefault : (s.connections[0]?.id ?? null);
+    s.enabled = before.enabled;
   });
 }
 
@@ -80,8 +82,8 @@ async function forget(conn: ProviderConnection, previousDefault: string | null) 
  * Leave things as they were after a connection that does not work: it should not become the
  * tutor. A connection the guide added goes; an existing one gets its credential back.
  */
-async function undoTutor(conn: ProviderConnection, isNew: boolean, before: AISettings, restoreCredential: () => Promise<void>) {
-  if (isNew) return forget(conn, before.defaultConnectionId);
+export async function undoTutor(conn: ProviderConnection, isNew: boolean, before: AISettings, restoreCredential: () => Promise<void>) {
+  if (isNew) return forget(conn, before);
   await restoreCredential();
   await updateAISettings((s) => {
     s.defaultConnectionId = before.defaultConnectionId;

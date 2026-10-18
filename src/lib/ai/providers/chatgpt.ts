@@ -78,6 +78,18 @@ function planError(err: unknown): unknown {
   return err;
 }
 
+/** Why the backend stopped an answer partway (`response.incomplete`). */
+function incompleteError(reason: string | undefined): AIError {
+  if (reason === 'content_filter') return new AIError('refusal', 'ChatGPT’s content filter stopped this answer partway.');
+  if (reason === 'max_output_tokens') {
+    return new AIError(
+      'unknown',
+      'ChatGPT reached its output limit before finishing the answer. Try again, or lower the reasoning effort in Settings → AI.',
+    );
+  }
+  return new AIError('unknown', 'ChatGPT stopped before finishing the answer. Try again.');
+}
+
 /**
  * ChatGPT's Codex backend: the OpenAI Responses API, authorised by a ChatGPT sign-in.
  * It is stateless (store: false), streams only, and rejects an output limit and
@@ -124,9 +136,12 @@ export const chatgptAdapter: ProviderAdapter = {
         yield { type: 'text', text: event.delta };
       } else if (type === 'response.refusal.done') {
         throw new AIError('refusal', 'The model declined to answer this request.');
-      } else if (type === 'response.completed' || type === 'response.incomplete') {
+      } else if (type === 'response.completed') {
         const usage = event.response?.usage;
         if (usage) yield { type: 'usage', usage: { inputTokens: usage.input_tokens, outputTokens: usage.output_tokens } };
+      } else if (type === 'response.incomplete') {
+        // A cut-off answer must not pass for a whole one, or it is cached (and a translation is malformed).
+        throw incompleteError(event.response?.incomplete_details?.reason);
       } else if (type === 'response.failed' || type === 'error') {
         const error = event.response?.error ?? event.error;
         throw new AIError('unavailable', error?.message ?? event.message ?? 'ChatGPT could not answer this request.');

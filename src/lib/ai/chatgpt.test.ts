@@ -248,6 +248,27 @@ describe('chatgptAdapter', () => {
     expect(err.message).toBe('context too long');
   });
 
+  it.each([
+    ['max_output_tokens', 'unknown', /output limit/],
+    ['content_filter', 'refusal', /content filter/],
+    [undefined, 'unknown', /stopped before finishing/],
+  ])('fails an answer cut off by %s instead of passing it as whole', async (reason, code, message) => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        sse([
+          { type: 'response.output_text.delta', delta: 'Half an ans' },
+          { type: 'response.incomplete', response: { incomplete_details: { reason } } },
+        ]),
+      ),
+    );
+    const err = await (async () => {
+      for await (const _ of chatgptAdapter.stream(ctx, request())) void _;
+    })().catch((e) => e);
+    expect(err).toMatchObject({ code });
+    expect(err.message).toMatch(message);
+  });
+
   it('lists visible models in priority order', async () => {
     const models = {
       models: [
