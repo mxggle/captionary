@@ -14,26 +14,38 @@ const UNTRUSTED_NOTE =
 
 export const DEFAULT_PROMPTS: Record<AITask, string> = {
   word: `You are a precise, friendly language tutor for a {{level}} learner of {{targetLanguage}} whose native language is {{nativeLanguage}}.
-The learner clicked a word or phrase while watching a video or reading. Explain it as it is used in the given context.
+The learner clicked a word or phrase while watching a video or reading. They want to grasp it in a few seconds and get back to the content, so explain only the sense it has in the given context.
 ${UNTRUSTED_NOTE}
 
-Write the whole explanation in {{explanationLanguage}}, translating the bold section labels below into {{explanationLanguage}} too; quote {{targetLanguage}} words exactly as written. Use this Markdown layout, omitting a section when it adds nothing:
+Write in {{explanationLanguage}} and quote {{targetLanguage}} exactly as written. Reply with the three sections below, in this order. Start each with its marker line copied exactly (never translate a marker), and add no other headings, labels or preamble.
 
-**<the word>** · part of speech · base/dictionary form if different · pronunciation (IPA, or romanization for non-Latin scripts)
+@@meaning
+- First line: the closest {{nativeLanguage}} equivalent of this sense, 1–3 words and nothing else.
+- Second line: one plain sentence defining this sense (at most 15 words), in words a {{level}} learner knows.
+- Third line, only if the clicked form is inflected or a variant: its base form and what changed, such as "went ← go, past tense".
 
-**In this context:** what it means in this exact sentence (1–2 sentences).
+@@context
+- First line: the smallest chunk around the word worth learning as a unit, in backticks and exactly as written in the text; if the chunk is inflected, its dictionary form in parentheses after it, such as "\`gave up\` (give up)"; then " → " and what the chunk means.
+- Then 1–2 short sentences on what the word does in this sentence and why this sense fits. Do not translate or retell the sentence, and do not explain other words in it.
+- Last, only if there is a real trap (a false friend, an easily confused word, a register or tone warning, or text that looks like a name or an automatic-caption error): one line starting with "⚠ ".
 
-**Translation:** the most natural {{nativeLanguage}} equivalent(s).
+@@examples
+- First line: 2–4 common collocations or patterns with this sense, separated by " · ".
+- Then 3 new example sentences with this same sense, each under 12 words, at {{level}} level, each showing a different pattern. Bold the word in each. Put each on a "- " line with its {{nativeLanguage}} translation on the next line, indented by two spaces.
 
-**Form & grammar:** why it has this form here (conjugation, case, particle, agreement…).
+The reply looks like this:
+@@meaning
+<equivalent>
+<definition>
+@@context
+\`<chunk>\` (<dictionary form, only if inflected>) → <its meaning>
+<what the word does here>
+@@examples
+<collocation> · <collocation> · <collocation>
+- <example with the **word** in bold>
+  <translation>
 
-**Usage:** register, nuance, common collocations or false friends.
-
-**Examples:**
-- a new short {{targetLanguage}} example — its {{nativeLanguage}} translation
-- one more
-
-Stay under 180 words. Do not repeat the whole sentence back. If the text looks like a name or an automatic-caption error, say so briefly.`,
+Keep every line short; the whole reply stays under 130 words.`,
 
   sentence: `You are a precise, friendly language tutor for a {{level}} learner of {{targetLanguage}} whose native language is {{nativeLanguage}}.
 Explain one subtitle line or sentence so the learner understands every part of it.
@@ -161,20 +173,22 @@ export function buildPrompt(job: AIJob, opts: PromptOptions): BuiltPrompt {
   const autonym = languageAutonym(explainInTarget ? target : opts.nativeLanguage);
   const answerIn = `Write your whole answer in ${vars.explanationLanguage}${
     autonym && autonym !== vars.explanationLanguage ? ` (${autonym})` : ''
-  }, including the section labels.`;
+  }`;
 
   if (job.task === 'word') {
     const ctx = contextBlock(job, opts, false);
-    return {
-      system,
-      json: false,
-      messages: [{ role: 'user', content: `Explain "${sanitizeContext(job.text)}".${ctx ? `\n${ctx}` : ''}\n${answerIn}` }],
-    };
+    // The card's tab names come from the app, so the markers must reach it untranslated.
+    const content = `Explain "${sanitizeContext(job.text)}".${ctx ? `\n${ctx}` : ''}\n${answerIn}, but copy the @@ marker lines exactly.`;
+    return { system, json: false, messages: [{ role: 'user', content }] };
   }
 
   if (job.task === 'sentence') {
     const ctx = contextBlock(job, opts, true);
-    return { system, json: false, messages: [{ role: 'user', content: `Explain this line.\n${ctx}\n${answerIn}` }] };
+    return {
+      system,
+      json: false,
+      messages: [{ role: 'user', content: `Explain this line.\n${ctx}\n${answerIn}, including the section labels.` }],
+    };
   }
 
   // chat
@@ -243,4 +257,132 @@ export function extractTranslation(markdown: string): string | undefined {
     }
   }
   return undefined;
+}
+
+export type WordSection = 'meaning' | 'context' | 'examples';
+
+export interface WordExample {
+  text: string;
+  translation?: string;
+}
+
+/** A word explanation split at the @@ markers the default word prompt asks for. */
+export interface WordExplanation {
+  /** The native-language equivalent: the first line of @@meaning, once that line is complete. */
+  gloss?: string;
+  /** The rest of @@meaning: a one-sentence definition, and the base form of an inflected word. */
+  definition: string[];
+  /** @@context line by line: the chunk and its meaning, what the word does here, an optional "⚠" trap. */
+  context: string[];
+  /** The chunk named on the first @@context line, once its arrow has arrived. */
+  chunk?: WordChunk;
+  /** The collocations line of @@examples. */
+  collocations: string[];
+  examples: WordExample[];
+  /** Sections whose marker has arrived. */
+  started: WordSection[];
+}
+
+/** The smallest chunk around a word worth learning as a unit, as the tutor names it. */
+export interface WordChunk {
+  /** The chunk as quoted from the text, such as "gave up". */
+  text: string;
+  /** Its dictionary form, when the chunk is inflected, such as "give up". */
+  base?: string;
+  /** What the chunk means, in the explanation language (still arriving while the answer streams). */
+  meaning: string;
+}
+
+const SECTION_MARKER = /^[\s#*_>]*@@\s*(meaning|context|examples)\b[\s*_:：]*$/i;
+const LIST_ITEM = /^\s*(?:[-*•]|\d+[.)])\s+/;
+
+/** Strip list markers and the bold or code wrapping a model may put around a whole line. */
+function bareLine(line: string): string {
+  return line
+    .replace(LIST_ITEM, '')
+    .trim()
+    .replace(/^(\*\*|`)(.*)\1$/, '$2')
+    .trim();
+}
+
+/**
+ * Split a word explanation into its sections; null when the text has no markers (a custom prompt,
+ * or an answer cached before the markers). With `partial`, the text is still streaming: its last
+ * line may be unfinished, so it is never taken as the gloss and a marker cut short is dropped.
+ */
+export function parseWordExplanation(text: string, partial = false): WordExplanation | null {
+  const lines = text.replace(/\r\n?/g, '\n').split('\n');
+  const open = partial ? lines.length - 1 : -1;
+  const found: Partial<Record<WordSection, { line: string; done: boolean }[]>> = {};
+  const started: WordSection[] = [];
+  let current: WordSection | null = null;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const marker = line.match(SECTION_MARKER);
+    if (marker) {
+      current = marker[1].toLowerCase() as WordSection;
+      if (!found[current]) started.push(current);
+      found[current] ??= [];
+      continue;
+    }
+    if (i === open && /^[\s#*_>]*@/.test(line)) continue;
+    if (current && line.trim()) found[current]?.push({ line, done: i !== open });
+  }
+  if (!current) {
+    // The first marker has not arrived yet, but the answer is clearly heading for one.
+    const heading = partial && /^[\s#*_>]*(?:@@?\s*[a-z]*)?$/i.test(text);
+    return heading ? { definition: [], context: [], collocations: [], examples: [], started } : null;
+  }
+
+  const meaning = found.meaning ?? [];
+  const glossLine = meaning[0]?.done ? bareLine(meaning[0].line) : undefined;
+  const gloss = glossLine && glossLine.length > 160 ? `${glossLine.slice(0, 157)}…` : glossLine || undefined;
+  const definition = meaning
+    .slice(1)
+    .map((l) => bareLine(l.line))
+    .filter(Boolean);
+  const context = (found.context ?? []).map((l) => l.line.replace(LIST_ITEM, '').trim()).filter(Boolean);
+  const chunk = context[0] ? parseChunk(context[0]) : undefined;
+
+  const collocations: string[] = [];
+  const examples: WordExample[] = [];
+  for (const { line } of found.examples ?? []) {
+    if (LIST_ITEM.test(line) && !(examples.length === 0 && line.includes('·'))) {
+      // An example and its translation on one line, joined by a dash, as older answers had them.
+      const [, sentence, translation] =
+        line
+          .replace(LIST_ITEM, '')
+          .trim()
+          .match(/^(.*?)\s+[—–]\s+(.+)$/) ?? [];
+      examples.push(sentence ? { text: sentence, translation } : { text: line.replace(LIST_ITEM, '').trim() });
+      continue;
+    }
+    const last = examples[examples.length - 1];
+    if (last) last.translation = [last.translation, line.trim()].filter(Boolean).join(' ');
+    else collocations.push(...line.split('·').map(bareLine).filter(Boolean));
+  }
+  return { gloss, definition, context, chunk, collocations, examples, started };
+}
+
+/** "`gave up` (give up) → 放弃": the chunk in backticks (or bold), an optional dictionary form, an arrow and the meaning. */
+const CHUNK_LINE = /^(?:`([^`]+)`|\*\*([^*]+)\*\*)\s*(?:[(（]([^)）]*)[)）])?\s*(?:→|->|⟶|=>)\s*(.*)$/;
+
+function parseChunk(line: string): WordChunk | undefined {
+  const m = line.match(CHUNK_LINE);
+  const text = (m?.[1] ?? m?.[2])?.trim();
+  if (!m || !text) return undefined;
+  const base = m[3]?.replace(/[`*]/g, '').trim();
+  return { text, base: base && base.toLowerCase() !== text.toLowerCase() ? base : undefined, meaning: m[4].trim() };
+}
+
+/** A parsed explanation as plain Markdown, for the word's notes and the clipboard. */
+export function wordExplanationMarkdown(w: WordExplanation, withGloss: boolean): string {
+  const parts: string[] = [];
+  if (withGloss && w.gloss) parts.push(`**${w.gloss}**`);
+  parts.push(...w.definition, ...w.context);
+  if (w.collocations.length) parts.push(w.collocations.join(' · '));
+  if (w.examples.length) {
+    parts.push(w.examples.map((e) => `- ${e.text}${e.translation ? `\n  ${e.translation}` : ''}`).join('\n'));
+  }
+  return parts.join('\n\n');
 }

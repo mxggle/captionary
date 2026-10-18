@@ -15,9 +15,10 @@ import {
   IconSpark,
   IconSpeaker,
 } from './icons';
+import { ChunkButton, ExplanationDefinition, ExplanationTabs } from './ExplanationTabs';
 import { Markdown } from './Markdown';
 import { TokenizedText, type WordSelection } from './TokenizedText';
-import { rankBand, useLookup, type Lookup } from './useLookup';
+import { rankBand, useLookup, type Lookup, type LookupInput } from './useLookup';
 import { useVocabIndex } from './vocab-index';
 
 /** The two buttons that set a word's status (`StatusToggle`); pressing the pressed one clears it. */
@@ -52,21 +53,38 @@ export function StatusToggle({
   );
 }
 
-/** A sentence with the looked-up word marked by the highlighter. */
-export function MarkedSentence({ sentence, word }: { sentence: string; word: string }) {
-  const i = word ? sentence.toLowerCase().indexOf(word.toLowerCase()) : -1;
+/** A sentence with the looked-up word marked by the highlighter, or another form of it ("holds up" for "hold up"). */
+export function MarkedSentence({ sentence, word, forms }: { sentence: string; word: string; forms?: string[] }) {
+  const lower = sentence.toLowerCase();
+  const found = [word, ...(forms ?? [])].filter(Boolean).map((w) => ({ w, i: lower.indexOf(w.toLowerCase()) }));
+  const { w: mark = word, i = -1 } = found.find((f) => f.i >= 0) ?? {};
   if (i < 0) return <>{sentence}</>;
   return (
     <>
       {sentence.slice(0, i)}
-      <mark className="cap-mark">{sentence.slice(i, i + word.length)}</mark>
-      {sentence.slice(i + word.length)}
+      <mark className="cap-mark">{sentence.slice(i, i + mark.length)}</mark>
+      {sentence.slice(i + mark.length)}
     </>
   );
 }
 
 /** The tutor's answer on pages (`TutorAnswer`): label, streamed text, model, follow-ups and the ask field. */
-export function TutorAnswer({ lookup, subject, isWord }: { lookup: Lookup; subject: string; isWord: boolean }) {
+export function TutorAnswer({
+  lookup,
+  subject,
+  isWord,
+  lang,
+  speechRate,
+  chunkShown,
+}: {
+  lookup: Lookup;
+  subject: string;
+  isWord: boolean;
+  lang: string;
+  speechRate: number;
+  /** The tutor's chunk is shown as a `ChunkButton` above the answer. */
+  chunkShown?: boolean;
+}) {
   const { ai } = lookup;
   const [question, setQuestion] = useState('');
   const label = (
@@ -129,9 +147,20 @@ export function TutorAnswer({ lookup, subject, isWord }: { lookup: Lookup; subje
         </>
       ) : (
         <>
-          <div className={`cap-tutor__text${ai.status === 'streaming' ? ' cap-cursor' : ''}`}>
-            <Markdown text={ai.text} />
-          </div>
+          {lookup.explanation ? (
+            <ExplanationTabs
+              explanation={lookup.explanation}
+              streaming={ai.status === 'streaming'}
+              lang={lang}
+              native={lookup.native}
+              speechRate={speechRate}
+              chunkShown={chunkShown}
+            />
+          ) : (
+            <div className={`cap-tutor__text${ai.status === 'streaming' ? ' cap-cursor' : ''}`}>
+              <Markdown text={ai.text} />
+            </div>
+          )}
           {ai.status === 'done' && (
             <div className="cap-tutor__meta">
               <span className="cap-mono" title={ai.provider}>
@@ -139,7 +168,7 @@ export function TutorAnswer({ lookup, subject, isWord }: { lookup: Lookup; subje
               </span>
               {ai.cached && <span className="cap-tag">cached</span>}
               <span className="cap-spacer" />
-              <button className="cap-iconbtn cap-iconbtn--sm" aria-label="Copy" title="Copy" onClick={() => lookup.copy(ai.text)}>
+              <button className="cap-iconbtn cap-iconbtn--sm" aria-label="Copy" title="Copy" onClick={() => lookup.copy(lookup.answerText)}>
                 <IconCopy className="cap-ico" />
               </button>
               <button className="cap-iconbtn cap-iconbtn--sm" aria-label="Save to notes" title="Save to notes" onClick={lookup.saveNotes}>
@@ -209,9 +238,11 @@ export interface PaperLookupProps {
   docked?: boolean;
   style?: CSSProperties;
   maxHeight?: number;
+  /** Held by its bottom edge (above the word), so it grows upward as content arrives. */
+  growsUp?: boolean;
   autoExplain?: boolean;
   onClose?: () => void;
-  onSave: (status: VocabStatus | null, extra?: { translation?: string; notes?: string }) => void;
+  onSave: LookupInput['onSave'];
   onSelectWord?: (sel: WordSelection) => void;
 }
 
@@ -222,6 +253,8 @@ export function PaperLookup(props: PaperLookupProps) {
   const ref = useRef<HTMLElement>(null);
   const index = useVocabIndex(vocab, target.lang);
   const isWord = lookup.isWord;
+  const { onSelectWord } = props;
+  const suggestion = onSelectWord ? lookup.suggestion : null;
 
   useEffect(() => {
     if (docked || !onClose) return;
@@ -239,6 +272,13 @@ export function PaperLookup(props: PaperLookupProps) {
   const band = rankBand(props.rank, !!props.rankKnown);
   const rankLabel = props.rankKnown && isWord ? (band ?? 'Top 2,000 word') : undefined;
   const phrase = lookup.identity.kind === 'phrase';
+  // Above the word, a streaming answer would grow the card upward and move the text being read;
+  // the card takes its full height at once instead and fills from the top.
+  const scrollStyle = props.maxHeight
+    ? props.growsUp && lookup.answerShown
+      ? { height: props.maxHeight }
+      : { maxHeight: props.maxHeight }
+    : undefined;
 
   return (
     <section
@@ -249,7 +289,7 @@ export function PaperLookup(props: PaperLookupProps) {
       aria-label={`Look-up: ${target.text}`}
       onPointerDown={(e) => e.stopPropagation()}
     >
-      <div className="cap-lookup__scroll" style={props.maxHeight ? { maxHeight: props.maxHeight } : undefined}>
+      <div className="cap-lookup__scroll" style={scrollStyle}>
         <div className="cap-lookup__head">
           <span className={`cap-lookup__word${isWord ? '' : ' is-sentence'}`} lang={target.lang}>
             {isWord ? (
@@ -295,7 +335,15 @@ export function PaperLookup(props: PaperLookupProps) {
         )}
         <div className="cap-lookup__body">
           <StatusToggle status={lookup.saved?.status} onChange={lookup.setStatus} />
-          {lookup.translation && <div className="cap-lookup__tr">{lookup.translation}</div>}
+          {(lookup.translation || !!lookup.explanation?.definition.length) && (
+            <div>
+              {lookup.translation && <div className="cap-lookup__tr">{lookup.translation}</div>}
+              <ExplanationDefinition explanation={lookup.explanation} />
+            </div>
+          )}
+          {suggestion && (
+            <ChunkButton suggestion={suggestion} lang={target.lang} onPick={() => onSelectWord?.({ ...suggestion, rect: target.rect })} />
+          )}
           {isWord && target.sentence && target.sentence !== target.text && (
             <div className="cap-ctx" lang={target.lang}>
               <MarkedSentence sentence={target.sentence} word={target.text} />
@@ -306,7 +354,14 @@ export function PaperLookup(props: PaperLookupProps) {
               )}
             </div>
           )}
-          <TutorAnswer lookup={lookup} subject={target.text} isWord={isWord} />
+          <TutorAnswer
+            lookup={lookup}
+            subject={target.text}
+            isWord={isWord}
+            lang={target.lang}
+            speechRate={settings.dictionary.speechRate}
+            chunkShown={!!suggestion}
+          />
           {isWord && settings.dictionary.wiktionary && lookup.dictState !== 'idle' && (
             <div className="cap-lookup__dict">
               <div className="cap-lookup__section">Dictionary · Wiktionary</div>

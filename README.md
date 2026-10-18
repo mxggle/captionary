@@ -29,11 +29,13 @@ using the AI provider of your choice.
   `X` translation, `Z` original, `W` list, `[`/`]` speed, `E` explain line, `G` save line, `Esc` close.
 
 **Looking things up**
-- Click any word; press and drag across words to select a phrase. Works for languages without
-  spaces (Chinese, Japanese, Thai) through the browser's ICU word segmenter.
+- Click any word; press and drag across words, or Shift+click a second word, to select a phrase.
+  Works for languages without spaces (Chinese, Japanese, Thai) through the browser's ICU word segmenter.
 - Pop-up with pronunciation (speech synthesis), instant on-device translation, Wiktionary
   definitions, links to external dictionaries, and the AI tutor:
-  - **Explain in context** — meaning in this sentence, form/grammar, usage notes, examples.
+  - **Explain in context** — meaning in this sentence, form/grammar, usage notes, examples. When the
+    word belongs to a larger chunk (a phrasal verb, an idiom), the tutor offers it as a phrase: one
+    press looks it up instead and saves it under its dictionary form (`holds up` → *hold up*).
   - **Sentence breakdown** (`E` or ✨ on a line) — translation, literal gloss, chunk-by-chunk
     breakdown and grammar points.
   - **Follow-up chat** — ask anything about the word or line.

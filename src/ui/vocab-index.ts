@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { normalizeLang } from '@/lib/languages';
 import { phraseBucket } from '@/lib/text/tokenize';
-import type { VocabItem, VocabStatus } from '@/lib/vocab';
+import { vocabKeys, type VocabItem, type VocabStatus } from '@/lib/vocab';
 
 export interface VocabIndex {
   words: Map<string, VocabStatus>;
@@ -17,12 +17,14 @@ export function buildVocabIndex(vocab: Record<string, VocabItem>, lang: string):
   const phraseStatus = new Map<string, VocabStatus>();
   for (const item of Object.values(vocab)) {
     if (item.lang !== target) continue;
-    if (item.kind === 'phrase') {
-      const k = phraseBucket(item.key, target);
-      phrases.set(k, [...(phrases.get(k) ?? []), item.key]);
-      phraseStatus.set(item.key, item.status);
-    } else {
-      words.set(item.key, item.status);
+    for (const key of vocabKeys(item)) {
+      if (item.kind === 'phrase') {
+        const k = phraseBucket(key, target);
+        phrases.set(k, [...(phrases.get(k) ?? []), key]);
+        phraseStatus.set(key, item.status);
+      } else {
+        words.set(key, item.status);
+      }
     }
   }
   return { words, phrases, phraseStatus };

@@ -716,8 +716,8 @@ export function WelcomeSection({ go }: { go: (hash: string) => void }) {
           <div className="cap-step__body" style={{ flexBasis: 300 }}>
             <h2 className="cap-h2">Open a video</h2>
             <p className="cap-step__text">
-              Captions show both languages. Click a word to look it up; drag across words for a phrase. Find Captionary in the player’s
-              control bar.
+              Captions show both languages. Click a word to look it up; drag across words, or Shift+click another word, for a phrase. Find
+              Captionary in the player’s control bar.
             </p>
             <div className="cap-row" style={{ gap: '6px 12px', fontSize: 13.5, color: 'var(--ink-muted)' }}>
               <span className="cap-row" style={{ gap: 4 }}>

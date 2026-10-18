@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { findPhrases, normalizeWord, phraseBucket, phraseKey, splitSentences, tokenize } from './tokenize';
+import { findPhrases, locateChunk, normalizeWord, phraseBucket, phraseKey, splitSentences, tokenize } from './tokenize';
 
 describe('tokenize', () => {
   it('separates words from punctuation and spaces', () => {
@@ -52,5 +52,40 @@ describe('phrases', () => {
 describe('splitSentences', () => {
   it('splits on sentence boundaries', () => {
     expect(splitSentences('Hola. ¿Cómo estás? Bien.', 'es').map((s) => s.trim())).toEqual(['Hola.', '¿Cómo estás?', 'Bien.']);
+  });
+});
+
+describe('locateChunk', () => {
+  const line = "I hope the weather holds up 'cause it looks like it may rain at some point,";
+  const tokens = tokenize(line, 'en');
+  const at = (word: string) => tokens.findIndex((t) => t.text === word);
+  const text = (r: [number, number] | null) => (r ? line.slice(tokens[r[0]].index, tokens[r[1]].index + tokens[r[1]].text.length) : null);
+
+  it('finds a chunk as whole words, ignoring case and punctuation', () => {
+    expect(text(locateChunk(tokens, 'Holds up', 'en'))).toBe('holds up');
+    expect(text(locateChunk(tokens, 'at some point.', 'en'))).toBe('at some point');
+    expect(locateChunk(tokens, 'old up', 'en')).toBeNull();
+    expect(locateChunk(tokens, 'hold up', 'en')).toBeNull();
+  });
+
+  it('within a selection, takes only an occurrence that covers it and more', () => {
+    const holds = at('holds');
+    expect(text(locateChunk(tokens, 'holds up', 'en', [holds, holds]))).toBe('holds up');
+    expect(locateChunk(tokens, 'holds', 'en', [holds, holds])).toBeNull();
+    expect(locateChunk(tokens, 'at some point', 'en', [holds, holds])).toBeNull();
+    const second = tokenize('it is what it is', 'en');
+    const lastIs = second.map((t) => t.text).lastIndexOf('is');
+    expect(locateChunk(second, 'it is', 'en', [lastIs, lastIs])).toEqual([lastIs - 2, lastIs]);
+  });
+
+  it('takes in the words it touches in languages without spaces', () => {
+    const zh = tokenize('看起来要下雨了', 'zh');
+    const r = locateChunk(zh, '要下雨', 'zh');
+    expect(r).not.toBeNull();
+    const covered = zh
+      .slice(r![0], r![1] + 1)
+      .map((t) => t.text)
+      .join('');
+    expect(covered).toContain('要下雨');
   });
 });

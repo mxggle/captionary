@@ -3,7 +3,9 @@ import { htmlToText, parseWiktionary } from './dictionary';
 import { normalizeLang, sameLang } from './languages';
 import { guessLanguage } from './text/detect';
 import { DEFAULT_SETTINGS, mergeDefaults } from './settings';
-import { sourceUrl, toAnkiTsv, toCsv, vocabKey, type VocabItem } from './vocab';
+import { buildVocabIndex } from '@/ui/vocab-index';
+import { findPhrases, tokenize } from './text/tokenize';
+import { findVocab, saveVocab, sourceUrl, toAnkiTsv, toCsv, vocabKey, type VocabItem } from './vocab';
 
 const item: VocabItem = {
   id: 'es|gato',
@@ -42,9 +44,34 @@ describe('vocab export', () => {
   it('links back to the moment in the video', () => {
     expect(sourceUrl(item)).toBe('https://www.youtube.com/watch?v=abc&t=83s');
   });
+  it('highlights another form of the entry in its context', () => {
+    const held = { ...item, text: 'hold up', forms: ['holds up'], context: { sentence: 'I hope it holds up.' } };
+    expect(toAnkiTsv([held]).split('\n')[3]).toContain('I hope it <b>holds up</b>.');
+  });
   it('keys phrases by their words only', () => {
     expect(vocabKey('Well, then!', 'en')).toMatchObject({ kind: 'phrase', key: 'well then', id: 'en|well then' });
     expect(vocabKey('Gato', 'es')).toMatchObject({ kind: 'word', key: 'gato' });
+  });
+});
+
+describe('vocab forms', () => {
+  it('saves a phrase under its dictionary form and keeps the form met in text', async () => {
+    const saved = await saveVocab({ lang: 'en', text: 'hold up', form: 'holds up', status: 'learning' });
+    expect(saved).toMatchObject({ id: 'en|hold up', text: 'hold up', kind: 'phrase', forms: ['holds up'] });
+    const again = await saveVocab({ lang: 'en', text: 'hold up', form: 'Holds up', status: 'known' });
+    expect(again.forms).toEqual(['holds up']);
+    const plain = await saveVocab({ lang: 'en', text: 'give up', form: 'give up' });
+    expect(plain.forms).toBeUndefined();
+
+    const vocab = { [saved.id]: again };
+    expect(findVocab(vocab, 'hold up', 'en')?.id).toBe('en|hold up');
+    expect(findVocab(vocab, 'holds  UP', 'en')?.id).toBe('en|hold up');
+    expect(findVocab(vocab, 'held up', 'en')).toBeUndefined();
+
+    const index = buildVocabIndex(vocab, 'en');
+    const tokens = tokenize('I hope the weather holds up.', 'en');
+    expect(findPhrases(tokens, 'en', index.phrases).map((m) => m.key)).toEqual(['holds up']);
+    expect(index.phraseStatus.get('holds up')).toBe('known');
   });
 });
 
