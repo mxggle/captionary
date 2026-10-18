@@ -2,7 +2,7 @@
   "name": "captionary",
   "description": "Learn languages from YouTube, Netflix and Apple TV+ with dual subtitles, a pop-up dictionary and AI vocabulary explanations.",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "wxt",
