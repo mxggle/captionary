@@ -10,6 +10,8 @@ const HIDE_STYLE_ID = 'lr-hide-native-captions';
 
 export class NetflixAdapter implements SiteAdapter {
   readonly site = 'netflix' as const;
+  /** Rendered only while the controls show, so the captions rise with them like Netflix's own. */
+  readonly controlBars = ['[data-uia="controls-standard"]', '[data-uia="timeline"]'];
   private tracks = new Map<string, NetflixTrack>();
   private listeners = new Set<(movieId: string, tracks: NetflixTrack[]) => void>();
 

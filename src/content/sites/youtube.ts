@@ -33,6 +33,7 @@ const AD_WAIT_MS = 5 * 60_000;
 
 export class YouTubeAdapter implements SiteAdapter {
   readonly site = 'youtube' as const;
+  readonly controlBars = ['.ytp-chrome-bottom', '.ytp-progress-bar-container'];
   private tracks = new Map<string, YtTrack>();
   private translationLanguages: YtPlayerData['translationLanguages'] = [];
   private videoId: string | null = null;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractNetflixTracks, patchManifestRequest, VTT_PROFILE } from './netflix';
+import { extractNetflixTracks, mayHoldNetflixTracks, patchManifestRequest, VTT_PROFILE } from './netflix';
 
 const manifest = {
   version: 2,
@@ -77,6 +77,54 @@ describe('Netflix manifest', () => {
     expect(extractNetflixTracks({ result: { movieId: 1 } })).toBeNull();
     expect(extractNetflixTracks(null)).toBeNull();
     expect(extractNetflixTracks('text')).toBeNull();
+  });
+
+  it('reads v4 manifests (textTracks / downloadables) and skips unhydrated tracks', () => {
+    const v4 = {
+      result: {
+        movieId: 70196252,
+        manifestVersion: 'v4',
+        textTracks: [
+          { id: 'T:none', isNoneTrack: true, language: 'none', downloadables: {} },
+          {
+            id: 'T:1:1;1;en;1;0;',
+            language: 'en',
+            languageDescription: 'English [CC]',
+            rawTrackType: 'closedcaptions',
+            trackType: 'PRIMARY',
+            hydrated: true,
+            downloadables: {
+              [VTT_PROFILE]: { size: 1, urls: [{ cdnId: 1, url: 'https://x.nflxvideo.net/en.vtt' }] },
+            },
+          },
+          { id: 'T:1:1;1;ja;0;0;', language: 'ja', languageDescription: 'Japanese', hydrated: false, downloadables: {} },
+        ],
+      },
+    };
+    const text = JSON.stringify(v4);
+    expect(mayHoldNetflixTracks(text)).toBe(true);
+    expect(extractNetflixTracks(JSON.parse(text))).toEqual({
+      movieId: '70196252',
+      tracks: [
+        {
+          id: 'T:1:1;1;en;1;0;',
+          lang: 'en',
+          label: 'English [CC]',
+          forced: false,
+          closedCaptions: true,
+          vtt: 'https://x.nflxvideo.net/en.vtt',
+          dfxp: undefined,
+        },
+      ],
+    });
+    expect(mayHoldNetflixTracks(JSON.stringify(manifest))).toBe(true);
+    expect(mayHoldNetflixTracks('{"textTrackSettings":{}}')).toBe(false);
+  });
+
+  it('turns off partial hydration so every subtitle track carries URLs', () => {
+    const req = { params: { profiles: [] as string[], supportsPartialHydration: true } };
+    patchManifestRequest(req);
+    expect(req.params.supportsPartialHydration).toBe(false);
   });
 
   it('asks for WebVTT and all subtitle languages in manifest requests', () => {

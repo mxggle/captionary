@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useI18n } from '@/lib/i18n';
 import { sameLang } from '@/lib/languages';
@@ -18,6 +18,7 @@ import {
   sameLanguageTracks,
   TranslationChoices,
 } from './menus';
+import { measureClearance, playerOf } from './clearance';
 import { sourceKey, translationChoices, translationValue } from './subtitles';
 import { useContainWheel } from './wheel';
 
@@ -25,13 +26,16 @@ type Page = 'main' | 'original' | 'translation';
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
-/** Above the button that opened it (below it when the button is in the top half), inside the player. */
-function placeMenu(anchor: AnchorRect | null, bounds: DOMRect, width: number, alignRight: boolean): CSSProperties {
+/**
+ * Above the button that opened it and the host's progress bar (`clearance`), or below the button when
+ * it is in the top half; inside the player.
+ */
+function placeMenu(anchor: AnchorRect | null, bounds: DOMRect, width: number, alignRight: boolean, clearance: number): CSSProperties {
   const maxRight = Math.max(12, bounds.width - width - 12);
-  if (!anchor) return { right: 12, bottom: 64, maxHeight: bounds.height - 76 };
+  if (!anchor) return { right: 12, bottom: Math.max(64, clearance + 12), maxHeight: bounds.height - 76 };
   const right = alignRight ? 12 : clamp(bounds.right - (anchor.left + anchor.width), 12, maxRight);
   if (anchor.top - bounds.top > bounds.height / 2) {
-    const bottom = bounds.bottom - anchor.top + 12;
+    const bottom = Math.max(bounds.bottom - anchor.top + 12, clearance + 12);
     return { right, bottom, maxHeight: Math.max(160, bounds.height - bottom - 12) };
   }
   const top = anchor.top + anchor.height - bounds.top + 8;
@@ -64,6 +68,12 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
     })),
   );
   const [page, setPage] = useState<Page>('main');
+  // Measured as the menu opens: Netflix hides its control bar once the pointer is over the menu, and
+  // the menu should not drop onto where the bar was.
+  const [clearance, setClearance] = useState(0);
+  useLayoutEffect(() => {
+    if (s.menuOpen) setClearance(measureClearance(playerOf(boundsRef.current), controller.adapter.controlBars));
+  }, [s.menuOpen, s.menuAnchor]);
   const ref = useRef<HTMLDivElement>(null);
   const choices = useMemo(() => translationChoices(s), [s.tracks, s.originalTrackId, s.site, s.settings, s.aiStatus, locale]);
   const learning = useMemo(
@@ -92,7 +102,7 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
 
   const skin = s.theme === 'netflix' ? 'netflix' : s.theme === 'appletv' ? 'appletv' : 'youtube';
   const width = skin === 'netflix' ? Math.min(560, bounds.width - 24) : skin === 'appletv' ? 290 : 300;
-  const style = { ...placeMenu(s.menuAnchor, bounds, width, skin === 'youtube'), width };
+  const style = { ...placeMenu(s.menuAnchor, bounds, width, skin === 'youtube', clearance), width };
   const { settings } = s;
   const set = (fn: (st: Settings) => void) => void updateSettings(fn);
   const keys = settings.shortcuts;
