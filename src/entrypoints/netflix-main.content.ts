@@ -1,6 +1,6 @@
 import { defineContentScript } from '#imports';
 import { FROM_ISOLATED, onMessageFrom, postToIsolated } from '@/content/bridge';
-import { extractNetflixTracks, patchManifestRequest, type NetflixTrack } from '@/lib/subtitles/netflix';
+import { extractNetflixTracks, mayHoldNetflixTracks, patchManifestRequest, type NetflixTrack } from '@/lib/subtitles/netflix';
 
 function playerApi(): any {
   const videoPlayer = (window as any).netflix?.appContext?.state?.playerApp?.getAPI?.()?.videoPlayer;
@@ -38,7 +38,7 @@ export default defineContentScript({
     JSON.parse = function (this: unknown, text: string, ...rest: any[]) {
       const value = (origParse as any).call(this, text, ...rest);
       try {
-        if (typeof text === 'string' && text.includes('timedtexttracks')) {
+        if (typeof text === 'string' && mayHoldNetflixTracks(text)) {
           const found = extractNetflixTracks(value);
           if (found) {
             manifests.set(found.movieId, found.tracks);

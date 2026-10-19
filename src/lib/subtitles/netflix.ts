@@ -29,25 +29,42 @@ interface RawTrack {
   isNoneTrack?: boolean;
   isForcedNarrative?: boolean;
   rawTrackType?: string;
+  hydrated?: boolean;
   new_track_id?: string;
   id?: string;
   ttDownloadables?: Record<string, Downloadable>;
+  downloadables?: Record<string, Downloadable>;
+}
+
+interface RawManifest {
+  movieId?: string | number;
+  timedtexttracks?: RawTrack[];
+  textTracks?: RawTrack[];
+}
+
+/** Cheap pre-check on raw JSON text before it is worth handing to {@link extractNetflixTracks}. */
+export function mayHoldNetflixTracks(text: string): boolean {
+  return text.includes('timedtexttracks') || text.includes('"textTracks"');
 }
 
 /**
- * Read subtitle tracks from a manifest response. Newer manifests list download URLs
- * under `urls[]`, older ones under `downloadUrls{cdnId: url}`; both are supported.
+ * Read subtitle tracks from a manifest response. Two manifest shapes exist:
+ *  - v1/v2: `timedtexttracks[]` with `ttDownloadables` and `new_track_id`;
+ *  - v3/v4 (the web player asks for v4 as of cadmium 6.0063): `textTracks[]` with
+ *    `downloadables` and `id`.
+ * Download URLs are listed under `urls[]` (newer) or `downloadUrls{cdnId: url}` (older).
  */
 export function extractNetflixTracks(manifest: unknown): { movieId: string; tracks: NetflixTrack[] } | null {
   const root = manifest as { result?: unknown } | null;
-  const result = (root?.result ?? root) as { movieId?: string | number; timedtexttracks?: RawTrack[] } | null;
-  const list = result?.timedtexttracks;
+  const result = (root?.result ?? root) as RawManifest | null;
+  const list = result?.timedtexttracks ?? result?.textTracks;
   if (!Array.isArray(list) || result?.movieId === undefined) return null;
   const tracks: NetflixTrack[] = [];
   for (const t of list) {
-    if (!t || t.isNoneTrack || !t.ttDownloadables) continue;
-    const vtt = firstUrl(t.ttDownloadables[VTT_PROFILE]);
-    const dfxp = DFXP_PROFILES.map((p) => firstUrl(t.ttDownloadables![p])).find(Boolean);
+    const downloadables = t?.ttDownloadables ?? t?.downloadables;
+    if (!t || t.isNoneTrack || t.hydrated === false || !downloadables) continue;
+    const vtt = firstUrl(downloadables[VTT_PROFILE]);
+    const dfxp = DFXP_PROFILES.map((p) => firstUrl(downloadables[p])).find(Boolean);
     if (!vtt && !dfxp) continue;
     tracks.push({
       id: String(t.new_track_id ?? t.id ?? `${t.language}-${tracks.length}`),
@@ -64,12 +81,16 @@ export function extractNetflixTracks(manifest: unknown): { movieId: string; trac
 
 /**
  * Adjust an outgoing manifest request so the response includes WebVTT downloads and
- * every subtitle language (including those for dubbed audio). Returns true if changed.
+ * every subtitle language (including those for dubbed audio). Newer players ask for a
+ * "partially hydrated" manifest, where only the selected subtitle track carries download
+ * URLs; turning that off returns URLs for every track. Returns true if changed.
  */
 export function patchManifestRequest(value: unknown): boolean {
-  const params = (value as { params?: { profiles?: unknown; showAllSubDubTracks?: boolean } } | null)?.params;
+  const params = (value as { params?: { profiles?: unknown; showAllSubDubTracks?: boolean; supportsPartialHydration?: boolean } } | null)
+    ?.params;
   if (!params || !Array.isArray(params.profiles)) return false;
   if (!params.profiles.includes(VTT_PROFILE)) params.profiles.push(VTT_PROFILE);
   params.showAllSubDubTracks = true;
+  if (params.supportsPartialHydration) params.supportsPartialHydration = false;
   return true;
 }

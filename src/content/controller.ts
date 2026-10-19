@@ -20,6 +20,11 @@ export interface SiteAdapter {
   /** Platform machine translation (YouTube's auto-translate). */
   loadPlatformTranslation?(trackId: string, lang: string): Promise<Cue[]>;
   setNativeSubtitlesHidden(hidden: boolean): void;
+  /**
+   * The host's bottom controls (progress bar, control bar), looked up inside the player while they
+   * are on screen; the captions sit above the highest of them.
+   */
+  readonly controlBars?: readonly string[];
 }
 
 /** Seconds before a cue's end at which auto-pause triggers (one animation frame of slack). */

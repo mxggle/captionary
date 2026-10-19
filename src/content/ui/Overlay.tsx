@@ -6,6 +6,7 @@ import { TokenizedText } from '@/ui/TokenizedText';
 import { useVocabIndex } from '@/ui/vocab-index';
 import { lineAnchor, toastListeners, type SessionController, type ToastMessage } from '../controller';
 import { useSession } from '../store';
+import { playerOf, useControlsClearance } from './clearance';
 import { HostRoot } from './HostRoot';
 import { LookupHost } from './LookupHost';
 import { PlayerMenu } from './PlayerMenu';
@@ -31,41 +32,6 @@ function useSize(ref: React.RefObject<HTMLElement | null>): { width: number; hei
     return () => ro.disconnect();
   }, [ref]);
   return size;
-}
-
-/** The player element the overlay covers (the shadow host's parent, or the parent in the reader). */
-function playerOf(root: HTMLElement | null): Element | null {
-  if (!root) return null;
-  const node = root.getRootNode();
-  return node instanceof ShadowRoot ? node.host.parentElement : root.parentElement;
-}
-
-/**
- * How far up from the player's bottom edge the captions must sit to clear YouTube's progress bar
- * and control bar. The bar keeps its layout while it fades, so the captions do not jump with it.
- */
-function useControlsClearance(rootRef: React.RefObject<HTMLElement | null>, site: string): number {
-  const [px, setPx] = useState(0);
-  useEffect(() => {
-    if (site !== 'youtube') return setPx(0);
-    const player = playerOf(rootRef.current);
-    if (!player) return;
-    const measure = () => {
-      const bottom = player.getBoundingClientRect().bottom;
-      const tops = ['.ytp-chrome-bottom', '.ytp-progress-bar-container']
-        .map((q) => player.querySelector(q)?.getBoundingClientRect())
-        .filter((r): r is DOMRect => !!r && r.height > 0)
-        .map((r) => r.top);
-      setPx(tops.length ? Math.max(0, Math.round(bottom - Math.min(...tops))) : 0);
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(player);
-    const chrome = player.querySelector('.ytp-chrome-bottom');
-    if (chrome) ro.observe(chrome);
-    return () => ro.disconnect();
-  }, [rootRef, site]);
-  return px;
 }
 
 /**
@@ -143,7 +109,7 @@ export function Overlay({ controller }: { controller: SessionController }) {
   const index = useVocabIndex(s.vocab, s.lang);
   const toastMessage = useToast();
   const pointerActive = usePointerActivity(rootRef);
-  const controlsClearance = useControlsClearance(rootRef, s.site);
+  const controlsClearance = useControlsClearance(rootRef, controller.adapter.controlBars);
   const badge = useStatusBadge(s.status, s.message, s.media?.id);
   const [fabArmed, setFabArmed] = useState(false);
 

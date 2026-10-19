@@ -2421,6 +2421,8 @@ textarea.cap-input {
   max-width: min(92%, 1100px);
   transform: translateX(-50%);
   pointer-events: auto;
+  /* Rises and settles with the host's control bar. */
+  transition: bottom 0.2s ease;
 }
 .cap-overlay__toast {
   position: absolute;
