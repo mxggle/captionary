@@ -30,6 +30,7 @@ export function PlayerButton({
   const { m } = useI18n();
   const s = useSession(
     useShallow((st) => ({
+      theme: st.theme,
       off: st.off,
       status: st.status,
       menuOpen: st.menuOpen,
@@ -80,7 +81,8 @@ export function PlayerButton({
         aria-label={label}
         aria-haspopup="menu"
         aria-expanded={s.menuOpen}
-        title={label}
+        // Netflix's own buttons show no tooltip; elsewhere the host shows the name on hover.
+        title={s.theme === 'netflix' ? undefined : label}
         style={{ ...size, '--glyph-scale': glyphScale, ...style } as CSSProperties}
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => {

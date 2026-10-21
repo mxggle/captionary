@@ -118,12 +118,23 @@ export class NetflixAdapter implements SiteAdapter {
   }
 
   trackInfos(tracks: NetflixTrack[]): TrackInfo[] {
-    return tracks.map((t) => ({
-      id: t.id,
-      lang: t.lang,
-      label: `${t.label}${t.closedCaptions ? ' [CC]' : ''}`,
-      forced: t.forced,
-    }));
+    // Netflix can list the same language twice (one track per audio language); menus show it once.
+    const seen = new Set<string>();
+    return tracks
+      .filter((t) => {
+        const key = [t.lang.toLowerCase(), t.label, t.closedCaptions, t.forced].join('|');
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .map((t) => ({
+        id: t.id,
+        lang: t.lang,
+        label: `${t.label}${t.closedCaptions ? ' (CC)' : ''}`,
+        forced: t.forced,
+        cc: t.closedCaptions,
+        namedByLang: true,
+      }));
   }
 
   async loadTrack(trackId: string): Promise<Cue[]> {

@@ -1,7 +1,7 @@
 import { useEffect, useRef, type RefObject } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { getCurrentUILocale, getMessages, resolveUILocale } from '@/lib/i18n';
-import { languageName, sameLang } from '@/lib/languages';
+import { languageName, regionalLanguageName, sameLang } from '@/lib/languages';
 import { bg, type AIStatus } from '@/lib/messaging';
 import { toPlainText } from '@/lib/subtitles/parse';
 import type { TrackInfo, TranslationSource } from '@/lib/subtitles/types';
@@ -86,14 +86,15 @@ export function translationChoices(
   const locale = resolveUILocale(s.settings);
   const m = getMessages(locale);
   const native = s.settings.nativeLanguage;
-  const nativeName = languageName(native, locale);
-  const out: TranslationChoice[] = [];
+  // Off first, as in each host's own subtitle menu; then the learner's language, by where it comes
+  // from (the title's own subtitles, then translations into it); then tracks in other languages.
+  const out: TranslationChoice[] = [{ key: 'none', label: m.common.off, source: { type: 'none' }, primary: true }];
   const tracks = s.tracks.filter((t) => t.id !== s.originalTrackId && !t.forced);
   for (const t of tracks.filter((t) => sameLang(t.lang, native))) {
     out.push({
       key: `track:${t.id}`,
       label: trackLabel(t),
-      meta: m.content.subtitles.metaSubtitleTrack,
+      meta: m.content.subtitles.metaOfficial,
       source: { type: 'track', trackId: t.id },
       primary: true,
     });
@@ -101,43 +102,31 @@ export function translationChoices(
   if (s.site === 'youtube') {
     out.push({
       key: 'platform-mt',
-      label: nativeName,
-      meta: m.content.subtitles.metaAutoTranslate,
+      label: m.content.subtitles.choiceAutoTranslate,
       source: { type: 'platform-mt', lang: native },
       primary: true,
     });
   }
-  out.push({
-    key: 'chrome',
-    label: nativeName,
-    meta: m.content.subtitles.metaOnDevice,
-    source: { type: 'chrome', lang: native },
-    primary: true,
-  });
+  out.push({ key: 'chrome', label: m.content.subtitles.choiceOnDevice, source: { type: 'chrome', lang: native }, primary: true });
   const setup = aiNeedsSetup(s.aiStatus);
   out.push({
     key: 'ai',
-    label: nativeName,
-    meta: setup ? m.content.subtitles.metaAiNeedsSetup : m.content.subtitles.metaAi,
+    label: m.content.subtitles.choiceAi,
+    meta: setup ? m.content.subtitles.metaAiNeedsSetup : undefined,
     source: { type: 'ai', lang: native },
     primary: true,
     setup,
   });
-  out.push({ key: 'none', label: m.common.off, source: { type: 'none' }, primary: true });
   for (const t of tracks.filter((t) => !sameLang(t.lang, native))) {
-    out.push({
-      key: `track:${t.id}`,
-      label: trackLabel(t),
-      meta: m.content.subtitles.metaSubtitleTrack,
-      source: { type: 'track', trackId: t.id },
-      primary: false,
-    });
+    out.push({ key: `track:${t.id}`, label: trackLabel(t), source: { type: 'track', trackId: t.id }, primary: false });
   }
   return out;
 }
 
 export function trackLabel(t: TrackInfo): string {
-  const m = getMessages(getCurrentUILocale());
+  const locale = getCurrentUILocale();
+  const m = getMessages(locale);
+  if (t.namedByLang) return `${regionalLanguageName(t.lang, locale)}${t.cc ? ' (CC)' : ''}`;
   return `${t.label}${t.auto && !/auto/i.test(t.label) ? m.content.subtitles.autoSuffix : ''}`;
 }
 

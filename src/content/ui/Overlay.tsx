@@ -111,7 +111,7 @@ export function Overlay({ controller }: { controller: SessionController }) {
       off: st.off,
       drawerOpen: st.drawerOpen,
       fullscreen: st.fullscreen,
-      buttonMounted: st.buttonMounted,
+      buttonSeen: st.buttonSeen,
     })),
   );
   const rootRef = useRef<HTMLDivElement>(null);
@@ -154,9 +154,10 @@ export function Overlay({ controller }: { controller: SessionController }) {
     // Only a change of line closes it, not opening it.
   }, [s.activeIndex]);
 
-  // The fallback button appears only when the host's controls are up (pointer moving) and the
-  // control-bar button has not mounted by then.
-  const wantFab = s.site !== 'local' && !!s.media && !s.buttonMounted && pointerActive;
+  // The fallback button appears only while the pointer moves over the player and the control-bar
+  // button has never mounted on this page. Once it has, the host's own bar is the way in, even while
+  // the host hides it (Netflix unmounts its bar whenever the pointer is over Captionary's captions).
+  const wantFab = s.site !== 'local' && !!s.media && !s.buttonSeen && pointerActive;
   useEffect(() => {
     if (!wantFab) return setFabArmed(false);
     const t = setTimeout(() => setFabArmed(true), 800);

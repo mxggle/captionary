@@ -1710,8 +1710,15 @@ textarea.cap-input {
 [data-theme='appletv'] .cap-playerbtn[aria-expanded='true'] {
   border-radius: var(--radius-md);
 }
+/* Netflix's own buttons have no pressed fill: they only grow under the pointer. */
 [data-theme='netflix'] .cap-playerbtn[aria-expanded='true'] {
-  border-radius: var(--radius-xs);
+  background: transparent;
+}
+[data-theme='netflix'] .cap-playerbtn svg {
+  transition: transform 0.15s ease;
+}
+[data-theme='netflix'] .cap-playerbtn:is(:hover, [aria-expanded='true']) svg {
+  transform: scale(1.2);
 }
 .cap-menu {
   width: 300px;
@@ -1724,7 +1731,8 @@ textarea.cap-input {
   box-shadow: var(--shadow-float);
 }
 [data-theme='netflix'] .cap-menu {
-  border-radius: var(--radius-xs);
+  border-radius: 1vh;
+  box-shadow: none;
 }
 [data-theme='appletv'] .cap-menu {
   width: 290px;
@@ -2653,8 +2661,9 @@ textarea.cap-input {
 [data-theme='appletv'] .cap-playerbtn svg {
   --glyph: 22px;
 }
+/* Netflix draws its icons edge to edge in the button. */
 [data-theme='netflix'] .cap-playerbtn svg {
-  --glyph: 28px;
+  --glyph: 40px;
 }
 .cap-fab {
   cursor: pointer;
@@ -2786,7 +2795,6 @@ div.cap-menu__item {
 }
 /* Keyboard focus keeps the hover fill and adds a ring inside the row, which the menu's edge cannot clip. */
 .cap-menu__item:focus-visible,
-.cap-menu__opt:focus-visible,
 .cap-menu__back:focus-visible {
   outline: 2px solid transparent;
   background: var(--player-hover);
@@ -2873,20 +2881,30 @@ div.cap-menu__item {
 .cap-panel .cap-pswitch:is([aria-checked='true'], .is-on)::after {
   background: var(--switch-knob-on);
 }
+/* Netflix: the same panel as its own "Audio & Subtitles", measured from it: sizes follow the viewport
+   height (vh) as Netflix's do, rows are grey and turn white with a check once chosen, no rules or switches. */
 .cap-menu--wide {
-  width: 560px;
   max-width: calc(100vw - 32px);
-  padding: 0 0 12px;
-  font-size: 16px;
+  padding: 1vh;
+  border-radius: 1vh;
+  font-size: 2.3vh;
 }
 .cap-menu--wide .cap-menu__head {
-  min-height: 56px;
-  padding: 0 20px;
-  font-size: 16px;
-  border-bottom: 1px solid var(--player-line);
+  min-height: 0;
+  gap: 1.4vh;
+  padding: 1vh 0 0 2vh;
+  font-size: 2.3vh;
+  font-weight: 500;
 }
-.cap-menu--wide .cap-menu__item {
-  padding: 0 20px;
+.cap-menu--wide .cap-menu__head svg {
+  width: 3vh;
+  height: 3vh;
+}
+.cap-menu--wide .cap-menu__head .cap-menu__label {
+  flex: 1 1 auto;
+}
+.cap-menu--wide .cap-menu__head .cap-menu__opt {
+  flex: none;
 }
 .cap-menu__cols {
   display: grid;
@@ -2896,49 +2914,81 @@ div.cap-menu__item {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  max-height: 46vh;
+  max-height: 52vh;
   overflow-y: auto;
+  padding-bottom: 1vh;
   scrollbar-width: thin;
+  scrollbar-color: #414141 transparent;
 }
 .cap-menu__colhead {
-  padding: 16px 20px 8px;
-  font-size: 20px;
-  font-weight: 700;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 2vh 5.5vh;
+  background: var(--player-surface);
+  font-size: 3vh;
+  line-height: 1;
+  font-weight: 500;
+}
+.cap-menu__colsub {
+  padding: 2.4vh 5.5vh 0.8vh;
+  font-size: 1.8vh;
+  color: var(--player-ink-muted);
+}
+.cap-menu__cols--options {
+  margin-top: 1vh;
+  padding-top: 1vh;
+  border-top: 1px solid var(--player-line);
 }
 .cap-menu__opt {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: 38px;
-  padding: 0 20px;
+  gap: 1.4vh;
+  min-width: 0;
+  padding: 2vh 5.5vh;
   border: 0;
   background: transparent;
   color: var(--player-ink-muted);
   font: inherit;
-  font-size: 16px;
+  font-size: 2.3vh;
+  line-height: 1;
   text-align: left;
   cursor: pointer;
 }
 .cap-menu__opt:hover {
-  color: var(--player-ink);
+  background: rgb(255 255 255 / 0.1);
 }
 .cap-menu__opt[aria-checked='true'] {
   color: var(--player-ink);
-  font-weight: 700;
+}
+.cap-menu__opt:focus-visible {
+  outline: 2px solid transparent;
+  box-shadow: inset 0 0 0 3px var(--player-ink);
 }
 .cap-menu__opt svg {
-  width: 18px;
-  height: 18px;
-  flex: none;
+  position: absolute;
+  left: 2vh;
+  top: 50%;
+  width: 2.55vh;
+  height: 2.55vh;
+  transform: translateY(-50%);
   visibility: hidden;
 }
 .cap-menu__opt[aria-checked='true'] svg {
   visibility: visible;
 }
+.cap-menu__opt-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .cap-menu__opt small {
-  margin-left: auto;
-  font-size: 13px;
-  font-weight: 400;
+  flex: none;
+  font-size: 1.8vh;
+  white-space: nowrap;
   color: var(--player-ink-muted);
 }
 .cap-pswitch {
@@ -3455,7 +3505,8 @@ a.cap-btn:hover {
   .cap-cap--tr.is-blurred,
   .cap-cue__tr.is-blurred,
   .cap-lyric__tr.is-blurred,
-  .cap-sent__tr.is-blurred {
+  .cap-sent__tr.is-blurred,
+  .cap-playerbtn svg {
     transition: none;
   }
 }

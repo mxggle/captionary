@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { placeCard } from './LookupCard';
+import { cardZoom, placeCard } from './LookupCard';
 
 const bounds = { left: 0, top: 0, width: 1280, height: 720 };
 const word = (top: number) => ({ left: 600, top, width: 60, height: 30 });
@@ -41,5 +41,14 @@ describe('placeCard', () => {
     const p = placeCard(360, { anchor: word(300), avoid: word(300), bounds, side: { left: 900, top: 0, width: 380, height: 720 } });
     expect(p.growsUp).toBeFalsy();
     expect(p.style.top).toBeDefined();
+  });
+});
+
+describe('cardZoom', () => {
+  it('grows the card with the viewport on Netflix only, within limits', () => {
+    expect(cardZoom('netflix', 1080)).toBe(1.5);
+    expect(cardZoom('netflix', 600)).toBe(1);
+    expect(cardZoom('netflix', 2160)).toBe(1.75);
+    expect(cardZoom('youtube-dark', 1080)).toBe(1);
   });
 });

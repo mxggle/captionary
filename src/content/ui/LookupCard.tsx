@@ -25,7 +25,7 @@ import { TokenizedText, type WordSelection } from '@/ui/TokenizedText';
 import { explainsAtOnce, rankBand, useLookup, type LookupInput } from '@/ui/useLookup';
 import { useVocabIndex } from '@/ui/vocab-index';
 import { toast } from '../controller';
-import type { AnchorRect, PopupTarget } from '../store';
+import { useSession, type AnchorRect, type PopupTarget } from '../store';
 import { deepActiveElement, focusQuietly, returnFocus } from './focus';
 import { useContainWheel } from './wheel';
 
@@ -45,6 +45,22 @@ const MIN_CARD_HEIGHT = 120;
 
 /** Widths of the card: compact fits a saved word's actions (Learning · Known · Explain · More) in the host's font. */
 export const CARD_WIDTH = { compact: 330, expanded: 360 };
+
+/**
+ * How much larger the card is drawn than its CSS pixels. Netflix sizes its own player UI by the viewport
+ * height (its panels are designed at about 720px tall), so the card grows with it in fullscreen instead of
+ * staying a small popup beside large captions. Other hosts keep fixed sizes, as their menus do.
+ */
+export function cardZoom(theme: string | undefined, viewportHeight = window.innerHeight): number {
+  return theme === 'netflix' ? clamp(viewportHeight / 720, 1, 1.75) : 1;
+}
+
+/** A placement worked out in screen pixels, expressed in the card's own (zoomed) pixels. */
+function unzoom(p: Placement, zoom: number): Placement {
+  if (zoom === 1) return p;
+  const style = Object.fromEntries(Object.entries(p.style).map(([k, v]) => [k, typeof v === 'number' ? v / zoom : v]));
+  return { ...p, style, maxHeight: p.maxHeight / zoom, arrow: p.arrow && { ...p.arrow, x: p.arrow.x / zoom } };
+}
 
 /**
  * Put the card next to the word without covering `avoid` (the caption line): above it when there is
@@ -121,6 +137,7 @@ export function LookupCard(props: LookupCardProps) {
   const [view, setView] = useState<'compact' | 'explain' | 'more'>(isWord && !autoExplain ? 'compact' : 'explain');
   const [question, setQuestion] = useState('');
   const ref = useRef<HTMLElement>(null);
+  const theme = useSession((s) => s.theme);
   const index = useVocabIndex(vocab, target.lang);
   useContainWheel(ref);
 
@@ -167,7 +184,8 @@ export function LookupCard(props: LookupCardProps) {
   }, []);
 
   const expanded = view !== 'compact';
-  const placement = place(expanded ? CARD_WIDTH.expanded : CARD_WIDTH.compact);
+  const zoom = cardZoom(theme);
+  const placement = unzoom(place((expanded ? CARD_WIDTH.expanded : CARD_WIDTH.compact) * zoom), zoom);
   const openSettings = () => void bg({ type: 'open.page', page: 'options', hash: 'ai' }).catch(() => undefined);
   const openSetup = () => void bg({ type: 'open.page', page: 'welcome', hash: 'tutor' }).catch(() => undefined);
   const explain = () => {
@@ -193,7 +211,7 @@ export function LookupCard(props: LookupCardProps) {
     <section
       ref={ref}
       className={`cap-lookup cap-lookup--native${expanded ? ' is-expanded' : ''}${fixed ? ' is-fixed' : ''}`}
-      style={placement.style}
+      style={zoom === 1 ? placement.style : { ...placement.style, zoom }}
       role="dialog"
       tabIndex={-1}
       aria-label={m.lookup.lookupAria(target.text)}

@@ -146,11 +146,12 @@ export function OriginalChoices({
       {tracks.length === 0 && <div className="cap-menu__section">{m.content.playerMenu.noSubtitleTracks}</div>}
       {tracks.map((t) => {
         const langLabel = languageName(t.lang, locale);
+        const label = trackLabel(t);
         return (
           <MenuRadio
             key={t.id}
-            label={trackLabel(t)}
-            meta={t.label.includes(langLabel) || t.label.includes(languageName(t.lang)) ? undefined : langLabel}
+            label={label}
+            meta={label.includes(langLabel) || label.includes(languageName(t.lang)) ? undefined : langLabel}
             checked={t.id === originalTrackId}
             onClick={() => {
               if (t.id !== originalTrackId) void controller.selectOriginalTrack(t.id);

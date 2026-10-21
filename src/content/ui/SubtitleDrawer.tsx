@@ -5,7 +5,8 @@ import { IconChevronDown, IconClose, IconGlyph } from '@/ui/icons';
 import { TokenizedText } from '@/ui/TokenizedText';
 import { useVocabIndex } from '@/ui/vocab-index';
 import { drawerAnchor, keyName, type SessionController } from '../controller';
-import { setSession } from '../store';
+import { setSession, useSession } from '../store';
+import { cardZoom } from './LookupCard';
 import { TranslationErrorAction } from './TranslationError';
 import { languagePair, translationLang, useFollowPlayback, useSubtitleData } from './subtitles';
 import { useContainWheel } from './wheel';
@@ -41,14 +42,16 @@ export function SubtitleDrawer({ controller, width, bottom = 0 }: { controller: 
     };
   }, []);
 
-  const lineKeys = [keyName(keys.prevLine), keyName(keys.repeatLine), keyName(keys.nextLine)];
-  const closeKey = keyName(keys.toggleSidebar);
+  const lineKeys = [keys.prevLine, keys.repeatLine, keys.nextLine].map((k) => keyName(k, m.common.space));
+  const closeKey = keyName(keys.toggleSidebar, m.common.space);
+  // Drawn larger with Netflix's viewport-sized UI, like the look-up card; width and offset stay in screen pixels.
+  const zoom = cardZoom(useSession((st) => st.theme));
 
   return (
     <aside
       ref={ref}
       className="cap-drawer cap-overlay__drawer"
-      style={{ width, '--drawer-bottom': `${bottom}px` } as CSSProperties}
+      style={{ width: width / zoom, '--drawer-bottom': `${bottom / zoom}px`, zoom } as CSSProperties}
       aria-label={m.content.panel.subtitlesAria}
     >
       <div className="cap-drawer__head">

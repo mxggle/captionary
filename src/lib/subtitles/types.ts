@@ -15,6 +15,10 @@ export interface TrackInfo {
   auto?: boolean;
   /** Netflix forced-narrative tracks only cover foreign-language parts. */
   forced?: boolean;
+  /** Captions for the deaf and hard of hearing (sounds described as well as speech). */
+  cc?: boolean;
+  /** The host's label is only the language's name, in the host's language: menus name it in Captionary's. */
+  namedByLang?: boolean;
 }
 
 export type TranslationSource =
