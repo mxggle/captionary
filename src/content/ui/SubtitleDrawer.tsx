@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type CSSProperties } from 'react';
 import { useI18n } from '@/lib/i18n';
 import { formatTime } from '@/lib/subtitles/parse';
 import { IconChevronDown, IconClose, IconGlyph } from '@/ui/icons';
@@ -6,22 +6,25 @@ import { TokenizedText } from '@/ui/TokenizedText';
 import { useVocabIndex } from '@/ui/vocab-index';
 import { drawerAnchor, keyName, type SessionController } from '../controller';
 import { setSession } from '../store';
-import { languagePair, useFollowPlayback, useSubtitleData } from './subtitles';
+import { TranslationErrorAction } from './TranslationError';
+import { languagePair, translationLang, useFollowPlayback, useSubtitleData } from './subtitles';
 import { useContainWheel } from './wheel';
 
 /**
  * The subtitle list as a right-edge drawer on a fullscreen-style player, read like song lyrics
  * (`SubtitleDrawer`): the line playing now in full ink, the rest muted. It sits beside the video on
  * sites whose player makes room (`SiteAdapter.reserveRight`), over it elsewhere. Opened only with W
- * or from the player menu.
+ * or from the player menu. Over the video it stops `bottom` px up, clear of the host's controls.
  */
-export function SubtitleDrawer({ controller, width }: { controller: SessionController; width: number }) {
+export function SubtitleDrawer({ controller, width, bottom = 0 }: { controller: SessionController; width: number; bottom?: number }) {
   const { m } = useI18n();
   const s = useSubtitleData();
   const ref = useRef<HTMLElement>(null);
   const listRef = useRef<HTMLOListElement>(null);
   const index = useVocabIndex(s.vocab, s.lang);
   const { settings } = s;
+  const trLang = translationLang(s);
+  const blur = settings.subtitles.blurTranslation;
   const current = s.activeIndex >= 0 ? s.activeIndex : s.lastIndex;
   const follow = useFollowPlayback(listRef, current, settings.sidebar.autoScroll, 'center');
   const keys = settings.shortcuts;
@@ -42,7 +45,12 @@ export function SubtitleDrawer({ controller, width }: { controller: SessionContr
   const closeKey = keyName(keys.toggleSidebar);
 
   return (
-    <aside ref={ref} className="cap-drawer cap-overlay__drawer" style={{ width }} aria-label={m.content.panel.subtitlesAria}>
+    <aside
+      ref={ref}
+      className="cap-drawer cap-overlay__drawer"
+      style={{ width, '--drawer-bottom': `${bottom}px` } as CSSProperties}
+      aria-label={m.content.panel.subtitlesAria}
+    >
       <div className="cap-drawer__head">
         <div className="cap-spacer">
           <h2 className="cap-drawer__title">{m.content.panel.subtitlesTitle}</h2>
@@ -76,6 +84,13 @@ export function SubtitleDrawer({ controller, width }: { controller: SessionContr
           </button>
         )}
       </div>
+      {s.translationStatus === 'error' && settings.sidebar.showTranslations && (
+        <div className="cap-drawer__status" role="alert">
+          <span className="cap-dot cap-dot--warn" />
+          <span className="cap-spacer">{m.content.panel.translationFailed(s.translationMessage)}</span>
+          <TranslationErrorAction controller={controller} />
+        </div>
+      )}
       <ol className="cap-drawer__list" ref={listRef} {...follow}>
         {s.status === 'loading' && <li className="cap-drawer__empty">{m.content.panel.loadingSubtitles}</li>}
         {s.status === 'none' && <li className="cap-drawer__empty">{m.content.drawer.noSubtitlesTitle}</li>}
@@ -102,6 +117,7 @@ export function SubtitleDrawer({ controller, width }: { controller: SessionContr
                     highlight={settings.subtitles.highlight}
                     freq={s.frequency}
                     selected={selected}
+                    spaceIsPlayback
                     onSelect={(sel) =>
                       controller.openPopup({
                         kind: 'word',
@@ -115,7 +131,11 @@ export function SubtitleDrawer({ controller, width }: { controller: SessionContr
                   />
                 </div>
                 {roman && <div className="cap-lyric__roman">{roman}</div>}
-                {tr && <div className={`cap-lyric__tr${settings.subtitles.blurTranslation ? ' is-blurred' : ''}`}>{tr}</div>}
+                {tr && (
+                  <div className={`cap-lyric__tr${blur ? ' is-blurred' : ''}`} lang={trLang} tabIndex={blur ? 0 : undefined}>
+                    {tr}
+                  </div>
+                )}
               </div>
             </li>
           );

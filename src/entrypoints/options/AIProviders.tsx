@@ -1,5 +1,5 @@
 import { browser } from '#imports';
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState, type Ref } from 'react';
 import {
   getChatGPTAccount,
   SIGN_IN_ORIGINS,
@@ -16,7 +16,7 @@ import type { AIError, AISettings, ProviderConnection, ProviderKind } from '@/li
 import { useI18n } from '@/lib/i18n';
 import { bg } from '@/lib/messaging';
 import type { TestResult } from '@/lib/ai/gateway';
-import { Note, PageHead } from '@/ui/controls';
+import { Confirm, LiveRegion, Note, PageHead, useConfirm } from '@/ui/controls';
 import { CommitInput, useAISettings } from '@/ui/form';
 import { IconTrash } from '@/ui/icons';
 import { ModelPicker } from '@/ui/ModelPicker';
@@ -49,15 +49,27 @@ function useHostPermission(conn: ProviderConnection): [boolean | null, () => Pro
   return [granted, async () => setGranted(await requestOrigins(originsToRequest(conn)))];
 }
 
-function ApiKeyField({ conn }: { conn: ProviderConnection }) {
+function ApiKeyField({ conn, autoFocus }: { conn: ProviderConnection; autoFocus?: boolean }) {
   const { m } = useI18n();
   const ap = m.options.aiProviders;
   const info = PROVIDERS[conn.kind];
   const id = useId();
+  const helpId = useId();
   const [stored, setStored] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [editing, setEditing] = useState(false);
   const [show, setShow] = useState(false);
+  const removing = useConfirm();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const replaceRef = useRef<HTMLButtonElement>(null);
+  // The field swaps between the saved key and an editor; this says where focus lands after the swap.
+  const focusNext = useRef<'input' | 'replace' | null>(autoFocus ? 'input' : null);
+  useEffect(() => {
+    const target = focusNext.current === 'input' ? inputRef.current : focusNext.current === 'replace' ? replaceRef.current : null;
+    if (!target) return;
+    focusNext.current = null;
+    target.focus();
+  });
   useEffect(() => {
     void getApiKey(conn.id).then((k) => {
       setStored(k);
@@ -66,11 +78,17 @@ function ApiKeyField({ conn }: { conn: ProviderConnection }) {
   }, [conn.id]);
   if (stored === null) return null;
   const save = async () => {
+    const key = draft.trim();
     await setApiKey(conn.id, draft);
-    setStored(draft.trim());
+    setStored(key);
     setDraft('');
-    setEditing(!draft.trim());
+    setEditing(!key);
     setShow(false);
+    focusNext.current = key ? 'replace' : 'input';
+  };
+  const edit = (on: boolean) => {
+    setEditing(on);
+    focusNext.current = on ? 'input' : 'replace';
   };
   return (
     <div className="cap-field">
@@ -86,8 +104,9 @@ function ApiKeyField({ conn }: { conn: ProviderConnection }) {
         )}
       </div>
       {editing ? (
-        <div className="cap-row" style={{ flexWrap: 'nowrap' }}>
+        <div key="edit" className="cap-row cap-inputrow">
           <input
+            ref={inputRef}
             id={id}
             className="cap-input cap-input--mono"
             type={show ? 'text' : 'password'}
@@ -95,6 +114,7 @@ function ApiKeyField({ conn }: { conn: ProviderConnection }) {
             value={draft}
             autoComplete="off"
             spellCheck={false}
+            aria-describedby={helpId}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && void save()}
           />
@@ -105,37 +125,52 @@ function ApiKeyField({ conn }: { conn: ProviderConnection }) {
             {ap.saveKey}
           </button>
           {stored && (
-            <button className="cap-btn cap-btn--ghost" onClick={() => setEditing(false)}>
+            <button className="cap-btn cap-btn--ghost" onClick={() => edit(false)}>
               {m.common.cancel}
             </button>
           )}
         </div>
       ) : (
-        <div className="cap-row" style={{ flexWrap: 'nowrap' }}>
-          <input id={id} className="cap-input cap-input--mono" readOnly value={maskKey(stored)} />
-          <button className="cap-btn" onClick={() => setEditing(true)}>
+        <div key="view" className="cap-row cap-inputrow">
+          <input id={id} className="cap-input cap-input--mono" readOnly value={maskKey(stored)} aria-describedby={helpId} />
+          <button ref={replaceRef} className="cap-btn" onClick={() => edit(true)}>
             {ap.replace}
           </button>
           <button
+            ref={removing.trigger}
             className="cap-btn cap-btn--ghost cap-btn--danger"
-            onClick={async () => {
-              await removeApiKey(conn.id);
-              setStored('');
-              setEditing(true);
-            }}
+            aria-expanded={removing.open}
+            onClick={removing.ask}
           >
             {m.common.remove}
           </button>
         </div>
       )}
-      <span className="cap-help">{ap.apiKeyHelp(info.name)}</span>
+      {removing.open && !editing && (
+        <Confirm
+          action={ap.removeKey}
+          onCancel={removing.close}
+          onConfirm={() => {
+            removing.close();
+            void removeApiKey(conn.id).then(() => {
+              setStored('');
+              edit(true);
+            });
+          }}
+        >
+          {ap.confirmRemoveApiKey(info.name)}
+        </Confirm>
+      )}
+      <span className="cap-help" id={helpId}>
+        {ap.apiKeyHelp(info.name)}
+      </span>
     </div>
   );
 }
 
 const titleCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-function ChatGPTAccountField({ conn }: { conn: ProviderConnection }) {
+function ChatGPTAccountField({ conn, autoFocus }: { conn: ProviderConnection; autoFocus?: boolean }) {
   const { m } = useI18n();
   const ap = m.options.aiProviders;
   const [account, setAccount] = useState<ChatGPTAccount | null | undefined>(undefined);
@@ -171,8 +206,8 @@ function ChatGPTAccountField({ conn }: { conn: ProviderConnection }) {
     <div className="cap-field">
       <span className="cap-label">{ap.chatgptAccount}</span>
       {account ? (
-        <div className="cap-row" style={{ flexWrap: 'nowrap' }}>
-          <span className="cap-spacer">{ap.signedInAs(account.email, account.plan ? titleCase(account.plan) : undefined)}</span>
+        <div className="cap-row">
+          <span className="cap-account">{ap.signedInAs(account.email, account.plan ? titleCase(account.plan) : undefined)}</span>
           <button className="cap-btn cap-btn--ghost cap-btn--danger" onClick={() => void signOutChatGPT(conn.id)}>
             {ap.signOut}
           </button>
@@ -186,7 +221,7 @@ function ChatGPTAccountField({ conn }: { conn: ProviderConnection }) {
         </div>
       ) : (
         <div className="cap-row">
-          <button className="cap-btn cap-btn--primary" onClick={() => void signIn()}>
+          <button className="cap-btn cap-btn--primary" autoFocus={autoFocus} onClick={() => void signIn()}>
             {ap.signInWithChatGPT}
           </button>
         </div>
@@ -202,6 +237,7 @@ function ChromeBuiltinStatus() {
   const ap = m.options.aiProviders;
   const [state, setState] = useState<string>('checking');
   const [progress, setProgress] = useState<number | null>(null);
+  const [downloaded, setDownloaded] = useState(false);
   const LM = getLanguageModel();
   useEffect(() => {
     if (!LM) return setState('unsupported');
@@ -210,7 +246,7 @@ function ChromeBuiltinStatus() {
       .catch(() => setState('unavailable'));
   }, [LM]);
   const download = async () => {
-    if (!LM) return;
+    if (!LM || state === 'downloading') return;
     setState('downloading');
     try {
       const session = await LM.create({
@@ -221,10 +257,12 @@ function ChromeBuiltinStatus() {
       });
       session.destroy();
       setState('available');
+      setDownloaded(true);
     } catch (err) {
       setState(`error: ${(err as Error).message}`);
     }
   };
+  const percent = progress === null ? null : Math.round(progress * 100);
   return (
     <div className="cap-field">
       <span className="cap-label">{ap.onDeviceModel}</span>
@@ -237,26 +275,60 @@ function ChromeBuiltinStatus() {
       {state === 'unavailable' && <Note tone="warn">{ap.chromeUnavailableWarn}</Note>}
       {(state === 'downloadable' || state === 'downloading') && (
         <div className="cap-row">
-          <button className="cap-btn cap-btn--primary" disabled={state === 'downloading'} onClick={() => void download()}>
+          <button className="cap-btn cap-btn--primary" aria-disabled={state === 'downloading'} onClick={() => void download()}>
             {state === 'downloading' ? ap.downloading : ap.downloadModel}
           </button>
-          {progress !== null && <span className="cap-help">{Math.round(progress * 100)}%</span>}
+          {percent !== null && (
+            <>
+              <div
+                className="cap-progress cap-spacer"
+                role="progressbar"
+                aria-label={ap.onDeviceModel}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={percent}
+              >
+                <span style={{ width: `${percent}%` }} />
+              </div>
+              <span className="cap-help">{percent}%</span>
+            </>
+          )}
         </div>
       )}
-      {state.startsWith('error') && <Note tone="danger">{state.replace(/^error: /, '')}</Note>}
+      <LiveRegion>
+        {state === 'downloading' && <span className="cap-sr">{ap.downloading}</span>}
+        {downloaded && state === 'available' && <span className="cap-sr">{`${ap.onDeviceModel}: ${ap.readyTag}`}</span>}
+        {state.startsWith('error') && <Note tone="danger">{state.replace(/^error: /, '')}</Note>}
+      </LiveRegion>
       <span className="cap-help">{ap.chromeBuiltinHelp}</span>
     </div>
   );
 }
 
-function ConnectionCard({ conn, ai, updateAI }: { conn: ProviderConnection; ai: AISettings; updateAI: UpdateAI }) {
-  const { m } = useI18n();
+function ConnectionCard({
+  conn,
+  ai,
+  updateAI,
+  isNew,
+  onRemoved,
+}: {
+  conn: ProviderConnection;
+  ai: AISettings;
+  updateAI: UpdateAI;
+  /** Just added: scroll it into view and put focus on what it needs first. */
+  isNew: boolean;
+  onRemoved: () => void;
+}) {
+  const { locale, m } = useI18n();
   const ap = m.options.aiProviders;
   const info = PROVIDERS[conn.kind];
   const hint = ap.hints[conn.kind] ?? info.hint;
   const titleId = useId();
   const modelId = useId();
   const urlId = useId();
+  const urlHelpId = useId();
+  const cardRef = useRef<HTMLElement>(null);
+  const removing = useConfirm();
   const [granted, grant] = useHostPermission(conn);
   const [busy, setBusy] = useState<'models' | 'test' | null>(null);
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
@@ -270,7 +342,18 @@ function ConnectionCard({ conn, ai, updateAI }: { conn: ProviderConnection; ai: 
       if (c) fn(c);
     });
 
+  useEffect(() => {
+    if (!isNew) return;
+    const card = cardRef.current;
+    card?.scrollIntoView({ block: 'start' });
+    // A key or a sign-in focuses itself once loaded; otherwise the server address, or the name.
+    if (info.requiresKey || info.signIn) return;
+    const first = info.editableBaseUrl ? document.getElementById(urlId) : card?.querySelector<HTMLElement>('.cap-card__title-input');
+    first?.focus({ preventScroll: true });
+  }, []);
+
   const fetchModels = async () => {
+    if (busy) return;
     setBusy('models');
     setResult(null);
     try {
@@ -285,6 +368,7 @@ function ConnectionCard({ conn, ai, updateAI }: { conn: ProviderConnection; ai: 
   };
 
   const test = async () => {
+    if (busy) return;
     setBusy('test');
     setResult(null);
     try {
@@ -310,8 +394,6 @@ function ConnectionCard({ conn, ai, updateAI }: { conn: ProviderConnection; ai: 
   };
 
   const remove = async () => {
-    const confirmMsg = info.signIn ? ap.confirmRemoveSignIn(conn.label) : ap.confirmRemoveKey(conn.label);
-    if (!confirm(confirmMsg)) return;
     await (info.signIn ? signOutChatGPT(conn.id) : removeApiKey(conn.id));
     await updateAI((s) => {
       s.connections = s.connections.filter((c) => c.id !== conn.id);
@@ -324,6 +406,7 @@ function ConnectionCard({ conn, ai, updateAI }: { conn: ProviderConnection; ai: 
         }
       }
     });
+    onRemoved();
     await releaseOrigins(originsToRequest(conn));
   };
 
@@ -331,7 +414,7 @@ function ConnectionCard({ conn, ai, updateAI }: { conn: ProviderConnection; ai: 
     info.protocol === 'chrome' ? ap.whereChrome : info.local ? ap.whereLocal : `${ap.picks[conn.kind]?.name ?? info.name} · ${host}`;
 
   return (
-    <section className="cap-card" aria-labelledby={titleId}>
+    <section className="cap-card" aria-labelledby={titleId} ref={cardRef}>
       <div className="cap-card__head">
         <div className="cap-spacer" style={{ minWidth: 0 }}>
           <h2 className="cap-card__title" id={titleId} style={{ display: 'block' }}>
@@ -352,15 +435,33 @@ function ConnectionCard({ conn, ai, updateAI }: { conn: ProviderConnection; ai: 
           </button>
         )}
         <button
+          ref={removing.trigger}
           className="cap-iconbtn"
           aria-label={ap.removeProviderAria(conn.label)}
+          aria-expanded={removing.open}
           title={m.common.remove}
-          onClick={() => void remove()}
+          onClick={removing.ask}
         >
           <IconTrash className="cap-ico" />
         </button>
       </div>
       <div className="cap-card__body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {removing.open && (
+          <Confirm
+            action={m.common.remove}
+            onCancel={removing.close}
+            onConfirm={() => {
+              removing.close();
+              void remove();
+            }}
+          >
+            {info.signIn
+              ? ap.confirmRemoveSignIn(conn.label)
+              : info.requiresKey
+                ? ap.confirmRemoveKey(conn.label)
+                : ap.confirmRemovePlain(conn.label)}
+          </Confirm>
+        )}
         {hint && conn.kind !== 'anthropic' && <Note tone="plain">{hint}</Note>}
         {info.protocol !== 'chrome' && (
           <>
@@ -375,6 +476,8 @@ function ConnectionCard({ conn, ai, updateAI }: { conn: ProviderConnection; ai: 
                   style={{ maxWidth: 360 }}
                   value={conn.baseUrl}
                   spellCheck={false}
+                  aria-invalid={urlError ? true : undefined}
+                  aria-describedby={urlHelpId}
                   onCommit={(v) => {
                     const error = validateBaseUrl(v.trim());
                     setUrlError(error);
@@ -385,12 +488,16 @@ function ConnectionCard({ conn, ai, updateAI }: { conn: ProviderConnection; ai: 
                     });
                   }}
                 />
-                <span className="cap-help" style={urlError ? { color: 'var(--danger)' } : undefined}>
+                <span className="cap-help" id={urlHelpId} style={urlError ? { color: 'var(--danger)' } : undefined}>
                   {urlError ?? ap.httpsRequiredHelp}
                 </span>
               </div>
             )}
-            {info.signIn ? <ChatGPTAccountField conn={conn} /> : <ApiKeyField conn={conn} />}
+            {info.signIn ? (
+              <ChatGPTAccountField conn={conn} autoFocus={isNew} />
+            ) : (
+              <ApiKeyField conn={conn} autoFocus={isNew && info.requiresKey} />
+            )}
             {granted === false && (
               <Note
                 tone="warn"
@@ -420,34 +527,43 @@ function ConnectionCard({ conn, ai, updateAI }: { conn: ProviderConnection; ai: 
               placeholder={info.defaultModel || ap.modelIdPlaceholder}
               onCommit={(v) => void patch((c) => void (c.defaultModel = v))}
             />
+            {/* aria-disabled while busy, so the button that was pressed keeps focus. */}
             {info.protocol !== 'chrome' && (
-              <button className="cap-btn" disabled={busy !== null} onClick={() => void fetchModels()}>
+              <button className="cap-btn" aria-disabled={busy !== null} onClick={() => void fetchModels()}>
                 {busy === 'models' ? m.common.loading : conn.modelsFetchedAt ? ap.refreshList : ap.fetchModels}
               </button>
             )}
-            <button className="cap-btn cap-btn--primary" disabled={busy !== null} onClick={() => void test()}>
+            <button className="cap-btn cap-btn--primary" aria-disabled={busy !== null} onClick={() => void test()}>
               {busy === 'test' ? ap.testing : ap.testConnection}
             </button>
           </div>
           <span className="cap-help">
             {ap.defaultModelHelp}
             {conn.kind === 'anthropic' && hint ? ` ${hint}` : ''}
-            {conn.modelsFetchedAt ? ap.modelListUpdated(new Date(conn.modelsFetchedAt).toLocaleString(), conn.models.length) : ''}
+            {conn.modelsFetchedAt ? ap.modelListUpdated(new Date(conn.modelsFetchedAt).toLocaleString(locale), conn.models.length) : ''}
           </span>
         </div>
-        {result && <Note tone={result.ok ? 'success' : 'danger'}>{result.text}</Note>}
+        <LiveRegion>
+          {busy ? (
+            <span className="cap-sr">{busy === 'test' ? ap.testing : m.common.loading}</span>
+          ) : (
+            result && <Note tone={result.ok ? 'success' : 'danger'}>{result.text}</Note>
+          )}
+        </LiveRegion>
       </div>
     </section>
   );
 }
 
-function AddProvider({ onAdd }: { onAdd: (kind: ProviderKind) => void }) {
+function AddProvider({ onAdd, headingRef }: { onAdd: (kind: ProviderKind) => void; headingRef: Ref<HTMLHeadingElement> }) {
   const { m } = useI18n();
   const ap = m.options.aiProviders;
   return (
     <section className="cap-card" aria-label={ap.addProviderCard}>
       <div className="cap-card__head">
-        <h2 className="cap-card__title">{ap.addProviderCard}</h2>
+        <h2 className="cap-card__title" ref={headingRef} tabIndex={-1}>
+          {ap.addProviderCard}
+        </h2>
       </div>
       <div className="cap-card__body cap-pick-grid">
         {PROVIDER_ORDER.map((kind) => (
@@ -464,6 +580,8 @@ function AddProvider({ onAdd }: { onAdd: (kind: ProviderKind) => void }) {
 export function AIProvidersSection() {
   const [ai, updateAI] = useAISettings();
   const { m } = useI18n();
+  const [added, setAdded] = useState<string | null>(null);
+  const addRef = useRef<HTMLHeadingElement>(null);
   if (!ai) return null;
   const ap = m.options.aiProviders;
 
@@ -472,6 +590,7 @@ export function AIProvidersSection() {
     // Ask for host access inside the click so Chrome shows its prompt right away.
     // (A custom endpoint has no URL yet; its card offers "Grant access" later.)
     if (PROVIDERS[kind].protocol !== 'chrome') void requestOrigins(originsToRequest(conn));
+    setAdded(conn.id);
     void updateAI((s) => {
       s.connections.push(conn);
       s.defaultConnectionId ??= conn.id;
@@ -488,9 +607,17 @@ export function AIProvidersSection() {
       </Note>
       {ai.connections.length === 0 && <Note tone="warn">{ap.noProviderWarn}</Note>}
       {ai.connections.map((c) => (
-        <ConnectionCard key={c.id} conn={c} ai={ai} updateAI={updateAI} />
+        <ConnectionCard
+          key={c.id}
+          conn={c}
+          ai={ai}
+          updateAI={updateAI}
+          isNew={c.id === added}
+          // The removed card took focus with it; the next step is usually adding another.
+          onRemoved={() => addRef.current?.focus()}
+        />
       ))}
-      <AddProvider onAdd={add} />
+      <AddProvider onAdd={add} headingRef={addRef} />
     </>
   );
 }

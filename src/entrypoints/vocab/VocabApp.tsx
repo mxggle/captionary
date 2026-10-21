@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useI18n, type Messages, type UILocale } from '@/lib/i18n';
 import { languageName } from '@/lib/languages';
 import { formatTime } from '@/lib/subtitles/parse';
@@ -17,7 +17,7 @@ import {
 import { AppShell } from '@/ui/AppShell';
 import { PageHead, Select, usePopover } from '@/ui/controls';
 import {
-  IconBookmark,
+  IconNote,
   IconCheck,
   IconChevronDown,
   IconCopy,
@@ -88,151 +88,172 @@ function dayLabel(ts: number, locale: UILocale, m: Messages): string {
   });
 }
 
-function StatusMenu({ item }: { item: VocabItem }) {
+/** While an input method is composing, Enter picks a candidate; it must not save or submit. */
+function composing(e: React.KeyboardEvent): boolean {
+  return e.nativeEvent.isComposing || e.keyCode === 229;
+}
+
+/** A polite status line for screen readers; the same message twice is announced twice. */
+function useAnnouncer(): [string, (text: string) => void] {
+  const [message, setMessage] = useState('');
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const announce = useCallback((text: string) => {
+    setMessage('');
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => setMessage(text), 60);
+  }, []);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  return [message, announce];
+}
+
+/**
+ * Learning or Known. A disclosure (a button that shows two more), not an ARIA menu, so Tab moves
+ * through the choices. Deleting a word has one place: More, behind its confirmation.
+ */
+function StatusMenu({ item, onStatus }: { item: VocabItem; onStatus: (status: VocabStatus) => void }) {
   const { m } = useI18n();
   const pop = usePopover<HTMLSpanElement>();
-  const [confirming, setConfirming] = useState(false);
+  const id = useId();
   const learning = item.status === 'learning';
   const statusText = learning ? m.common.learning : m.common.known;
   const set = (status: VocabStatus) => {
-    void updateVocab(item.id, { status });
+    onStatus(status);
     pop.setOpen(false);
   };
   return (
     <span className="cap-popwrap" ref={pop.ref}>
       <button
         className={`cap-tag ${learning ? 'cap-tag--learn' : 'cap-tag--known'} cap-entry__status`}
-        aria-haspopup="menu"
         aria-expanded={pop.open}
+        aria-controls={pop.open ? id : undefined}
         aria-label={m.vocab.statusAria(item.text, statusText)}
-        onClick={() => {
-          setConfirming(false);
-          pop.setOpen(!pop.open);
-        }}
+        onClick={() => pop.setOpen(!pop.open)}
       >
         {!learning && <IconCheck className="cap-ico" style={{ width: 12, height: 12 }} />}
         {statusText}
       </button>
       {pop.open && (
-        <div role="menu" aria-label={m.vocab.statusMenuAria(item.text)} className="cap-popover">
-          {confirming ? (
-            <>
-              <div style={{ padding: '6px 10px', fontSize: 13.5 }}>{m.vocab.confirmRemoveSaved(item.text)}</div>
-              <div className="cap-row" style={{ padding: '4px 6px' }}>
-                <button
-                  className="cap-btn cap-btn--sm cap-btn--danger-fill"
-                  style={{ width: 'auto' }}
-                  onClick={() => void removeVocab(item.id)}
-                >
-                  {m.common.remove}
-                </button>
-                <button className="cap-btn cap-btn--sm cap-btn--ghost" style={{ width: 'auto' }} onClick={() => setConfirming(false)}>
-                  {m.common.cancel}
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <button className="cap-btn cap-btn--ghost" role="menuitemradio" aria-checked={learning} onClick={() => set('learning')}>
-                <span className="cap-chip__dot" />
-                {m.common.learning}
-                <span className="cap-spacer" />
-                {learning && <IconCheck className="cap-ico" />}
-              </button>
-              <button className="cap-btn cap-btn--ghost" role="menuitemradio" aria-checked={!learning} onClick={() => set('known')}>
-                <IconCheck className="cap-ico" style={{ color: 'var(--known)' }} />
-                {m.common.known}
-                <span className="cap-spacer" />
-                {!learning && <IconCheck className="cap-ico" />}
-              </button>
-              <div className="cap-popover__sep" />
-              <button className="cap-btn cap-btn--ghost cap-btn--danger" role="menuitem" onClick={() => setConfirming(true)}>
-                <IconTrash className="cap-ico" />
-                {m.vocab.removeFromSaved}
-              </button>
-            </>
-          )}
+        <div id={id} role="group" aria-label={m.vocab.statusMenuAria(item.text)} className="cap-popover">
+          <button className="cap-btn cap-btn--ghost" aria-pressed={learning} onClick={() => set('learning')}>
+            <span className="cap-chip__dot" />
+            {m.common.learning}
+            <span className="cap-spacer" />
+            {learning && <IconCheck className="cap-ico" />}
+          </button>
+          <button className="cap-btn cap-btn--ghost" aria-pressed={!learning} onClick={() => set('known')}>
+            <IconCheck className="cap-ico" style={{ color: 'var(--known)' }} />
+            {m.common.known}
+            <span className="cap-spacer" />
+            {!learning && <IconCheck className="cap-ico" />}
+          </button>
         </div>
       )}
     </span>
   );
 }
 
-function MoreMenu({ item, onEdit }: { item: VocabItem; onEdit: () => void }) {
+function MoreMenu({
+  item,
+  onEdit,
+  onDelete,
+  announce,
+  triggerRef,
+}: {
+  item: VocabItem;
+  onEdit: () => void;
+  onDelete: () => void;
+  announce: (text: string) => void;
+  triggerRef: React.Ref<HTMLButtonElement>;
+}) {
   const { m } = useI18n();
   const pop = usePopover<HTMLSpanElement>();
+  const id = useId();
+  const promptId = useId();
   const [confirming, setConfirming] = useState(false);
+  // Cancelling the confirmation puts focus back on Delete instead of dropping it.
+  const [cancelled, setCancelled] = useState(false);
+  const [copy, setCopy] = useState<'idle' | 'copied' | 'failed'>('idle');
   const src = sourceUrl(item);
+  const { setOpen } = pop;
+  // "Copied" stays a moment, then the actions close.
+  useEffect(() => {
+    if (copy !== 'copied') return;
+    const t = setTimeout(() => setOpen(false), 1200);
+    return () => clearTimeout(t);
+  }, [copy, setOpen]);
+  const copyText = async () => {
+    try {
+      await navigator.clipboard.writeText(item.translation ? `${item.text} — ${item.translation}` : item.text);
+      setCopy('copied');
+      announce(m.vocab.copied);
+    } catch {
+      setCopy('failed');
+      announce(m.vocab.copyFailed);
+    }
+  };
   return (
     <span className="cap-popwrap" ref={pop.ref}>
       <button
+        ref={triggerRef}
         className="cap-iconbtn cap-iconbtn--sm"
         aria-label={m.vocab.moreActionsAria(item.text)}
-        aria-haspopup="menu"
         aria-expanded={pop.open}
+        aria-controls={pop.open ? id : undefined}
         onClick={() => {
           setConfirming(false);
-          pop.setOpen(!pop.open);
+          setCancelled(false);
+          setCopy('idle');
+          setOpen(!pop.open);
         }}
       >
         <IconMore className="cap-ico" />
       </button>
       {pop.open && (
-        <div role="menu" aria-label={m.vocab.actionsForAria(item.text)} className="cap-popover">
+        <div id={id} role="group" aria-label={m.vocab.actionsForAria(item.text)} className="cap-popover">
           {confirming ? (
-            <>
-              <div style={{ padding: '6px 10px', fontSize: 13.5 }}>{m.vocab.confirmDeleteEntry(item.text)}</div>
-              <div className="cap-row" style={{ padding: '4px 6px' }}>
-                <button
-                  className="cap-btn cap-btn--sm cap-btn--danger-fill"
-                  style={{ width: 'auto' }}
-                  onClick={() => void removeVocab(item.id)}
-                >
+            <div className="cap-entry__confirm" role="alertdialog" aria-labelledby={promptId}>
+              <p id={promptId} className="cap-entry__confirm-text">
+                {m.vocab.confirmDeleteEntry(item.text)}
+              </p>
+              <div className="cap-row cap-entry__confirm-actions">
+                <button className="cap-btn cap-btn--sm cap-btn--danger-fill" onClick={onDelete}>
                   {m.common.delete}
                 </button>
-                <button className="cap-btn cap-btn--sm cap-btn--ghost" style={{ width: 'auto' }} onClick={() => setConfirming(false)}>
+                <button
+                  className="cap-btn cap-btn--sm cap-btn--ghost"
+                  autoFocus
+                  onClick={() => {
+                    setConfirming(false);
+                    setCancelled(true);
+                  }}
+                >
                   {m.common.cancel}
                 </button>
               </div>
-            </>
+            </div>
           ) : (
             <>
               <button
                 className="cap-btn cap-btn--ghost"
-                role="menuitem"
                 onClick={() => {
-                  pop.setOpen(false);
+                  setOpen(false);
                   onEdit();
                 }}
               >
                 {m.vocab.editTranslationNotes}
               </button>
-              <button
-                className="cap-btn cap-btn--ghost"
-                role="menuitem"
-                onClick={() => {
-                  void navigator.clipboard.writeText(item.translation ? `${item.text} — ${item.translation}` : item.text);
-                  pop.setOpen(false);
-                }}
-              >
-                <IconCopy className="cap-ico" />
-                {m.common.copy}
+              <button className={`cap-btn cap-btn--ghost${copy === 'failed' ? ' cap-btn--danger' : ''}`} onClick={() => void copyText()}>
+                {copy === 'copied' ? <IconCheck className="cap-ico" /> : <IconCopy className="cap-ico" />}
+                {copy === 'copied' ? m.vocab.copied : copy === 'failed' ? m.vocab.copyFailed : m.common.copy}
               </button>
               {src && (
-                <a
-                  className="cap-btn cap-btn--ghost"
-                  role="menuitem"
-                  href={src}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => pop.setOpen(false)}
-                >
+                <a className="cap-btn cap-btn--ghost" href={src} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)}>
                   <IconExternal className="cap-ico" />
                   {m.vocab.openSource}
                 </a>
               )}
               <div className="cap-popover__sep" />
-              <button className="cap-btn cap-btn--ghost cap-btn--danger" role="menuitem" onClick={() => setConfirming(true)}>
+              <button className="cap-btn cap-btn--ghost cap-btn--danger" autoFocus={cancelled} onClick={() => setConfirming(true)}>
                 <IconTrash className="cap-ico" />
                 {m.common.delete}
               </button>
@@ -245,15 +266,47 @@ function MoreMenu({ item, onEdit }: { item: VocabItem; onEdit: () => void }) {
 }
 
 /** One saved word or phrase, laid out like a dictionary entry (`Entry`). */
-function Entry({ item, editing, onEdit, onDone }: { item: VocabItem; editing: boolean; onEdit: () => void; onDone: () => void }) {
+function Entry({
+  item,
+  editing,
+  onEdit,
+  onDone,
+  onDelete,
+  onStatus,
+  announce,
+  entryRef,
+}: {
+  item: VocabItem;
+  editing: boolean;
+  onEdit: () => void;
+  onDone: () => void;
+  onDelete: () => void;
+  onStatus: (status: VocabStatus) => void;
+  announce: (text: string) => void;
+  entryRef: (el: HTMLElement | null) => void;
+}) {
   const { m } = useI18n();
   const [tr, setTr] = useState(item.translation ?? '');
   const [notes, setNotes] = useState(item.notes ?? '');
+  const headId = useId();
+  const trRef = useRef<HTMLButtonElement>(null);
+  const moreRef = useRef<HTMLButtonElement>(null);
+  // The control that opened the editor; focus goes back to it when the editor closes.
+  const opener = useRef<'tr' | 'more' | null>(null);
   useEffect(() => {
     if (!editing) return;
     setTr(item.translation ?? '');
     setNotes(item.notes ?? '');
   }, [editing, item.translation, item.notes]);
+  useEffect(() => {
+    if (editing || !opener.current) return;
+    const from = opener.current;
+    opener.current = null;
+    // Only when focus went down with the editor, not when another entry's editor took it.
+    const active = document.activeElement;
+    if (active && active !== document.body) return;
+    (from === 'tr' ? trRef : moreRef).current?.focus();
+  }, [editing]);
   const src = sourceUrl(item);
   const source = sourceName(item);
   const sentence = item.context?.sentence;
@@ -262,6 +315,7 @@ function Entry({ item, editing, onEdit, onDone }: { item: VocabItem; editing: bo
     onDone();
   };
   const keys = (e: React.KeyboardEvent) => {
+    if (composing(e)) return;
     if (e.key === 'Escape') {
       e.preventDefault();
       onDone();
@@ -281,7 +335,7 @@ function Entry({ item, editing, onEdit, onDone }: { item: VocabItem; editing: bo
   );
   const head = (
     <div className="cap-row" style={{ flexWrap: 'nowrap' }}>
-      <span className="cap-headword" lang={item.lang}>
+      <span className="cap-headword" id={headId} lang={item.lang}>
         {item.text}
       </span>
       {item.kind === 'phrase' && <span className="cap-tag">{m.common.phrase}</span>}
@@ -290,7 +344,7 @@ function Entry({ item, editing, onEdit, onDone }: { item: VocabItem; editing: bo
   );
   if (editing) {
     return (
-      <article className="cap-entry is-editing">
+      <article className="cap-entry is-editing" ref={entryRef} tabIndex={-1} aria-labelledby={headId}>
         <div className="cap-entry__head">
           {head}
           <label className="cap-sr" htmlFor={`tr-${item.id}`}>
@@ -348,10 +402,18 @@ function Entry({ item, editing, onEdit, onDone }: { item: VocabItem; editing: bo
     );
   }
   return (
-    <article className={`cap-entry${item.status === 'known' ? ' is-known' : ''}`}>
+    <article className={`cap-entry${item.status === 'known' ? ' is-known' : ''}`} ref={entryRef} tabIndex={-1} aria-labelledby={headId}>
       <div className="cap-entry__head">
         {head}
-        <button className={`cap-entry__tr${item.translation ? '' : ' is-empty'}`} title={m.vocab.editTranslationTitle} onClick={onEdit}>
+        <button
+          ref={trRef}
+          className={`cap-entry__tr${item.translation ? '' : ' is-empty'}`}
+          title={m.vocab.editTranslationTitle}
+          onClick={() => {
+            opener.current = 'tr';
+            onEdit();
+          }}
+        >
           {item.translation || m.vocab.addTranslationPlaceholder}
         </button>
       </div>
@@ -363,21 +425,38 @@ function Entry({ item, editing, onEdit, onDone }: { item: VocabItem; editing: bo
           </div>
         )}
         {item.context?.translation && <div className="cap-entry__ctx-tr">{item.context.translation}</div>}
-        <div className="cap-entry__meta">
-          {src ? (
-            <a href={src} target="_blank" rel="noopener noreferrer">
-              {source ?? m.vocab.sourceFallback}
-              {item.context?.time !== undefined ? ` · ${formatTime(item.context.time)}` : ''}
-            </a>
-          ) : (
-            source && <span className="cap-subtle">{source}</span>
-          )}
-          {item.notes && <span className="cap-subtle">{m.vocab.noteSaved}</span>}
-        </div>
+        {item.notes && (
+          <div className="cap-entry__notes">
+            <IconNote className="cap-ico" />
+            <span className="cap-sr">{m.vocab.yourNote}</span>
+            <Markdown text={item.notes} />
+          </div>
+        )}
+        {(src || source) && (
+          <div className="cap-entry__meta">
+            {src ? (
+              <a href={src} target="_blank" rel="noopener noreferrer">
+                {source ?? m.vocab.sourceFallback}
+                {item.context?.time !== undefined ? ` · ${formatTime(item.context.time)}` : ''}
+              </a>
+            ) : (
+              <span className="cap-subtle">{source}</span>
+            )}
+          </div>
+        )}
       </div>
       <div className="cap-entry__side">
-        <StatusMenu item={item} />
-        <MoreMenu item={item} onEdit={onEdit} />
+        <StatusMenu item={item} onStatus={onStatus} />
+        <MoreMenu
+          item={item}
+          triggerRef={moreRef}
+          announce={announce}
+          onDelete={onDelete}
+          onEdit={() => {
+            opener.current = 'more';
+            onEdit();
+          }}
+        />
       </div>
     </article>
   );
@@ -388,6 +467,7 @@ type Filter = 'all' | 'learning' | 'known' | 'phrases';
 function ExportMenu({ items, total }: { items: VocabItem[]; total: number }) {
   const { m } = useI18n();
   const pop = usePopover<HTMLSpanElement>();
+  const id = useId();
   const stamp = new Date().toISOString().slice(0, 10);
   const run = (fn: () => void) => {
     fn();
@@ -397,8 +477,8 @@ function ExportMenu({ items, total }: { items: VocabItem[]; total: number }) {
     <span className="cap-popwrap" ref={pop.ref}>
       <button
         className="cap-btn cap-btn--lg"
-        aria-haspopup="menu"
         aria-expanded={pop.open}
+        aria-controls={pop.open ? id : undefined}
         disabled={!items.length}
         onClick={() => pop.setOpen(!pop.open)}
       >
@@ -407,24 +487,21 @@ function ExportMenu({ items, total }: { items: VocabItem[]; total: number }) {
         <IconChevronDown className="cap-ico" />
       </button>
       {pop.open && (
-        <div role="menu" aria-label={m.vocab.exportMenuAria} className="cap-popover">
+        <div id={id} role="group" aria-label={m.vocab.exportMenuAria} className="cap-popover">
           <button
             className="cap-btn cap-btn--ghost"
-            role="menuitem"
             onClick={() => run(() => download(`captionary-words-${stamp}.csv`, `\uFEFF${toCsv(items)}`, 'text/csv'))}
           >
             CSV
           </button>
           <button
             className="cap-btn cap-btn--ghost"
-            role="menuitem"
             onClick={() => run(() => download(`captionary-anki-${stamp}.txt`, toAnkiTsv(items), 'text/plain'))}
           >
             Anki
           </button>
           <button
             className="cap-btn cap-btn--ghost"
-            role="menuitem"
             onClick={() => run(() => download(`captionary-words-${stamp}.json`, JSON.stringify(items, null, 2), 'application/json'))}
           >
             {m.options.data.jsonBackup}
@@ -442,6 +519,13 @@ function SavedWords({ items }: { items: VocabItem[] }) {
   const [lang, setLang] = useState('all');
   const [filter, setFilter] = useState<Filter>('all');
   const [editing, setEditing] = useState<string | null>(null);
+  const [message, announce] = useAnnouncer();
+  const searchRef = useRef<HTMLInputElement>(null);
+  const emptyRef = useRef<HTMLDivElement>(null);
+  const entries = useRef(new Map<string, HTMLElement>());
+  // After a delete, or a status change the filter hides, focus moves to the entry below (else above)
+  // once the list has caught up.
+  const refocus = useRef<{ gone: string; next?: string } | null>(null);
   useEffect(() => {
     if (lang !== 'all' && !langs.includes(lang)) setLang('all');
   }, [langs, lang]);
@@ -475,6 +559,32 @@ function SavedWords({ items }: { items: VocabItem[] }) {
   }, [shown]);
   const learningAll = items.filter((i) => i.status === 'learning' && (lang === 'all' || i.lang === lang)).length;
   const langSuffix = lang === 'all' ? '' : m.vocab.inLang(languageName(lang, locale));
+  useEffect(() => {
+    const r = refocus.current;
+    if (!r || days.some((day) => day.some((i) => i.id === r.gone))) return;
+    refocus.current = null;
+    ((r.next && entries.current.get(r.next)) || emptyRef.current)?.focus();
+  }, [days]);
+  const leaving = (item: VocabItem) => {
+    const order = days.flat();
+    const at = order.findIndex((x) => x.id === item.id);
+    refocus.current = { gone: item.id, next: (order[at + 1] ?? order[at - 1])?.id };
+  };
+  const remove = (item: VocabItem) => {
+    leaving(item);
+    void removeVocab(item.id);
+    announce(m.vocab.deletedEntry(item.text));
+  };
+  const setStatus = (item: VocabItem, status: VocabStatus) => {
+    if ((filter === 'learning' || filter === 'known') && status !== filter) leaving(item);
+    void updateVocab(item.id, { status });
+  };
+  const clearAll = () => {
+    setQuery('');
+    setLang('all');
+    setFilter('all');
+    searchRef.current?.focus();
+  };
 
   const chip = (value: Filter, label: React.ReactNode) => (
     <button className="cap-chip" aria-pressed={filter === value} onClick={() => setFilter(value)}>
@@ -499,17 +609,23 @@ function SavedWords({ items }: { items: VocabItem[] }) {
         }
       >
         <ExportMenu items={shown} total={items.length} />
-        <a className="cap-btn cap-btn--primary cap-btn--lg" href="#review" aria-disabled={!items.length}>
-          {m.vocab.reviewNow}
-          {learningAll > 0 && <span className="cap-btn__count">{learningAll}</span>}
-        </a>
+        {items.length ? (
+          <a className="cap-btn cap-btn--primary cap-btn--lg" href="#review">
+            {m.vocab.reviewNow}
+            {learningAll > 0 && <span className="cap-btn__count">{learningAll}</span>}
+          </a>
+        ) : (
+          <button className="cap-btn cap-btn--primary cap-btn--lg" disabled>
+            {m.vocab.reviewNow}
+          </button>
+        )}
       </PageHead>
 
       <div className="cap-row" style={{ gap: 8 }}>
         <label className="cap-search" style={{ flex: '1 1 260px' }}>
           <IconSearch className="cap-ico" />
           <span className="cap-sr">{m.vocab.searchAria}</span>
-          <input placeholder={m.vocab.searchPlaceholder} value={query} onChange={(e) => setQuery(e.target.value)} />
+          <input ref={searchRef} placeholder={m.vocab.searchPlaceholder} value={query} onChange={(e) => setQuery(e.target.value)} />
         </label>
         {langs.length > 1 && (
           <Select
@@ -541,13 +657,20 @@ function SavedWords({ items }: { items: VocabItem[] }) {
       </div>
 
       {items.length === 0 ? (
-        <div className="cap-card cap-empty">
+        <div className="cap-card cap-empty" ref={emptyRef} tabIndex={-1}>
           {m.vocab.emptyNoWordsBefore}
           <strong>{m.vocab.emptyNoWordsStrong}</strong>
           {m.vocab.emptyNoWordsAfter}
         </div>
       ) : days.length === 0 ? (
-        <div className="cap-card cap-empty">{m.vocab.emptyNoMatch}</div>
+        <div className="cap-card cap-empty" ref={emptyRef} tabIndex={-1}>
+          {m.vocab.emptyNoMatch}
+          <div className="cap-empty__actions">
+            <button className="cap-btn" onClick={clearAll}>
+              {m.vocab.clearSearchAndFilters}
+            </button>
+          </div>
+        </div>
       ) : (
         days.map((group) => {
           const sources = [...new Set(group.map(sourceName).filter(Boolean))];
@@ -569,6 +692,13 @@ function SavedWords({ items }: { items: VocabItem[] }) {
                     editing={editing === item.id}
                     onEdit={() => setEditing(item.id)}
                     onDone={() => setEditing(null)}
+                    onDelete={() => remove(item)}
+                    onStatus={(status) => setStatus(item, status)}
+                    announce={announce}
+                    entryRef={(el) => {
+                      if (el) entries.current.set(item.id, el);
+                      else entries.current.delete(item.id);
+                    }}
                   />
                 ))}
               </div>
@@ -576,6 +706,9 @@ function SavedWords({ items }: { items: VocabItem[] }) {
           );
         })
       )}
+      <div className="cap-sr" role="status">
+        {message}
+      </div>
     </>
   );
 }
@@ -601,6 +734,9 @@ function Review({ items }: { items: VocabItem[] }) {
   const [shown, setShown] = useState(false);
   const live = useRef(items);
   live.current = items;
+  // Turning or answering a card replaces its buttons; focus moves to the new side of the card.
+  const card = useRef<HTMLElement>(null);
+  useEffect(() => card.current?.focus(), [shown, i]);
   const item = deck[i] ? (live.current.find((x) => x.id === deck[i].id) ?? deck[i]) : undefined;
   const next = (status?: VocabStatus) => {
     if (item && status) void updateVocab(item.id, { status });
@@ -609,11 +745,16 @@ function Review({ items }: { items: VocabItem[] }) {
   };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement)?.closest?.('input, textarea, select')) return;
+      if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest?.('input, textarea, select, [contenteditable]')) return;
       if (e.key === ' ') {
+        // A focused button or link handles its own Space.
+        if (target?.closest?.('button, a, [role="button"]')) return;
         e.preventDefault();
         setShown(true);
-      } else if (shown && e.key === '1') next('learning');
+      } else if (e.repeat) return;
+      else if (shown && e.key === '1') next('learning');
       else if (shown && e.key === '2') next('known');
     };
     window.addEventListener('keydown', onKey);
@@ -630,7 +771,7 @@ function Review({ items }: { items: VocabItem[] }) {
   }
   if (!item) {
     return (
-      <section className="cap-flash" aria-label={m.vocab.reviewFinishedAria}>
+      <section className="cap-flash" aria-label={m.vocab.reviewFinishedAria} ref={card} tabIndex={-1}>
         <h1 className="cap-h1" style={{ fontSize: 32, lineHeight: '36px' }}>
           {m.common.done}
         </h1>
@@ -657,8 +798,12 @@ function Review({ items }: { items: VocabItem[] }) {
   const srcName = sourceName(item);
   return (
     <>
+      <h1 className="cap-sr">{m.vocab.reviewTitle}</h1>
+      <div className="cap-sr" role="status">
+        {m.vocab.cardOfCount(i + 1, deck.length)}
+      </div>
       <div className="cap-row" style={{ flexWrap: 'nowrap' }}>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--ink-muted)' }}>
+        <span className="cap-flash__count" aria-hidden="true">
           {m.vocab.ofCount(i + 1, deck.length)}
         </span>
         <div
@@ -679,11 +824,15 @@ function Review({ items }: { items: VocabItem[] }) {
         <span className="cap-tag">
           {item.status === 'learning' ? m.common.learning : m.common.known} · {languageName(item.lang, locale)}
         </span>
-        {srcName && <span className="cap-tag">{m.vocab.fromSource(srcName)}</span>}
+        {srcName && (
+          <span className="cap-tag" title={srcName}>
+            <span className="cap-tag__text">{m.vocab.fromSource(srcName)}</span>
+          </span>
+        )}
       </div>
 
       {shown ? (
-        <section className="cap-flash" aria-label={m.vocab.flashcardAnswerAria}>
+        <section className="cap-flash" aria-label={m.vocab.flashcardAnswerAria} ref={card} tabIndex={-1}>
           <div className="cap-row" style={{ justifyContent: 'center', gap: 12 }}>
             <span className="cap-flash__word" lang={item.lang}>
               {item.text}
@@ -704,7 +853,7 @@ function Review({ items }: { items: VocabItem[] }) {
           {item.notes && (
             <div className="cap-tutor" style={{ width: '100%', maxWidth: 520, textAlign: 'left' }}>
               <div className="cap-tutor__label">
-                <IconBookmark className="cap-ico" />
+                <IconNote className="cap-ico" />
                 {m.vocab.yourNote}
               </div>
               <div className="cap-tutor__text">
@@ -718,7 +867,13 @@ function Review({ items }: { items: VocabItem[] }) {
         </section>
       ) : (
         <>
-          <section className="cap-flash" aria-label={m.vocab.flashcardAria} style={{ minHeight: 420, justifyContent: 'center' }}>
+          <section
+            className="cap-flash"
+            aria-label={m.vocab.flashcardAria}
+            ref={card}
+            tabIndex={-1}
+            style={{ minHeight: 420, justifyContent: 'center' }}
+          >
             <div className="cap-row" style={{ justifyContent: 'center', gap: 12 }}>
               <span className="cap-flash__word" lang={item.lang}>
                 {item.text}

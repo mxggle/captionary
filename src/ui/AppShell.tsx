@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useI18n } from '@/lib/i18n';
 import { listVocab, watchVocab } from '@/lib/vocab';
 import { BrandMark, IconBookmark, IconCards, IconDocument, IconSpark } from './icons';
@@ -45,11 +45,24 @@ export function useVocabCount(): number | null {
 
 /**
  * The one shell of every extension page (`AppNav` + main): the tools first, then the settings
- * sections, so moving between them never changes the layout. Stacks above the content under 760px.
+ * sections, so moving between them never changes the layout. Under 760px the nav sits above the
+ * content, each group one row that scrolls sideways.
  */
 export function AppShell({ current, narrow, children }: { current: AppPage; narrow?: boolean; children: ReactNode }) {
   const count = useVocabCount();
   const { m } = useI18n();
+  const navRef = useRef<HTMLElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
+  // Centre the current page in its row when the row scrolls sideways. Only the row moves: scrollIntoView
+  // would also scroll the page back up to the nav.
+  useEffect(() => {
+    const link = navRef.current?.querySelector('[aria-current="page"]');
+    const row = link?.parentElement;
+    if (!link || !row || row.scrollWidth <= row.clientWidth) return;
+    const l = link.getBoundingClientRect();
+    const r = row.getBoundingClientRect();
+    row.scrollLeft += l.left + l.width / 2 - (r.left + r.width / 2);
+  }, [current]);
   const item = (page: AppPage, href: string, label: string, icon?: ReactNode, n?: ReactNode) => (
     <a key={page} className="cap-nav__item" href={href} aria-current={page === current ? 'page' : undefined}>
       {icon}
@@ -59,19 +72,33 @@ export function AppShell({ current, narrow, children }: { current: AppPage; narr
   );
   return (
     <div className="cap-shell">
-      <nav className="cap-nav" aria-label="Captionary">
+      {/* Pages route on the hash, so the skip link moves focus itself instead of linking to #main. */}
+      <a
+        className="cap-skip"
+        href="#main"
+        onClick={(e) => {
+          e.preventDefault();
+          const main = mainRef.current;
+          (main?.querySelector<HTMLElement>('h1[tabindex]') ?? main)?.focus();
+        }}
+      >
+        {m.nav.skipToContent}
+      </a>
+      <nav className="cap-nav" aria-label="Captionary" ref={navRef}>
         <div className="cap-nav__brand">
           <BrandMark />
           Captionary
         </div>
-        {item('vocab', '/vocab.html', m.nav.savedWords, <IconBookmark className="cap-ico" />, count || null)}
-        {item('review', '/vocab.html#review', m.nav.review, <IconCards className="cap-ico" />)}
-        {item('reader', '/reader.html', m.nav.reader, <IconDocument className="cap-ico" />)}
-        {item('tutor', '/sidepanel.html#page', m.nav.aiTutor, <IconSpark className="cap-ico" />)}
+        <div className="cap-nav__list">
+          {item('vocab', '/vocab.html', m.nav.savedWords, <IconBookmark className="cap-ico" />, count || null)}
+          {item('review', '/vocab.html#review', m.nav.review, <IconCards className="cap-ico" />)}
+          {item('reader', '/reader.html', m.nav.reader, <IconDocument className="cap-ico" />)}
+          {item('tutor', '/sidepanel.html#page', m.nav.aiTutor, <IconSpark className="cap-ico" />)}
+        </div>
         <div className="cap-nav__group">{m.nav.settingsGroup}</div>
-        {SETTINGS_PAGES.map((p) => item(p.id, `/options.html#${p.id}`, m.nav.pages[p.id]))}
+        <div className="cap-nav__list">{SETTINGS_PAGES.map((p) => item(p.id, `/options.html#${p.id}`, m.nav.pages[p.id]))}</div>
       </nav>
-      <main className="cap-main">
+      <main className="cap-main" ref={mainRef} tabIndex={-1}>
         <div className={`cap-main__inner${narrow ? ' cap-main__inner--narrow' : ''}`}>{children}</div>
       </main>
     </div>

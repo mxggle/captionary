@@ -109,11 +109,24 @@ export function TutorStep({ s, go }: StepProps) {
   const [changing, setChanging] = useState(false);
   // While a panel connects, the tutor may look ready for a moment (a key saved before it is tested).
   const [busy, setBusy] = useState(false);
+  // Set when a panel has just connected a tutor: it is announced, and Continue takes focus.
+  const [connected, setConnected] = useState(false);
+  const nextRef = useRef<HTMLButtonElement>(null);
   const [builtin, setBuiltin] = useBuiltin();
-  if (!status) return null;
-  const ready = status.configured && status.enabled && !busy;
-  const showChoices = !ready || changing;
-  const panel = { s, setBusy, refresh, onConnected: () => setChanging(false) };
+  const ready = !!status && status.configured && status.enabled && !busy;
+  const showChoices = !!status && (!ready || changing);
+  useEffect(() => {
+    if (connected && ready) nextRef.current?.focus();
+  }, [connected, ready]);
+  const panel = {
+    s,
+    setBusy,
+    refresh,
+    onConnected: () => {
+      setChanging(false);
+      setConnected(true);
+    },
+  };
 
   return (
     <Step
@@ -127,14 +140,35 @@ export function TutorStep({ s, go }: StepProps) {
           nextLabel={ready ? m.common.continue : m.welcome.tutor.skipForNow}
           quiet={!ready}
           note={ready ? undefined : m.welcome.tutor.addLaterNote}
+          nextRef={nextRef}
         />
       }
     >
-      {ready && !changing && (
+      <div className="cap-sr" role="status">
+        {connected && ready && (
+          <>
+            {m.welcome.tutor.tutorReady}
+            {status?.providerName}
+          </>
+        )}
+      </div>
+      {!status && (
+        <p className="cap-wizard__waiting">
+          <span className="cap-spinner" />
+          {m.common.loading}
+        </p>
+      )}
+      {status && ready && !changing && (
         <Note
           tone="success"
           action={
-            <button className="cap-btn cap-btn--sm" onClick={() => setChanging(true)}>
+            <button
+              className="cap-btn cap-btn--sm"
+              onClick={() => {
+                setChanging(true);
+                setConnected(false);
+              }}
+            >
               {m.welcome.tutor.useDifferentOne}
             </button>
           }
@@ -439,7 +473,8 @@ function KeyPanel(p: PanelProps) {
             autoComplete="off"
             spellCheck={false}
             onChange={(e) => setKey(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && void connect()}
+            // Enter while an input method is composing picks a candidate, not Connect.
+            onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && e.keyCode !== 229 && void connect()}
           />
           <button className="cap-btn cap-btn--lg" onClick={() => setShow(!show)}>
             {show ? m.options.aiProviders.hide : m.options.aiProviders.show}

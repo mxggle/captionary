@@ -2,7 +2,20 @@ import { memo } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
+/** A model's `#` heading is a bold line: real headings would compete with the page's own outline. */
+const heading: Components['h1'] = ({ children }) => (
+  <p className="cap-md__h">
+    <strong>{children}</strong>
+  </p>
+);
+
 const components: Components = {
+  h1: heading,
+  h2: heading,
+  h3: heading,
+  h4: heading,
+  h5: heading,
+  h6: heading,
   a: ({ href, children }) => {
     const safe = href && /^https?:\/\//i.test(href) ? href : undefined;
     return safe ? (

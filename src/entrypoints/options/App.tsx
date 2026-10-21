@@ -1,6 +1,7 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useI18n } from '@/lib/i18n';
 import { AppShell, SETTINGS_PAGES, type SettingsPageId } from '@/ui/AppShell';
+import { PageTitleFocus } from '@/ui/controls';
 import { AIProvidersSection } from './AIProviders';
 import { AIPrivacySection, AITasksSection, PromptsSection } from './AISections';
 import { DataSection, GeneralSection, ShortcutsSection, SubtitlesSection, WelcomeSection } from './GeneralSections';
@@ -26,8 +27,11 @@ function currentHash(): SettingsPageId {
 export function App() {
   const [active, setActive] = useState(currentHash);
   const { m } = useI18n();
+  // A section change in place says nothing to a screen reader; the new section's title takes focus instead.
+  const focusTitle = useRef(false);
   useEffect(() => {
     const onHash = () => {
+      focusTitle.current = true;
       setActive(currentHash());
       window.scrollTo(0, 0);
     };
@@ -40,7 +44,7 @@ export function App() {
   }, [active, m]);
   return (
     <AppShell current={active} narrow>
-      {SECTIONS[active]()}
+      <PageTitleFocus.Provider value={focusTitle}>{SECTIONS[active]()}</PageTitleFocus.Provider>
     </AppShell>
   );
 }

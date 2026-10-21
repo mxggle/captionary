@@ -136,9 +136,13 @@
   height: var(--control-lg);
   padding: 0 18px;
 }
-.cap-btn[disabled] {
+.cap-btn:is([disabled], [aria-disabled='true']) {
   opacity: 0.45;
   cursor: default;
+}
+/* A link styled as a button has no disabled state of its own. */
+a.cap-btn[aria-disabled='true'] {
+  pointer-events: none;
 }
 .cap-btn__count {
   min-width: 26px;
@@ -272,12 +276,20 @@
   align-items: center;
   gap: 4px;
   height: 22px;
+  max-width: 100%;
+  min-width: 0;
   padding: 0 8px;
   border-radius: var(--radius-control);
   background: var(--surface-sunk);
   color: var(--ink-muted);
   font-size: 12px;
   white-space: nowrap;
+}
+/* Free text in a tag (a video title) shortens instead of widening the page; give the tag a title. */
+.cap-tag__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 /* Status tags sit on every saved row, so they stay quiet: a hairline outline and a small mark, no fill. */
 .cap-tag--learn,
@@ -440,31 +452,57 @@ textarea.cap-input {
 .cap-search input::placeholder {
   color: var(--ink-subtle);
 }
+/* The wrapper's accent border shows focus; a ring on the input inside it would be a second one. */
+.cap-search input:focus-visible {
+  box-shadow: none;
+}
 .cap-search:focus-within {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent);
 }
+/* Options move onto another line rather than out of a narrow column. */
 .cap-segment {
   display: inline-flex;
+  flex-wrap: wrap;
+  max-width: 100%;
   padding: 3px;
   gap: 2px;
   border-radius: var(--radius-control);
   background: var(--surface-sunk);
 }
 .cap-segment button {
-  height: 30px;
+  min-height: 30px;
   padding: 0 14px;
   border: 0;
   border-radius: calc(var(--radius-control) - 1px);
   background: transparent;
   color: var(--ink-muted);
   font-size: 13.5px;
+  white-space: nowrap;
 }
-.cap-segment button[aria-pressed='true'] {
+.cap-segment button[aria-pressed='true'],
+.cap-segment button[aria-selected='true'] {
   background: var(--surface-raised);
   color: var(--ink);
   font-weight: 600;
   box-shadow: var(--shadow-card);
+}
+.cap-segment button[aria-pressed='true']:focus-visible,
+.cap-segment button[aria-selected='true']:focus-visible {
+  box-shadow: var(--shadow-card), var(--focus-ring);
+}
+.cap-tabs {
+  align-self: flex-start;
+}
+/* Marks a tab with unsaved edits. */
+.cap-tabs__dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 6px;
+  border-radius: var(--radius-xs);
+  background: var(--accent);
+  vertical-align: middle;
 }
 .cap-range {
   display: flex;
@@ -541,6 +579,15 @@ textarea.cap-input {
   transform: translateX(18px);
   background: var(--switch-knob-on);
 }
+.cap-switch-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: none;
+  font-size: 13.5px;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
 
 /* ---------- kbd ---------- */
 .cap-kbd {
@@ -601,6 +648,33 @@ textarea.cap-input {
 .cap-note--plain > svg {
   color: var(--ink-muted);
 }
+/* An empty live region (or one holding only screen-reader text) stays in place but takes no room. */
+.cap-live:empty,
+.cap-live:has(> .cap-sr:only-child) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.cap-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--danger-soft);
+  color: var(--ink);
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+.cap-confirm--plain {
+  background: var(--surface-sunk);
+}
+.cap-confirm__text {
+  margin: 0;
+}
 
 /* ---------- app shell (extension pages) ---------- */
 .cap-shell {
@@ -630,6 +704,11 @@ textarea.cap-input {
   letter-spacing: -0.015em;
   color: var(--ink);
 }
+.cap-nav__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
 .cap-nav__item {
   display: flex;
   align-items: center;
@@ -657,7 +736,10 @@ textarea.cap-input {
 .cap-nav__n {
   margin-left: auto;
   font-size: 12.5px;
-  opacity: 0.75;
+  color: var(--ink-subtle);
+}
+.cap-nav__item[aria-current='page'] .cap-nav__n {
+  color: inherit;
 }
 .cap-nav__group {
   padding: 18px 12px 6px;
@@ -677,6 +759,11 @@ textarea.cap-input {
 }
 .cap-main__inner--narrow {
   max-width: 760px;
+}
+/* Focus lands on the page title (or main) after a section change or the skip link; it is not a control to ring. */
+.cap-main:focus-visible,
+.cap-h1[tabindex='-1']:focus-visible {
+  box-shadow: none;
 }
 .cap-pagehead {
   display: flex;
@@ -747,8 +834,15 @@ textarea.cap-input {
   font-size: 17px;
   font-weight: 600;
 }
+.cap-card__title[tabindex='-1']:focus-visible {
+  box-shadow: none;
+}
 .cap-card__body {
   padding: 16px 18px;
+}
+/* A result or confirmation under the row whose button produced it. */
+.cap-card__msg {
+  padding: 0 18px 16px;
 }
 .cap-setting {
   display: flex;
@@ -778,6 +872,9 @@ textarea.cap-input {
   align-items: center;
   gap: var(--space-2);
   flex-wrap: wrap;
+}
+.cap-setting.is-disabled .cap-setting__title {
+  color: var(--ink-subtle);
 }
 .cap-stat {
   display: flex;
@@ -859,6 +956,12 @@ textarea.cap-input {
 .cap-entry.is-known .cap-entry__body {
   color: var(--ink-muted);
 }
+/* Stacked entries: the headword takes the full row instead of keeping its column. */
+@media (max-width: 760px) {
+  .cap-entry__head {
+    flex: 1 1 100%;
+  }
+}
 .cap-ctx {
   padding: 10px 12px;
   border-radius: var(--radius-md);
@@ -876,11 +979,24 @@ textarea.cap-input {
   padding-top: var(--space-3);
   border-top: 1px solid var(--line);
 }
+/* Focus lands here when Explain, Retry or Regenerate gives way to the answer; the answer shows no ring. */
+.cap-tutor:focus,
+.cap-tutor:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+.cap-tutor--idle {
+  padding-top: 10px;
+}
+/* A long word in "Explain “…” in context" shortens instead of widening the card. */
+.cap-tutor__explain {
+  max-width: 100%;
+}
 .cap-tutor__label {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 6px;
+  margin: 0 0 6px;
   font-size: 12.5px;
   font-weight: 700;
   color: var(--accent);
@@ -894,6 +1010,17 @@ textarea.cap-input {
 .cap-tutor__text strong {
   color: var(--ink);
 }
+.cap-tutor__error {
+  color: var(--danger);
+}
+.cap-tutor__detail {
+  margin-top: 2px;
+  font-size: 12px;
+}
+.cap-tutor__actions {
+  margin-top: var(--space-2);
+  font-size: 13px;
+}
 .cap-tutor__text ul,
 .cap-tutor__text ol {
   margin: 4px 0 6px;
@@ -906,6 +1033,19 @@ textarea.cap-input {
   margin-top: var(--space-2);
   font-size: 12px;
   color: var(--ink-subtle);
+}
+/* Copy and Save to notes say what they did for a moment, in words next to a check. */
+.cap-tutor__meta .cap-iconbtn.is-done,
+.cap-tutor__meta .cap-iconbtn.is-failed {
+  width: auto;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+}
+.cap-tutor__meta .cap-iconbtn.is-done {
+  color: var(--known);
+}
+.cap-tutor__meta .cap-iconbtn.is-failed {
+  color: var(--danger);
 }
 .cap-tutor__q {
   margin-top: var(--space-3);
@@ -930,10 +1070,14 @@ textarea.cap-input {
   font: inherit;
   font-size: 13.5px;
 }
-.cap-cursor::after {
-  content: '\258D';
+/* The streaming cursor follows the last word written: inside the last block of the Markdown (the last
+   item of a closing list), or after plain text. Its alternative text is empty, so it is not read aloud. */
+.cap-cursor > .cap-md > :last-child:not(ul, ol)::after,
+.cap-cursor > .cap-md > :is(ul, ol):last-child > li:last-child::after,
+.cap-cursor:not(:has(> .cap-md))::after {
+  content: '\258D' / '';
   margin-left: 1px;
-  color: var(--accent);
+  color: var(--cursor-color, var(--accent));
   animation: cap-blink 1s steps(2) infinite;
 }
 .cap-spinner {
@@ -958,7 +1102,9 @@ textarea.cap-input {
 }
 @media (prefers-reduced-motion: reduce) {
   .cap-spinner,
-  .cap-cursor::after {
+  .cap-cursor > .cap-md > :last-child::after,
+  .cap-cursor > .cap-md > :last-child > li:last-child::after,
+  .cap-cursor:not(:has(> .cap-md))::after {
     animation: none;
   }
 }
@@ -1054,7 +1200,7 @@ textarea.cap-input {
 
 /* native look-up: floats over the video in the host's menu style */
 .cap-lookup--native {
-  width: 300px;
+  width: 330px;
   padding: 12px 0 6px;
   border-radius: var(--radius-md);
   background: var(--player-surface);
@@ -1133,6 +1279,13 @@ textarea.cap-input {
 .cap-lookup__ask input::placeholder {
   color: var(--player-ink-muted);
 }
+/* The pill is the field: it takes the focus ring, not the bare input inside it. */
+.cap-lookup__ask input:focus-visible {
+  box-shadow: none;
+}
+.cap-lookup__ask:has(input:focus-visible) {
+  box-shadow: var(--focus-ring);
+}
 .cap-lookup__arrow {
   position: absolute;
   left: 50%;
@@ -1148,14 +1301,40 @@ textarea.cap-input {
   font-size: 13.5px;
   color: var(--player-ink-muted);
 }
-.cap-lookup__note a {
+.cap-lookup__note a,
+.cap-lookup__link {
   color: var(--player-ink);
   text-decoration: underline;
+}
+/* A text action inside a sentence of the native card (Retry, Undo). */
+.cap-lookup__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
 }
 .cap-lookup__error {
   padding: 4px 16px 0;
   font-size: 13.5px;
-  color: var(--danger);
+  color: var(--player-danger);
+}
+/* The player's surface is dark on every skin, even on YouTube's light page: links, the spinner and the
+   streaming cursor take the player's colours, not the page's. */
+:where(.cap-lookup--native, .cap-menu:not(.cap-menu--page)) a {
+  color: var(--player-link);
+}
+.cap-lookup--native .cap-lookup__links .cap-link {
+  color: var(--player-link);
+  text-decoration: none;
+}
+.cap-lookup--native .cap-spinner {
+  border-color: var(--player-line);
+  border-top-color: var(--player-accent);
+}
+/* The cursor sits on a descendant's ::after, so the colour travels down as a property. */
+.cap-lookup--native .cap-cursor {
+  --cursor-color: var(--player-accent);
 }
 
 /* word explanation: the definition under the pinned meaning, then context and examples tabs */
@@ -1227,9 +1406,11 @@ textarea.cap-input {
 .cap-chunk__meaning {
   flex: 1;
   min-width: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   color: var(--x-muted);
 }
 .cap-chunk .cap-ico {
@@ -1458,6 +1639,24 @@ textarea.cap-input {
   text-decoration: underline solid var(--freq-vrare) 2px;
   text-underline-offset: 0.24em;
 }
+/* On the video and in the drawer the ground is dark on every skin, so the bands take caption colours. */
+.cap-cap .cap-w.f-mid,
+.cap-lyric .cap-w.f-mid {
+  text-decoration-color: var(--caption-freq-mid);
+}
+.cap-cap .cap-w.f-rare,
+.cap-lyric .cap-w.f-rare {
+  text-decoration-color: var(--caption-freq-rare);
+}
+.cap-cap .cap-w.f-vrare,
+.cap-lyric .cap-w.f-vrare {
+  text-decoration-color: var(--caption-freq-vrare);
+}
+/* A word never breaks across lines (CJK lines have no spaces); lines still break between words. */
+.cap-cap .cap-w,
+.cap-lyric__text .cap-w {
+  white-space: nowrap;
+}
 .cap-panel .cap-w.is-learn,
 .cap-reader .cap-w.is-learn {
   text-decoration-color: var(--learn-line);
@@ -1494,7 +1693,7 @@ textarea.cap-input {
   background: transparent;
   color: var(--player-ink);
 }
-.cap-playerbtn[aria-pressed='true']::after {
+.cap-playerbtn.is-on::after {
   content: '';
   position: absolute;
   left: 12px;
@@ -1531,6 +1730,7 @@ textarea.cap-input {
   width: 290px;
   padding: 6px;
   border-radius: var(--radius-lg);
+  backdrop-filter: blur(30px) saturate(1.6);
 }
 .cap-menu__head {
   display: flex;
@@ -1597,6 +1797,26 @@ textarea.cap-input {
   flex: 1;
   min-width: 0;
 }
+/* In a row the value takes the room left after the label and shortens first, right-aligned as in
+   YouTube's settings menu; the switch or chevron sits at the end either way. */
+.cap-menu__item .cap-menu__label {
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cap-menu__item .cap-menu__value {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cap-menu__item > .cap-pswitch,
+.cap-menu__item > .cap-menu__chev {
+  margin-left: auto;
+}
 .cap-menu__value {
   color: var(--player-ink-muted);
 }
@@ -1624,10 +1844,13 @@ textarea.cap-input {
   background: var(--player-switch-knob-off);
   transition: transform 0.15s;
 }
-.cap-pswitch[aria-checked='true'] {
+/* A switch button says its state with aria-checked; a menu row's switch (a picture of one) with is-on. */
+.cap-pswitch[aria-checked='true'],
+.cap-pswitch.is-on {
   background: var(--player-switch-on);
 }
-.cap-pswitch[aria-checked='true']::after {
+.cap-pswitch[aria-checked='true']::after,
+.cap-pswitch.is-on::after {
   transform: translateX(16px);
   background: var(--player-switch-knob-on);
 }
@@ -1642,7 +1865,8 @@ textarea.cap-input {
   height: 22px;
   background: #ffffff;
 }
-[data-theme='appletv'] .cap-pswitch[aria-checked='true']::after {
+[data-theme='appletv'] .cap-pswitch[aria-checked='true']::after,
+[data-theme='appletv'] .cap-pswitch.is-on::after {
   transform: translateX(18px);
 }
 .cap-toast {
@@ -2001,12 +2225,18 @@ textarea.cap-input {
   border: 1px solid var(--line);
   text-align: center;
 }
+/* The card takes focus as it turns, so the next Tab starts inside it; it is not a control and draws no ring. */
+.cap-flash:focus-visible {
+  box-shadow: none;
+}
 .cap-flash__word {
+  min-width: 0;
   font-family: var(--font-display);
   font-size: 56px;
   line-height: 1;
   font-weight: 600;
   letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
 }
 .cap-progress {
   height: 3px;
@@ -2022,12 +2252,12 @@ textarea.cap-input {
 }
 
 /* ---------- toolbar pop-up ---------- */
+/* As wide as the page (pages.css), and short enough for Chrome's 600px limit in the usual states. */
 .cap-popup {
-  width: 360px;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  padding: 18px;
+  gap: var(--space-3);
+  padding: 14px 18px;
   background: var(--surface-raised);
   color: var(--ink);
   font-family: var(--font-sans);
@@ -2035,7 +2265,7 @@ textarea.cap-input {
 .cap-tile {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-2);
   padding: 12px;
   border-radius: var(--radius-md);
   background: var(--surface-sunk);
@@ -2055,6 +2285,21 @@ textarea.cap-input {
 .cap-tile__sub {
   font-size: 12px;
   color: var(--ink-subtle);
+}
+.cap-tile__text {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--ink-muted);
+}
+/* A reminder on one line: what is left to do, and the button that does it. */
+.cap-tile--row {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 8px 8px 8px 12px;
+}
+.cap-tile--row .cap-btn {
+  flex: none;
 }
 .cap-sentence-pick {
   display: inline-flex;
@@ -2113,10 +2358,13 @@ textarea.cap-input {
 .cap-panel .cap-gap.is-selected,
 .cap-reader .cap-w:hover,
 .cap-reader .cap-gap.is-selected,
-.cap-lookup:not(.cap-lookup--native) .cap-w:hover {
+.cap-lookup:not(.cap-lookup--native) .cap-w:hover,
+.cap-lookup:not(.cap-lookup--native) .cap-gap.is-selected {
   background: var(--state-hover);
 }
-.cap-reader .cap-w.is-selected {
+/* The caption's translucent white disappears on paper: a selection there is marked as in the reader. */
+.cap-reader .cap-w.is-selected,
+.cap-lookup:not(.cap-lookup--native) .cap-w.is-selected {
   background: var(--state-hover);
   outline: 2px solid var(--accent);
   outline-offset: 1px;
@@ -2131,10 +2379,11 @@ textarea.cap-input {
 .cap-sent__tr.is-blurred {
   filter: blur(4px);
 }
-.cap-cap--tr.is-blurred:hover,
-.cap-cue__tr.is-blurred:hover,
-.cap-lyric__tr.is-blurred:hover,
-.cap-sent__tr.is-blurred:hover {
+/* A blurred translation shows under the pointer, or when it (or something in it) has keyboard focus. */
+.cap-cap--tr.is-blurred:is(:hover, :focus, :focus-within),
+.cap-cue__tr.is-blurred:is(:hover, :focus, :focus-within),
+.cap-lyric__tr.is-blurred:is(:hover, :focus, :focus-within),
+.cap-sent__tr.is-blurred:is(:hover, :focus, :focus-within) {
   filter: none;
 }
 
@@ -2156,13 +2405,12 @@ textarea.cap-input {
 .cap-md li + li {
   margin-top: 2px;
 }
-.cap-md h1,
-.cap-md h2,
-.cap-md h3,
-.cap-md h4 {
+/* A model's heading, drawn as a bold line (see Markdown.tsx). */
+.cap-md .cap-md__h {
   margin: 8px 0 4px;
-  font-size: 1em;
-  font-weight: 700;
+}
+.cap-md > .cap-md__h:first-child {
+  margin-top: 0;
 }
 .cap-md code {
   padding: 0 4px;
@@ -2194,6 +2442,7 @@ textarea.cap-input {
   text-align: left;
 }
 .cap-lookup__scroll {
+  overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
@@ -2209,6 +2458,10 @@ textarea.cap-input {
 }
 .cap-lookup--native.is-fixed {
   position: fixed;
+}
+/* The card takes focus only to hold the keyboard while it is open; it is not a control and draws no ring. */
+.cap-lookup--native:focus-visible {
+  box-shadow: var(--shadow-float);
 }
 .cap-lookup--native > .cap-lookup__scroll {
   padding: 12px 0 6px;
@@ -2261,6 +2514,15 @@ textarea.cap-input {
 .cap-lookup--native .cap-lookup__actions + .cap-lookup__sep {
   margin-top: 6px;
 }
+/* Longer labels ("Learning", other languages, wide page fonts in the reader) wrap the row instead of
+   pushing More out of the card. */
+.cap-lookup--native .cap-lookup__actions {
+  flex-wrap: wrap;
+  row-gap: 2px;
+}
+.cap-lookup--native .cap-lookup__actions .cap-pbtn {
+  padding: 0 8px;
+}
 [data-theme='netflix'] .cap-lookup--native,
 [data-theme='netflix'] .cap-lookup--native .cap-pbtn,
 [data-theme='netflix'] .cap-lookup--native .cap-picon,
@@ -2286,9 +2548,6 @@ textarea.cap-input {
 }
 [data-theme='appletv'] .cap-lookup--native .cap-pbtn {
   border-radius: 10px;
-}
-[data-theme='appletv'] .cap-lookup--native .cap-lookup__arrow {
-  background: #2c2c2e;
 }
 .cap-pbtn[disabled],
 .cap-picon[disabled] {
@@ -2317,6 +2576,36 @@ textarea.cap-input {
 }
 .cap-lookup:not(.cap-lookup--native) {
   padding: 16px 0 0;
+}
+.cap-lookup:not(.cap-lookup--native) .cap-lookup__word {
+  margin: 0;
+  font-weight: 600;
+}
+.cap-lookup:not(.cap-lookup--native) .cap-lookup__section {
+  margin-top: 0;
+  font-weight: 400;
+}
+/* Focus lands on the card itself when it opens; Tab moves on into it, so the card shows no ring. */
+.cap-lookup.is-floating:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-float);
+}
+.cap-lookup--docked:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+.cap-lookup__freq {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.cap-lookup__undo {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+.cap-lookup:not(.cap-lookup--native) .cap-explain__say {
+  border-radius: var(--radius-control);
 }
 .cap-lookup:not(.cap-lookup--native) .cap-lookup__word.is-sentence {
   font-family: var(--font-sans);
@@ -2355,17 +2644,17 @@ textarea.cap-input {
 .cap-playerbtn:hover {
   opacity: 1;
 }
+/* Glyph sizes for the host's buttons as first measured; --glyph-scale (PlayerButton) follows them as they resize. */
 .cap-playerbtn svg {
-  width: 24px;
-  height: 24px;
+  --glyph: 24px;
+  width: calc(var(--glyph) * var(--glyph-scale, 1));
+  height: calc(var(--glyph) * var(--glyph-scale, 1));
 }
 [data-theme='appletv'] .cap-playerbtn svg {
-  width: 22px;
-  height: 22px;
+  --glyph: 22px;
 }
 [data-theme='netflix'] .cap-playerbtn svg {
-  width: 28px;
-  height: 28px;
+  --glyph: 28px;
 }
 .cap-fab {
   cursor: pointer;
@@ -2429,8 +2718,23 @@ textarea.cap-input {
   top: 16px;
   left: 50%;
   z-index: var(--layer-toast);
+  width: max-content;
+  max-width: calc(100% - 32px);
   transform: translateX(-50%);
   pointer-events: auto;
+}
+/* A short toast keeps one line where it fits; on a small player it wraps inside the player instead of
+   being cut off at its edges. */
+.cap-overlay__toast:not(.is-wrapping) {
+  height: auto;
+  min-height: 34px;
+  padding-block: 7px;
+  white-space: normal;
+}
+.cap-toast__action {
+  height: 28px;
+  margin-right: -2px;
+  flex: none;
 }
 .cap-overlay__fab {
   position: absolute;
@@ -2449,11 +2753,13 @@ textarea.cap-input {
   z-index: var(--layer-menu);
   pointer-events: auto;
 }
+/* Over the video the drawer stops above the host's controls (--drawer-bottom, measured by the overlay);
+   beside the video (Netflix makes room for it) it runs the full height. */
 .cap-overlay__drawer {
   position: absolute;
   top: 0;
   right: 0;
-  bottom: 0;
+  bottom: var(--drawer-bottom, 0px);
   height: auto;
   z-index: var(--layer-captions);
   pointer-events: auto;
@@ -2461,7 +2767,7 @@ textarea.cap-input {
 [data-theme='appletv'] .cap-overlay__drawer {
   top: 16px;
   right: 16px;
-  bottom: 16px;
+  bottom: max(16px, var(--drawer-bottom, 0px));
   backdrop-filter: blur(30px) saturate(1.6);
 }
 
@@ -2478,10 +2784,13 @@ textarea.cap-input {
 div.cap-menu__item {
   cursor: default;
 }
-.cap-menu__item:focus-visible {
+/* Keyboard focus keeps the hover fill and adds a ring inside the row, which the menu's edge cannot clip. */
+.cap-menu__item:focus-visible,
+.cap-menu__opt:focus-visible,
+.cap-menu__back:focus-visible {
   outline: 2px solid transparent;
   background: var(--player-hover);
-  box-shadow: none;
+  box-shadow: inset 0 0 0 2px var(--player-ink);
 }
 .cap-menu__item[disabled] {
   opacity: 0.45;
@@ -2529,28 +2838,39 @@ div.cap-menu__item {
 }
 .cap-menu--page .cap-menu__item:hover,
 .cap-menu--page .cap-menu__item:focus-visible,
-.cap-menu--page .cap-menu__back:hover {
+.cap-menu--page .cap-menu__back:hover,
+.cap-menu--page .cap-menu__back:focus-visible {
   background: var(--state-hover);
+}
+.cap-menu--page .cap-menu__item:focus-visible,
+.cap-menu--page .cap-menu__back:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--ink);
 }
 .cap-menu--page .cap-menu__sep {
   background: var(--line);
 }
 /* Switches on host panels (the subtitle panel, its menu) sit on the page, not on the video. */
-.cap-menu--page .cap-pswitch:not([aria-checked='true']),
-.cap-panel .cap-pswitch:not([aria-checked='true']) {
+.cap-menu--page .cap-pswitch:not([aria-checked='true'], .is-on),
+.cap-panel .cap-pswitch:not([aria-checked='true'], .is-on) {
   background: var(--switch-off);
   box-shadow: inset 0 0 0 1px var(--line-strong);
 }
-.cap-menu--page .cap-pswitch:not([aria-checked='true'])::after,
-.cap-panel .cap-pswitch:not([aria-checked='true'])::after {
+/* The hairline above would replace the focus ring; keep both. */
+.cap-panel .cap-pswitch:not([aria-checked='true']):focus-visible {
+  box-shadow:
+    inset 0 0 0 1px var(--line-strong),
+    var(--focus-ring);
+}
+.cap-menu--page .cap-pswitch:not([aria-checked='true'], .is-on)::after,
+.cap-panel .cap-pswitch:not([aria-checked='true'], .is-on)::after {
   background: var(--switch-knob-off);
 }
-.cap-menu--page .cap-pswitch[aria-checked='true'],
-.cap-panel .cap-pswitch[aria-checked='true'] {
+.cap-menu--page .cap-pswitch:is([aria-checked='true'], .is-on),
+.cap-panel .cap-pswitch:is([aria-checked='true'], .is-on) {
   background: var(--switch-on);
 }
-.cap-menu--page .cap-pswitch[aria-checked='true']::after,
-.cap-panel .cap-pswitch[aria-checked='true']::after {
+.cap-menu--page .cap-pswitch:is([aria-checked='true'], .is-on)::after,
+.cap-panel .cap-pswitch:is([aria-checked='true'], .is-on)::after {
   background: var(--switch-knob-on);
 }
 .cap-menu--wide {
@@ -2619,7 +2939,7 @@ div.cap-menu__item {
   margin-left: auto;
   font-size: 13px;
   font-weight: 400;
-  color: var(--ink-subtle);
+  color: var(--player-ink-muted);
 }
 .cap-pswitch {
   cursor: pointer;
@@ -2765,6 +3085,15 @@ div.cap-menu__item {
   padding: 10px 8px;
   border-radius: var(--radius-md);
 }
+/* On a Highlighter page the panel's controls take the page's square shoulders; host skins stay round. */
+.cap-panel--page .cap-panel__search,
+.cap-panel--page .cap-hicon,
+.cap-panel--page .cap-pswitch {
+  border-radius: var(--radius-control);
+}
+.cap-panel--page .cap-pswitch::after {
+  border-radius: calc(var(--radius-control) - 1px);
+}
 
 /* ---------- subtitle drawer ---------- */
 .cap-drawer {
@@ -2793,6 +3122,24 @@ div.cap-menu__item {
   padding: 24px 28px;
   color: var(--player-ink-muted);
   font-size: 15px;
+}
+/* A failed translation, under the title, with its way out. */
+.cap-drawer__status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 16px 8px;
+  padding: 6px 6px 6px 12px;
+  border-radius: var(--radius-md);
+  background: var(--player-hover);
+  font-size: 13px;
+}
+[data-theme='netflix'] .cap-drawer__status {
+  border-radius: var(--radius-xs);
+}
+.cap-drawer__status .cap-pbtn {
+  height: 28px;
+  flex: none;
 }
 [data-theme='appletv'] .cap-drawer__head {
   padding: 22px 12px 12px 24px;
@@ -2897,8 +3244,9 @@ div.cap-menu__item {
   border-radius: var(--radius-xs);
   background: var(--surface-raised);
 }
+/* The ring is on the thumb; the transparent outline still shows in forced-colours mode. */
 .cap-range__input:focus-visible {
-  outline: none;
+  outline: 2px solid transparent;
   box-shadow: none;
 }
 .cap-range__input:focus-visible::-webkit-slider-thumb {
@@ -2907,8 +3255,11 @@ div.cap-menu__item {
 .cap-segment button {
   cursor: pointer;
 }
-.cap-segment button:hover:not([aria-pressed='true']) {
+.cap-segment button:hover:not([aria-pressed='true'], [aria-selected='true'], :disabled) {
   color: var(--ink);
+}
+.cap-segment button:disabled {
+  cursor: default;
 }
 .cap-segment[aria-disabled='true'] {
   opacity: 0.45;
@@ -2943,7 +3294,7 @@ a.cap-btn:hover {
 .cap-btn--danger-fill:hover {
   background: var(--danger);
   border-color: var(--danger);
-  color: #ffffff;
+  color: var(--on-danger);
   font-weight: 600;
 }
 .cap-btn--danger-fill:hover {
@@ -3100,30 +3451,62 @@ a.cap-btn:hover {
   .cap-switch::after,
   .cap-pswitch::after,
   .cap-overlay__fab,
+  .cap-overlay__captions,
   .cap-cap--tr.is-blurred,
-  .cap-cue__tr.is-blurred {
+  .cap-cue__tr.is-blurred,
+  .cap-lyric__tr.is-blurred,
+  .cap-sent__tr.is-blurred {
     transition: none;
   }
 }
 
-/* YouTube keeps its control bar under the drawer in fullscreen. */
-[data-theme^='youtube'] .cap-overlay__drawer {
-  bottom: 64px;
-}
 .cap-field > .cap-segment,
 .cap-field > .cap-select,
 .cap-field > .cap-range {
   align-self: flex-start;
 }
 
-/* Long values ("Spanish (auto-generated)") shorten instead of pushing the label onto two lines. */
-.cap-menu__item .cap-menu__label {
-  white-space: nowrap;
-}
-.cap-menu__item .cap-menu__value {
-  min-width: 0;
-  max-width: 60%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+/* ---------- Windows high contrast ---------- */
+/* Forced colours replace backgrounds and drop box-shadows, so every state drawn only with them (switch
+   knobs, pressed segments and chips, the current page or line) is redrawn with system colours. */
+@media (forced-colors: active) {
+  .cap-switch,
+  .cap-pswitch {
+    border: 1px solid CanvasText;
+  }
+  .cap-switch::after,
+  .cap-pswitch::after {
+    background: CanvasText;
+  }
+  .cap-switch[aria-checked='true'],
+  .cap-pswitch:is([aria-checked='true'], .is-on) {
+    background: Highlight;
+  }
+  .cap-switch[aria-checked='true']::after,
+  .cap-pswitch:is([aria-checked='true'], .is-on)::after {
+    background: HighlightText;
+  }
+  .cap-segment button[aria-pressed='true'],
+  .cap-chip[aria-pressed='true'],
+  .cap-nchip[aria-pressed='true'],
+  .cap-status__btn[aria-pressed='true'],
+  .cap-pbtn[aria-pressed='true'],
+  .cap-root .cap-nav__item[aria-current='page'],
+  .cap-cue[aria-current='true'],
+  .cap-lyric[aria-current='true'],
+  .cap-sent.is-active,
+  .cap-combo__list li.is-active {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+  .cap-root :focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+  .cap-range__input::-webkit-slider-runnable-track {
+    background: CanvasText;
+  }
+  .cap-range__input::-moz-range-track {
+    background: CanvasText;
+  }
 }

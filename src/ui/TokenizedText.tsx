@@ -30,6 +30,8 @@ interface Props {
   freq?: Map<string, number> | null;
   /** Token range whose look-up is open. */
   selected?: [number, number] | null;
+  /** Over a video Space plays and pauses, so only Enter looks a word up. */
+  spaceIsPlayback?: boolean;
 }
 
 function unionRect(a: DOMRect, b: DOMRect): AnchorRect {
@@ -43,9 +45,21 @@ const STATUS_CLASS = { learning: 'is-learn', known: 'is-known' } as const;
 /**
  * Subtitle/sentence text split into clickable words. Click a word to look it up;
  * press on one word and drag to another, or Shift+click a second word, to select a phrase.
+ * From the keyboard the line is one tab stop: arrow keys move between words, Enter or Space looks one up,
+ * and Shift+Enter grows the last selection to the focused word.
  * Saved words and phrases are marked by learning status (a dotted underline; see `cap-w` in components.css).
  */
-export const TokenizedText = memo(function TokenizedText({ text, lang, index, highlight, onSelect, className, freq, selected }: Props) {
+export const TokenizedText = memo(function TokenizedText({
+  text,
+  lang,
+  index,
+  highlight,
+  onSelect,
+  className,
+  freq,
+  selected,
+  spaceIsPlayback,
+}: Props) {
   const { m } = useI18n();
   const tokens = useMemo(() => tokenize(text, lang), [text, lang]);
   const phraseOf = useMemo(() => {
@@ -70,37 +84,74 @@ export const TokenizedText = memo(function TokenizedText({ text, lang, index, hi
     if (selected) lastSelection.current = { text, range: selected };
   }, [text, selected?.[0], selected?.[1]]);
 
+  const commit = (start: number, end: number) => {
+    if (!onSelect) return;
+    const a = Math.min(start, end);
+    const b = Math.max(start, end);
+    const first = spans.current.get(a);
+    const last = spans.current.get(b);
+    if (!first || !last) return;
+    const selected = text.slice(tokens[a].index, tokens[b].index + tokens[b].text.length);
+    const words = tokens.slice(a, b + 1).filter((t) => t.word).length;
+    lastSelection.current = { text, range: [a, b] };
+    onSelect({
+      text: selected,
+      words,
+      rect: unionRect(first.getBoundingClientRect(), last.getBoundingClientRect()),
+      range: [a, b],
+    });
+  };
+  // Where a selection starts: the word itself, or (Shift) the far end of the last selection in this line.
+  const anchorFor = (i: number, extend: boolean) => {
+    const prev = extend && lastSelection.current?.text === text ? lastSelection.current.range : null;
+    return prev ? (i < prev[0] ? prev[1] : prev[0]) : i;
+  };
+
   const dragging = drag !== null;
   useEffect(() => {
     if (!dragging) return;
     const finish = () => {
       const d = dragRef.current;
       setDrag(null);
-      if (!d || !onSelect) return;
-      const a = Math.min(d.start, d.end);
-      const b = Math.max(d.start, d.end);
-      const first = spans.current.get(a);
-      const last = spans.current.get(b);
-      if (!first || !last) return;
-      const selected = text.slice(tokens[a].index, tokens[b].index + tokens[b].text.length);
-      const words = tokens.slice(a, b + 1).filter((t) => t.word).length;
-      lastSelection.current = { text, range: [a, b] };
-      onSelect({
-        text: selected,
-        words,
-        rect: unionRect(first.getBoundingClientRect(), last.getBoundingClientRect()),
-        range: [a, b],
-      });
+      if (d) commit(d.start, d.end);
     };
     window.addEventListener('pointerup', finish, { once: true });
     return () => window.removeEventListener('pointerup', finish);
   }, [dragging]);
 
+  // The word that holds the line's one tab stop (roving tabindex).
+  const [cursor, setCursor] = useState(-1);
+  const wordIndexes = useMemo(() => tokens.flatMap((t, i) => (t.word ? [i] : [])), [tokens]);
+  const tabStop = wordIndexes.includes(cursor) ? cursor : (wordIndexes[0] ?? -1);
+  const rtl = isRtl(lang);
+  const onWordKey = (e: React.KeyboardEvent, i: number) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    let next = -1;
+    const at = wordIndexes.indexOf(i);
+    if (e.key === 'Enter' || (e.key === ' ' && !spaceIsPlayback)) {
+      e.preventDefault();
+      e.stopPropagation();
+      commit(anchorFor(i, e.shiftKey), i);
+      return;
+    } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      const forward = (e.key === 'ArrowRight') !== rtl;
+      next = wordIndexes[at + (forward ? 1 : -1)] ?? -1;
+    } else if (e.key === 'Home') next = wordIndexes[0];
+    else if (e.key === 'End') next = wordIndexes[wordIndexes.length - 1];
+    else return;
+    // Arrow keys stay in the line rather than seeking the video or scrolling the page.
+    e.preventDefault();
+    e.stopPropagation();
+    if (next < 0) return;
+    setCursor(next);
+    spans.current.get(next)?.focus();
+  };
+
   const lo = drag ? Math.min(drag.start, drag.end) : (selected?.[0] ?? -1);
   const hi = drag ? Math.max(drag.start, drag.end) : (selected?.[1] ?? -1);
 
   return (
-    <span className={className} dir={isRtl(lang) ? 'rtl' : undefined} lang={lang}>
+    <span className={className} dir={rtl ? 'rtl' : undefined} lang={lang}>
       {tokens.map((t, i) => {
         const inPhrase = phraseOf.get(i);
         if (!t.word) {
@@ -132,13 +183,16 @@ export const TokenizedText = memo(function TokenizedText({ text, lang, index, hi
             }}
             className={cls}
             title={freqCls ? (rank ? m.lookup.freqRankTitle(rank.toLocaleString()) : m.lookup.rareWordTitle) : undefined}
+            role={onSelect ? 'button' : undefined}
+            tabIndex={onSelect ? (i === tabStop ? 0 : -1) : undefined}
+            onFocus={onSelect ? () => setCursor(i) : undefined}
+            onKeyDown={onSelect ? (e) => onWordKey(e, i) : undefined}
             onPointerDown={(e) => {
               if (e.button !== 0) return;
               e.preventDefault();
               e.stopPropagation();
               // Shift+click grows the last selection in this line to take in this word (a word inside it trims it back).
-              const prev = e.shiftKey && lastSelection.current?.text === text ? lastSelection.current.range : null;
-              setDrag({ start: prev ? (i < prev[0] ? prev[1] : prev[0]) : i, end: i });
+              setDrag({ start: anchorFor(i, e.shiftKey), end: i });
             }}
             onPointerEnter={() => {
               if (dragRef.current) setDrag({ ...dragRef.current, end: i });

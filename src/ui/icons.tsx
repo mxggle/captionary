@@ -1,5 +1,9 @@
 import type { SVGProps } from 'react';
 
+/** Icons are decoration, hidden from screen readers; given an aria-label, one is an image with that name. */
+const a11y = (props: SVGProps<SVGSVGElement>) =>
+  props['aria-label'] ? { role: 'img', ...props } : { 'aria-hidden': true as const, ...props };
+
 const base = (props: SVGProps<SVGSVGElement>) => ({
   viewBox: '0 0 24 24',
   fill: 'none',
@@ -7,8 +11,7 @@ const base = (props: SVGProps<SVGSVGElement>) => ({
   strokeWidth: 2,
   strokeLinecap: 'round' as const,
   strokeLinejoin: 'round' as const,
-  'aria-hidden': true,
-  ...props,
+  ...a11y(props),
 });
 
 export const IconPrev = (p: SVGProps<SVGSVGElement>) => (
@@ -155,7 +158,7 @@ export const IconArrowRight = (p: SVGProps<SVGSVGElement>) => (
 );
 /** Three dots in a row: "more actions". */
 export const IconMore = (p: SVGProps<SVGSVGElement>) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...p}>
+  <svg viewBox="0 0 24 24" fill="currentColor" {...a11y(p)}>
     <circle cx="5" cy="12" r="1.8" />
     <circle cx="12" cy="12" r="1.8" />
     <circle cx="19" cy="12" r="1.8" />
@@ -163,7 +166,7 @@ export const IconMore = (p: SVGProps<SVGSVGElement>) => (
 );
 /** Three dots in a column: "more" in host panels. */
 export const IconMoreVertical = (p: SVGProps<SVGSVGElement>) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...p}>
+  <svg viewBox="0 0 24 24" fill="currentColor" {...a11y(p)}>
     <circle cx="12" cy="5" r="1.8" />
     <circle cx="12" cy="12" r="1.8" />
     <circle cx="12" cy="19" r="1.8" />
@@ -188,6 +191,13 @@ export const IconDocument = (p: SVGProps<SVGSVGElement>) => (
     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
     <path d="M14 2v6h6" />
     <path d="M8 13h8M8 17h6" />
+  </svg>
+);
+/** A pen on a page: the learner's own note (not "save", which is the bookmark). */
+export const IconNote = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+    <path d="M18.4 2.6a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4Z" />
   </svg>
 );
 /** A single four-point spark: the tutor in navigation. */
@@ -269,7 +279,7 @@ export const IconGlyph = (p: SVGProps<SVGSVGElement>) => (
 
 /** The app icon drawn with tokens, so it inverts with the page theme (ink square, highlighted word). */
 export const BrandMark = (p: SVGProps<SVGSVGElement>) => (
-  <svg className="cap-brandmark" viewBox="0 0 128 128" aria-hidden {...p}>
+  <svg className="cap-brandmark" viewBox="0 0 128 128" {...a11y(p)}>
     <rect x="4" y="4" width="120" height="120" rx="30" style={{ fill: 'var(--primary)' }} />
     <path d="M52 26 L84 45 L52 64 Z" style={{ fill: 'var(--on-primary)' }} />
     <rect x="18" y="76" width="27" height="14" rx="7" style={{ fill: 'var(--on-primary)' }} />

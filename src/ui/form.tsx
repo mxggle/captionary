@@ -11,7 +11,7 @@ import {
   watchSettings,
   type Settings,
 } from '@/lib/settings';
-import { Select, type SelectOption } from './controls';
+import { Select, useRowHelp, type SelectOption } from './controls';
 
 export function useSettings(): [Settings | null, (fn: (s: Settings) => void) => Promise<unknown>] {
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -96,10 +96,12 @@ export function CommitInput({
   React.InputHTMLAttributes<HTMLInputElement>,
   'value' | 'onChange'
 >) {
+  const rowHelp = useRowHelp();
   const [draft, setDraft] = useState(value);
   useEffect(() => setDraft(value), [value]);
   return (
     <input
+      aria-describedby={rowHelp}
       {...rest}
       className={className}
       value={draft}
@@ -131,6 +133,7 @@ export function NumberInput({
   label?: string;
   id?: string;
 }) {
+  const rowHelp = useRowHelp();
   const [draft, setDraft] = useState(String(value));
   useEffect(() => setDraft(String(value)), [value]);
   const commit = () => {
@@ -148,6 +151,7 @@ export function NumberInput({
       inputMode="numeric"
       className="cap-input"
       aria-label={id ? undefined : label}
+      aria-describedby={rowHelp}
       style={{ width, minWidth: 0 }}
       value={draft}
       min={min}

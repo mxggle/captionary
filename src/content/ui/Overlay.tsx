@@ -11,6 +11,8 @@ import { HostRoot } from './HostRoot';
 import { LookupHost } from './LookupHost';
 import { PlayerMenu } from './PlayerMenu';
 import { SubtitleDrawer } from './SubtitleDrawer';
+import { TranslationErrorAction } from './TranslationError';
+import { sourceKey, translationLang } from './subtitles';
 
 export function useToast(): ToastMessage | null {
   const [message, setMessage] = useState<ToastMessage | null>(null);
@@ -61,20 +63,25 @@ function usePointerActivity(rootRef: React.RefObject<HTMLElement | null>): boole
 }
 
 /**
- * The status badge over the video: loading, no subtitles (fades after a few seconds) and errors
- * (stay until dismissed and say what to do).
+ * A badge over the video while `show` holds: until dismissed, or faded after `fadeMs`. It comes back
+ * when `key` (what it reports) changes.
  */
-function useStatusBadge(status: string, message: string | undefined, mediaId: string | undefined) {
-  const key = `${mediaId}:${status}:${message}`;
+function useBadge(key: string, show: boolean, fadeMs?: number) {
   const [dismissed, setDismissed] = useState<string | null>(null);
+  // A dismissal lasts until the badge goes away (a retry starts), so the same failure again shows again.
   useEffect(() => {
-    if (status !== 'none') return;
-    const t = setTimeout(() => setDismissed(key), 5000);
+    if (!show) setDismissed(null);
+  }, [show]);
+  useEffect(() => {
+    if (!show || !fadeMs) return;
+    const t = setTimeout(() => setDismissed(key), fadeMs);
     return () => clearTimeout(t);
-  }, [key, status]);
-  const visible = dismissed !== key && (status === 'loading' || status === 'error' || status === 'none');
-  return { visible, dismiss: () => setDismissed(key) };
+  }, [key, show, fadeMs]);
+  return { visible: show && dismissed !== key, dismiss: () => setDismissed(key) };
 }
+
+/** Second and third lines (romanization, translation) shrink with the player, but not below this. */
+const MIN_MINOR_LINE_PX = 12;
 
 /** Everything Captionary draws over the video: captions, toasts, the look-up, the menu and the drawer. */
 export function Overlay({ controller }: { controller: SessionController }) {
@@ -95,7 +102,11 @@ export function Overlay({ controller }: { controller: SessionController }) {
       message: st.message,
       media: st.media,
       adShowing: st.adShowing,
+      playing: st.playing,
+      tracks: st.tracks,
+      translationSource: st.translationSource,
       translationStatus: st.translationStatus,
+      translationMessage: st.translationMessage,
       popup: st.popup,
       off: st.off,
       drawerOpen: st.drawerOpen,
@@ -109,8 +120,20 @@ export function Overlay({ controller }: { controller: SessionController }) {
   const index = useVocabIndex(s.vocab, s.lang);
   const toastMessage = useToast();
   const pointerActive = usePointerActivity(rootRef);
-  const controlsClearance = useControlsClearance(rootRef, controller.adapter.controlBars);
-  const badge = useStatusBadge(s.status, s.message, s.media?.id);
+  const hostBarsClearance = useControlsClearance(rootRef, controller.adapter.controlBars);
+  const { nativeControlsHeight } = controller.adapter;
+  const controlsClearance = Math.max(hostBarsClearance, nativeControlsHeight && (!s.playing || pointerActive) ? nativeControlsHeight : 0);
+  // Loading, no subtitles (fades after a few seconds) and errors (stay until dismissed and say what to do).
+  const badge = useBadge(
+    `${s.media?.id}:${s.status}:${s.message}`,
+    s.status === 'loading' || s.status === 'error' || s.status === 'none',
+    s.status === 'none' ? 5000 : undefined,
+  );
+  // A translation that failed, reported where it would have shown.
+  const trBadge = useBadge(
+    `${s.media?.id}:${sourceKey(s.translationSource)}:${s.translationMessage}`,
+    s.translationStatus === 'error' && s.settings.subtitles.showTranslation,
+  );
   const [fabArmed, setFabArmed] = useState(false);
 
   useEffect(() => {
@@ -160,43 +183,70 @@ export function Overlay({ controller }: { controller: SessionController }) {
   const romanized = subtitles.showRomanization && s.activeIndex >= 0 ? s.romanizations[s.activeIndex] : '';
   const scale = Math.min(1.6, Math.max(0.55, width / 1000));
   const fontSize = Math.round(subtitles.fontSize * scale);
+  const minor = (factor: number) => Math.max(MIN_MINOR_LINE_PX, Math.round(fontSize * factor));
   const selected = s.popup?.surface === 'overlay' && s.popup.cueIndex === s.activeIndex ? s.popup.tokenRange : undefined;
+  const blurred = subtitles.blurTranslation;
+  // A drawer over the video stops above the host's controls; one beside it (reserveRight) runs full height.
+  const drawerBottom = controller.adapter.reserveRight ? 0 : controlsClearance;
+
+  // One notice at a time over the video: a toast, else the subtitles' status, else a failed translation.
+  let notice = null;
+  let said = '';
+  if (toastMessage) {
+    said = toastMessage.key ? `${toastMessage.text} (${toastMessage.key})` : toastMessage.text;
+    notice = (
+      <div className="cap-toast cap-overlay__toast">
+        {toastMessage.tone && (
+          <span
+            className={`cap-dot${toastMessage.tone === 'warn' ? ' cap-dot--warn' : ''}`}
+            style={toastMessage.tone === 'learn' ? { background: 'var(--learn)' } : undefined}
+          />
+        )}
+        {toastMessage.text}
+        {toastMessage.key && <span className="cap-toast__key">{toastMessage.key}</span>}
+      </div>
+    );
+  } else if (badge.visible && !s.off) {
+    said =
+      (s.status === 'loading'
+        ? m.content.overlay.loadingSubtitles
+        : s.status === 'none'
+          ? s.site === 'youtube'
+            ? m.content.overlay.noSubtitlesVideo
+            : m.content.overlay.noSubtitlesTitle
+          : s.message) ?? '';
+    notice = (
+      <div className={`cap-toast cap-overlay__toast${s.status === 'error' ? ' is-wrapping' : ''}`}>
+        {s.status === 'loading' ? <span className="cap-spinner" /> : <span className="cap-dot cap-dot--warn" />}
+        <span className="cap-spacer">{said}</span>
+        {s.status !== 'loading' && (
+          <button className="cap-toast__close" aria-label={m.content.overlay.dismiss} onClick={badge.dismiss}>
+            <IconClose className="cap-ico" />
+          </button>
+        )}
+      </div>
+    );
+  } else if (trBadge.visible && !s.off && s.status === 'ready') {
+    said = m.content.panel.translationFailed(s.translationMessage);
+    notice = (
+      <div className="cap-toast cap-overlay__toast is-wrapping">
+        <span className="cap-dot cap-dot--warn" />
+        <span className="cap-spacer">{said}</span>
+        <TranslationErrorAction controller={controller} className="cap-pbtn cap-toast__action" />
+        <button className="cap-toast__close" aria-label={m.content.overlay.dismiss} onClick={trBadge.dismiss}>
+          <IconClose className="cap-ico" />
+        </button>
+      </div>
+    );
+  }
 
   return (
     <HostRoot className="cap-overlay" rootRef={rootRef}>
-      {toastMessage ? (
-        <div className="cap-toast cap-overlay__toast" role="status">
-          {toastMessage.tone && (
-            <span
-              className={`cap-dot${toastMessage.tone === 'warn' ? ' cap-dot--warn' : ''}`}
-              style={toastMessage.tone === 'learn' ? { background: 'var(--learn)' } : undefined}
-            />
-          )}
-          {toastMessage.text}
-          {toastMessage.key && <span className="cap-toast__key">{toastMessage.key}</span>}
-        </div>
-      ) : (
-        badge.visible &&
-        !s.off && (
-          <div className={`cap-toast cap-overlay__toast${s.status === 'error' ? ' is-wrapping' : ''}`} role="status">
-            {s.status === 'loading' ? <span className="cap-spinner" /> : <span className="cap-dot cap-dot--warn" />}
-            <span className="cap-spacer">
-              {s.status === 'loading'
-                ? m.content.overlay.loadingSubtitles
-                : s.status === 'none'
-                  ? s.site === 'youtube'
-                    ? m.content.overlay.noSubtitlesVideo
-                    : m.content.overlay.noSubtitlesTitle
-                  : s.message}
-            </span>
-            {s.status !== 'loading' && (
-              <button className="cap-toast__close" aria-label={m.content.overlay.dismiss} onClick={badge.dismiss}>
-                <IconClose className="cap-ico" />
-              </button>
-            )}
-          </div>
-        )
-      )}
+      {notice}
+      {/* Screen readers hear each notice from one region that is always there (a new node may go unheard). */}
+      <div className="cap-sr" role="status">
+        {said}
+      </div>
 
       {cue && !s.off && (
         <div
@@ -206,7 +256,7 @@ export function Overlay({ controller }: { controller: SessionController }) {
             left: `calc((100% - ${drawerSpace}px) / 2)`,
             maxWidth: `min(1100px, calc((100% - ${drawerSpace}px) * 0.92))`,
           }}
-          onMouseEnter={() => controller.hoverStart()}
+          onMouseEnter={() => controller.hoverStart(() => !!linesRef.current?.isConnected && linesRef.current.matches(':hover'))}
           onMouseLeave={() => controller.hoverEnd()}
           ref={linesRef}
         >
@@ -219,6 +269,7 @@ export function Overlay({ controller }: { controller: SessionController }) {
                 highlight={subtitles.highlight}
                 freq={s.frequency}
                 selected={selected}
+                spaceIsPlayback
                 onSelect={(sel) =>
                   controller.openPopup({
                     kind: 'word',
@@ -233,20 +284,22 @@ export function Overlay({ controller }: { controller: SessionController }) {
             </div>
           )}
           {romanized && (
-            <div className="cap-cap cap-cap--roman" style={{ fontSize: Math.round(fontSize * 0.62) }}>
+            <div className="cap-cap cap-cap--roman" style={{ fontSize: minor(0.62) }}>
               {romanized}
             </div>
           )}
           {subtitles.showTranslation && translation && (
             <div
-              className={`cap-cap cap-cap--tr${subtitles.blurTranslation ? ' is-blurred' : ''}`}
-              style={{ fontSize: Math.round(fontSize * subtitles.translationScale) }}
+              className={`cap-cap cap-cap--tr${blurred ? ' is-blurred' : ''}`}
+              style={{ fontSize: minor(subtitles.translationScale) }}
+              lang={translationLang(s)}
+              tabIndex={blurred ? 0 : undefined}
             >
               {translation}
             </div>
           )}
           {subtitles.showTranslation && !translation && s.translationStatus === 'loading' && (
-            <div className="cap-cap cap-cap--pending" style={{ fontSize: Math.round(fontSize * subtitles.translationScale * 0.8) }}>
+            <div className="cap-cap cap-cap--pending" style={{ fontSize: minor(subtitles.translationScale * 0.8) }}>
               {m.common.translating}
             </div>
           )}
@@ -269,7 +322,7 @@ export function Overlay({ controller }: { controller: SessionController }) {
         </button>
       )}
 
-      {drawerVisible && <SubtitleDrawer controller={controller} width={drawerWidth} />}
+      {drawerVisible && <SubtitleDrawer controller={controller} width={drawerWidth} bottom={drawerBottom} />}
       {s.site !== 'local' && <PlayerMenu controller={controller} boundsRef={rootRef} />}
       <LookupHost controller={controller} surfaces={['overlay', 'drawer']} hostRef={rootRef} />
     </HostRoot>

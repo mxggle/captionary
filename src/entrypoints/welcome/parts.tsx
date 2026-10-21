@@ -1,5 +1,5 @@
 import { browser } from '#imports';
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode, type Ref } from 'react';
 import { useI18n, type UILocale } from '@/lib/i18n';
 import { languageName } from '@/lib/languages';
 import { bg, type AIStatus } from '@/lib/messaging';
@@ -63,6 +63,7 @@ export function Foot({
   disabled,
   note,
   extra,
+  nextRef,
 }: {
   onBack?: () => void;
   onNext: () => void;
@@ -72,6 +73,8 @@ export function Foot({
   disabled?: boolean;
   note?: ReactNode;
   extra?: ReactNode;
+  /** For a step that moves focus to Continue once its task is done. */
+  nextRef?: Ref<HTMLButtonElement>;
 }) {
   const { m } = useI18n();
   return (
@@ -84,7 +87,7 @@ export function Foot({
       )}
       <span className="cap-spacer cap-wizard__note">{note}</span>
       {extra}
-      <button className={`cap-btn cap-btn--lg${quiet ? '' : ' cap-btn--primary'}`} disabled={disabled} onClick={onNext}>
+      <button ref={nextRef} className={`cap-btn cap-btn--lg${quiet ? '' : ' cap-btn--primary'}`} disabled={disabled} onClick={onNext}>
         {nextLabel ?? m.common.continue}
         <IconArrowRight className="cap-ico" />
       </button>
@@ -169,7 +172,8 @@ export function useTutorStatus(): [AIStatus | null, () => Promise<void>] {
     () =>
       bg({ type: 'ai.status' })
         .then(setStatus)
-        .catch(() => undefined),
+        // No answer from the background: the tutor counts as not set up, so its step still offers the choices.
+        .catch(() => setStatus((s) => s ?? { enabled: false, configured: false, autoExplain: false })),
     [],
   );
   useEffect(() => {

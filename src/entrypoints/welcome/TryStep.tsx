@@ -252,8 +252,8 @@ export function TryStep({ s, go }: StepProps) {
           vocab={vocab}
           mediaTitle={m.welcome.tryStep.practiceTitle}
           onSave={(status, entry) => {
-            if (!status) return void removeVocab(vocabKey(entry.text, target.lang).id);
-            void saveVocab({
+            if (!status) return removeVocab(vocabKey(entry.text, target.lang).id);
+            return saveVocab({
               lang: target.lang,
               ...entry,
               status,

@@ -24,22 +24,53 @@ interface ActiveTab {
   title?: string;
 }
 
-/** The active tab and what Captionary is doing there (the content script answers; other pages don't). */
-function useThisTab(): { tab: ActiveTab | null; status: TabStatus | null | undefined; setStatus: (s: TabStatus) => void } {
+/** What Captionary is doing in a tab: its content script answers; other pages don't (null). */
+async function askTab(tabId: number): Promise<TabStatus | null> {
+  try {
+    return ((await browser.tabs.sendMessage(tabId, { type: 'captionary.tabStatus' })) as TabStatus | undefined) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** The tab is still changing: subtitles loading, a video starting, or a switch the tab has not caught up with. */
+function settling(status: TabStatus | null | undefined, s: Settings): boolean {
+  if (!status) return false;
+  const on = s.enabled && (status.site === 'local' || s.sites[status.site]);
+  if (status.enabled !== on) return true;
+  return status.enabled && !!status.title && !status.off && (status.status === 'loading' || status.status === 'idle');
+}
+
+/** The active tab and what Captionary is doing there, asked again each second until it settles. */
+function useThisTab(s: Settings): { tab: ActiveTab | null; status: TabStatus | null | undefined; setStatus: (s: TabStatus) => void } {
   const [tab, setTab] = useState<ActiveTab | null>(null);
   const [status, setStatus] = useState<TabStatus | null | undefined>(undefined);
   useEffect(() => {
     void browser.tabs.query({ active: true, currentWindow: true }).then(async ([t]) => {
       setTab(t ?? {});
-      if (t?.id === undefined) return setStatus(null);
-      try {
-        setStatus(((await browser.tabs.sendMessage(t.id, { type: 'captionary.tabStatus' })) as TabStatus | undefined) ?? null);
-      } catch {
-        setStatus(null);
-      }
+      setStatus(t?.id === undefined ? null : await askTab(t.id));
     });
   }, []);
+  const tabId = tab?.id;
+  const changing = settling(status, s);
+  useEffect(() => {
+    if (!changing || tabId === undefined) return;
+    const t = setInterval(() => void askTab(tabId).then(setStatus), 1000);
+    return () => clearInterval(t);
+  }, [changing, tabId]);
   return { tab, status, setStatus };
+}
+
+/** The shortcut the learner gave a command in chrome://extensions/shortcuts; empty when it has none. */
+function useCommandShortcut(name: string): string {
+  const [shortcut, setShortcut] = useState('');
+  useEffect(() => {
+    void browser.commands
+      .getAll()
+      .then((all) => setShortcut(all.find((c) => c.name === name)?.shortcut ?? ''))
+      .catch(() => undefined);
+  }, [name]);
+  return shortcut;
 }
 
 function Tag({ tone, children }: { tone: 'known' | 'warn' | 'danger' | 'off' | 'loading'; children: ReactNode }) {
@@ -76,7 +107,7 @@ function hostOf(url: string | undefined): string | null {
 
 function ThisTab({ s, update }: { s: Settings; update: (fn: (s: Settings) => void) => Promise<unknown> }) {
   const { m } = useI18n(s);
-  const { tab, status, setStatus } = useThisTab();
+  const { tab, status, setStatus } = useThisTab(s);
   if (!tab || status === undefined) {
     return (
       <section className="cap-tile" aria-label={m.popup.thisTabAria} aria-busy="true">
@@ -95,7 +126,7 @@ function ThisTab({ s, update }: { s: Settings; update: (fn: (s: Settings) => voi
       {tag}
     </div>
   );
-  const text = (t: ReactNode) => <p style={{ margin: 0, fontSize: 13.5, color: 'var(--ink-muted)' }}>{t}</p>;
+  const text = (t: ReactNode) => <p className="cap-tile__text">{t}</p>;
 
   if (!status) {
     if (host && VIDEO_HOSTS.test(host)) {
@@ -133,10 +164,18 @@ function ThisTab({ s, update }: { s: Settings; update: (fn: (s: Settings) => voi
   const site = SITE_NAMES[status.site] ?? m.popup.thisSite;
   const title = status.title ? `${status.title} · ${site}` : site;
   if (!status.enabled) {
+    const key = status.site;
     return (
       <section className="cap-tile" aria-label={m.popup.thisTabAria}>
         {head(title, <Tag tone="off">{m.common.off}</Tag>)}
         {text(s.enabled ? m.popup.offOnSiteHint(site) : m.popup.offGlobalHint)}
+        {s.enabled && key !== 'local' && !s.sites[key] && (
+          <div>
+            <button className="cap-btn cap-btn--sm" onClick={() => void update((st) => void (st.sites[key] = true))}>
+              {m.popup.turnOnForSite(site)}
+            </button>
+          </div>
+        )}
       </section>
     );
   }
@@ -176,7 +215,7 @@ function ThisTab({ s, update }: { s: Settings; update: (fn: (s: Settings) => voi
               .catch(() => undefined)
           }
         >
-          {m.popup.subtitleList} <span className="cap-chip__n">{keyLabel(s.shortcuts.toggleSidebar)}</span>
+          {m.popup.subtitleList} <span className="cap-chip__n">{keyLabel(s.shortcuts.toggleSidebar, m.common.space)}</span>
         </button>
         <button
           className="cap-chip cap-chip--sm"
@@ -193,13 +232,8 @@ function ThisTab({ s, update }: { s: Settings; update: (fn: (s: Settings) => voi
 function TutorStatus({ ai, s }: { ai: AIStatus | null; s: Settings }) {
   const { m } = useI18n(s);
   if (!ai) return <div className="cap-row cap-popup__foot" />;
-  const settings = (
-    <button
-      className="cap-iconbtn cap-iconbtn--sm"
-      aria-label={m.common.settings}
-      title={m.common.settings}
-      onClick={() => open('options', 'general')}
-    >
+  const settings = (label: string, hash: string) => (
+    <button className="cap-iconbtn cap-iconbtn--sm" aria-label={label} title={label} onClick={() => open('options', hash)}>
       <IconSettings className="cap-ico" />
     </button>
   );
@@ -208,7 +242,7 @@ function TutorStatus({ ai, s }: { ai: AIStatus | null; s: Settings }) {
       <div className="cap-row cap-popup__foot">
         <span className="cap-dot cap-dot--off" />
         <span className="cap-spacer">{m.lookup.tutorOff}</span>
-        {settings}
+        {settings(m.lookup.openAISettings, 'ai')}
       </div>
     );
   }
@@ -236,7 +270,7 @@ function TutorStatus({ ai, s }: { ai: AIStatus | null; s: Settings }) {
         {m.popup.tutorFooter(ai.providerName ?? '')}
         <span className="cap-mono">{ai.model}</span>
       </span>
-      {settings}
+      {settings(m.common.settings, 'general')}
     </div>
   );
 }
@@ -250,14 +284,11 @@ function FinishSetup({ s }: { s: Settings }) {
   }, []);
   if (!progress || progress.done) return null;
   return (
-    <section className="cap-tile" aria-label={m.popup.finishSetupAria}>
-      <div className="cap-tile__title">{m.popup.finishSetupTitle}</div>
-      <p style={{ margin: 0, fontSize: 13.5, color: 'var(--ink-muted)' }}>{m.popup.finishSetupHint}</p>
-      <div>
-        <button className="cap-btn cap-btn--primary cap-btn--sm" onClick={() => open('welcome')}>
-          {m.popup.continueSetup}
-        </button>
-      </div>
+    <section className="cap-tile cap-tile--row" aria-label={m.popup.finishSetupAria}>
+      <span className="cap-tile__title cap-spacer">{m.popup.finishSetupTitle}</span>
+      <button className="cap-btn cap-btn--primary cap-btn--sm" onClick={() => open('welcome')}>
+        {m.popup.continueSetup}
+      </button>
     </section>
   );
 }
@@ -269,6 +300,7 @@ export function Popup() {
   const vocab = useVocabMap();
   const [ai, setAi] = useState<AIStatus | null>(null);
   const [windowId, setWindowId] = useState<number | undefined>();
+  const panelShortcut = useCommandShortcut('open-side-panel');
   useEffect(() => {
     void bg({ type: 'ai.status' })
       .then(setAi)
@@ -293,7 +325,7 @@ export function Popup() {
       <ThisTab s={s} update={update} />
 
       <div className="cap-popup__sentence">
-        {m.popup.imLearning}{' '}
+        <span className="cap-popup__phrase">{m.popup.imLearning}</span>{' '}
         <LanguageSelect
           variant="sentence"
           label={m.popup.imLearning}
@@ -301,7 +333,7 @@ export function Popup() {
           value={s.targetLanguage}
           onChange={(v) => void update((st) => void (st.targetLanguage = v))}
         />{' '}
-        {m.popup.andISpeak}{' '}
+        <span className="cap-popup__phrase">{m.popup.andISpeak}</span>{' '}
         <LanguageSelect
           variant="sentence"
           label={m.popup.iSpeakLabel}
@@ -343,7 +375,7 @@ export function Popup() {
             <span className="cap-go__title">{m.nav.aiTutor}</span>
             <span className="cap-go__sub">{m.popup.aiTutorSub}</span>
           </span>
-          <span className="cap-kbd">Alt L</span>
+          {panelShortcut && <span className="cap-kbd">{panelShortcut}</span>}
         </button>
       </nav>
 

@@ -18,7 +18,23 @@ import { releaseOrigins } from '@/lib/ai/host-access';
 import { clearFrequencyLists } from '@/lib/frequency';
 import { importVocab, listVocab, toAnkiTsv, toCsv, type VocabItem } from '@/lib/vocab';
 import { useVocabCount } from '@/ui/AppShell';
-import { keyLabel, Note, PageHead, Range, Segment, Select, SettingRow, SettingsCard, Switch, type Choice } from '@/ui/controls';
+import {
+  Confirm,
+  keyLabel,
+  LabelledSwitch,
+  LiveRegion,
+  Note,
+  PageHead,
+  Range,
+  Segment,
+  Select,
+  SettingRow,
+  SettingsCard,
+  Switch,
+  useConfirm,
+  useRowHelp,
+  type Choice,
+} from '@/ui/controls';
 import { LanguageSelect, useSettings } from '@/ui/form';
 import { IconExternal, IconUpload } from '@/ui/icons';
 
@@ -66,16 +82,38 @@ export function GeneralSection() {
 
       <SettingsCard
         title={g.whereRunsCard}
-        action={<Switch label={g.captionaryOnEverywhere} checked={s.enabled} onChange={(v) => set((st) => void (st.enabled = v))} />}
+        action={<LabelledSwitch label={g.masterSwitch} checked={s.enabled} onChange={(v) => set((st) => void (st.enabled = v))} />}
       >
-        <SettingRow title="YouTube">
-          {(id) => <Switch labelledBy={id} checked={s.sites.youtube} onChange={(v) => set((st) => void (st.sites.youtube = v))} />}
+        {/* Switched off, Captionary runs nowhere: the sites keep their choices but can't be changed. */}
+        <SettingRow title="YouTube" disabled={!s.enabled}>
+          {(id) => (
+            <Switch
+              labelledBy={id}
+              disabled={!s.enabled}
+              checked={s.sites.youtube}
+              onChange={(v) => set((st) => void (st.sites.youtube = v))}
+            />
+          )}
         </SettingRow>
-        <SettingRow title="Netflix">
-          {(id) => <Switch labelledBy={id} checked={s.sites.netflix} onChange={(v) => set((st) => void (st.sites.netflix = v))} />}
+        <SettingRow title="Netflix" disabled={!s.enabled}>
+          {(id) => (
+            <Switch
+              labelledBy={id}
+              disabled={!s.enabled}
+              checked={s.sites.netflix}
+              onChange={(v) => set((st) => void (st.sites.netflix = v))}
+            />
+          )}
         </SettingRow>
-        <SettingRow title="Apple TV+" help={g.appleTvHelp}>
-          {(id) => <Switch labelledBy={id} checked={s.sites.appletv} onChange={(v) => set((st) => void (st.sites.appletv = v))} />}
+        <SettingRow title="Apple TV+" help={g.appleTvHelp} disabled={!s.enabled}>
+          {(id) => (
+            <Switch
+              labelledBy={id}
+              disabled={!s.enabled}
+              checked={s.sites.appletv}
+              onChange={(v) => set((st) => void (st.sites.appletv = v))}
+            />
+          )}
         </SettingRow>
       </SettingsCard>
 
@@ -101,7 +139,7 @@ export function GeneralSection() {
             max={1.5}
             step={0.05}
             value={s.dictionary.speechRate}
-            format={(v) => `${Number(v.toFixed(2))}×`}
+            format={(v) => `${v.toFixed(2)}×`}
             onChange={(v) => set((st) => void (st.dictionary.speechRate = v))}
           />
         </SettingRow>
@@ -245,6 +283,15 @@ export function SubtitlesSection() {
             <Switch labelledBy={id} checked={sub.showTranslation} onChange={(v) => set((st) => void (st.subtitles.showTranslation = v))} />
           )}
         </SettingRow>
+        <SettingRow title={t.hideNativeSubtitles}>
+          {(id) => (
+            <Switch
+              labelledBy={id}
+              checked={sub.hideNativeSubtitles}
+              onChange={(v) => set((st) => void (st.subtitles.hideNativeSubtitles = v))}
+            />
+          )}
+        </SettingRow>
         <SettingRow title={t.romanization} help={t.romanizationHelp}>
           {(id) => (
             <Switch
@@ -298,7 +345,7 @@ export function SubtitlesSection() {
             min={14}
             max={48}
             value={sub.fontSize}
-            format={(v) => `${v} px`}
+            format={(v) => `${v}px`}
             onChange={(v) => set((st) => void (st.subtitles.fontSize = v))}
           />
         </SettingRow>
@@ -322,15 +369,6 @@ export function SubtitlesSection() {
             format={(v) => `${v}%`}
             onChange={(v) => set((st) => void (st.subtitles.bottomOffset = v))}
           />
-        </SettingRow>
-        <SettingRow title={t.hideNativeSubtitles}>
-          {(id) => (
-            <Switch
-              labelledBy={id}
-              checked={sub.hideNativeSubtitles}
-              onChange={(v) => set((st) => void (st.subtitles.hideNativeSubtitles = v))}
-            />
-          )}
         </SettingRow>
       </SettingsCard>
 
@@ -410,6 +448,9 @@ const KEY_ROWS = [
   ['z', 'x', 'c', 'v', 'b', 'n', 'm'],
 ];
 
+/** Keys that only modify another key; the recorder keeps listening for the key they go with. */
+const MODIFIER_KEYS = new Set(['Shift', 'Control', 'Alt', 'AltGraph', 'Meta', 'CapsLock', 'Fn', 'Dead', 'Process']);
+
 function KeyButton({
   action,
   value,
@@ -422,19 +463,23 @@ function KeyButton({
   onChange: (k: string) => void;
 }) {
   const { m } = useI18n();
+  const sc = m.options.shortcuts;
+  const help = useRowHelp();
   const [listening, setListening] = useState(false);
   const label = m.shortcuts[action];
-  const state = value
-    ? `${keyLabel(value)}${clashWith ? m.options.shortcuts.clashesWith(m.shortcuts[clashWith]) : ''}`
-    : m.options.shortcuts.unassigned;
+  const key = keyLabel(value, m.common.space);
+  const state = value ? `${key}${clashWith ? sc.clashesWith(m.shortcuts[clashWith]) : ''}` : sc.unassigned;
   return (
     <button
       className={`cap-kbd cap-kbd--lg${listening ? ' is-listening' : ''}${clashWith ? ' is-clash' : ''}${value ? '' : ' is-empty'}`}
-      aria-label={m.options.shortcuts.pressToChange(label, state)}
+      aria-label={listening ? sc.listeningAria(label) : sc.pressToChange(label, state)}
+      aria-describedby={help}
       onClick={() => setListening(true)}
       onBlur={() => setListening(false)}
       onKeyDown={(e) => {
         if (!listening) return;
+        // Tab still moves on (leaving stops listening).
+        if (e.key === 'Tab' || MODIFIER_KEYS.has(e.key)) return;
         e.preventDefault();
         if (e.key === 'Escape') return setListening(false);
         if (e.key === 'Backspace' || e.key === 'Delete') onChange('');
@@ -442,7 +487,7 @@ function KeyButton({
         setListening(false);
       }}
     >
-      {listening ? m.options.shortcuts.pressAKey : value ? keyLabel(value) : '—'}
+      {listening ? sc.pressAKey : value ? key : '—'}
     </button>
   );
 }
@@ -450,8 +495,11 @@ function KeyButton({
 export function ShortcutsSection() {
   const [s, set] = useSet();
   const { m } = useI18n(s);
+  const restore = useConfirm();
+  const [restored, setRestored] = useState(false);
   if (!s) return null;
   const sc = m.options.shortcuts;
+  const isDefault = (Object.keys(DEFAULT_SHORTCUTS) as ShortcutAction[]).every((a) => s.shortcuts[a] === DEFAULT_SHORTCUTS[a]);
   const keyGroups: { title: string; rows: (ShortcutAction | [ShortcutAction, ShortcutAction])[] }[] = [
     { title: sc.groupMoving, rows: ['prevLine', 'repeatLine', 'nextLine', 'toggleAutoPause', 'togglePlay', ['slower', 'faster']] },
     { title: sc.groupSeeing, rows: ['toggleTranslation', 'toggleOriginal', 'toggleSidebar'] },
@@ -467,10 +515,31 @@ export function ShortcutsSection() {
   return (
     <>
       <PageHead title={sc.title} lead={sc.lead}>
-        <button className="cap-btn cap-btn--lg" onClick={() => set((st) => void (st.shortcuts = { ...DEFAULT_SHORTCUTS }))}>
+        {/* aria-disabled, not disabled: it turns off right after restoring and must keep focus. */}
+        <button
+          ref={restore.trigger}
+          className="cap-btn cap-btn--lg"
+          aria-disabled={isDefault}
+          aria-expanded={restore.open}
+          onClick={() => !isDefault && restore.ask()}
+        >
           {sc.restoreDefaults}
         </button>
       </PageHead>
+      {restore.open && (
+        <Confirm
+          action={sc.restoreDefaults}
+          onCancel={restore.close}
+          onConfirm={() => {
+            restore.close();
+            set((st) => void (st.shortcuts = { ...DEFAULT_SHORTCUTS }));
+            setRestored(true);
+          }}
+        >
+          {sc.confirmRestore}
+        </Confirm>
+      )}
+      <LiveRegion>{restored && isDefault && <Note tone="success">{sc.restoredMsg}</Note>}</LiveRegion>
 
       <section className="cap-card" aria-label={sc.keysInUseAria} style={{ overflowX: 'auto' }}>
         <div className="cap-keymap" aria-hidden="true">
@@ -484,14 +553,18 @@ export function ShortcutsSection() {
             </div>
           ))}
         </div>
-        <div className="cap-row" style={{ gap: 16, padding: '0 18px 14px', fontSize: 12.5, color: 'var(--ink-subtle)' }}>
-          <span className="cap-row" style={{ gap: 6 }}>
-            <span className="cap-key cap-key--legend is-on" />
+        <div className="cap-keymap__legend" aria-hidden="true">
+          <span>
+            <span className="cap-key cap-key--legend is-on">Q</span>
             Captionary
           </span>
-          <span className="cap-row" style={{ gap: 6 }}>
-            <span className="cap-key cap-key--legend is-site" />
+          <span>
+            <span className="cap-key cap-key--legend is-site">K</span>
             {sc.keptFreeLegend}
+          </span>
+          <span>
+            <span className="cap-key cap-key--legend">R</span>
+            {sc.unusedLegend}
           </span>
         </div>
       </section>
@@ -510,7 +583,7 @@ export function ShortcutsSection() {
             }
             const other = clash(row);
             const help = other ? (
-              <span style={{ color: 'var(--danger)' }}>{sc.clashHelp(keyLabel(s.shortcuts[row]), m.shortcuts[other])}</span>
+              <span style={{ color: 'var(--danger)' }}>{sc.clashHelp(keyLabel(s.shortcuts[row], m.common.space), m.shortcuts[other])}</span>
             ) : row === 'togglePlay' && !s.shortcuts[row] ? (
               sc.togglePlayUnassignedHelp
             ) : undefined;
@@ -553,13 +626,22 @@ function pickFile(accept: string): Promise<{ name: string; text: string } | null
   });
 }
 
+type DataCard = 'words' | 'settings' | 'reset';
+
 export function DataSection() {
   const { m } = useI18n();
   const d = m.options.data;
-  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
-  const [confirming, setConfirming] = useState(false);
+  // Each result shows in the card whose button produced it.
+  const [message, setMessage] = useState<{ card: DataCard; ok: boolean; text: string } | null>(null);
+  const importing = useConfirm();
+  const deleting = useConfirm();
   const count = useVocabCount();
   const stamp = new Date().toISOString().slice(0, 10);
+  const result = (card: DataCard) => (
+    <LiveRegion className="cap-card__msg">
+      {message?.card === card && <Note tone={message.ok ? 'success' : 'danger'}>{message.text}</Note>}
+    </LiveRegion>
+  );
 
   const exportSettings = async () => {
     const ai = await getAISettings();
@@ -576,17 +658,14 @@ export function DataSection() {
       if (data.app !== 'captionary' && data.app !== 'language-react') throw new Error(d.notSettingsFileError);
       if (data.settings) await settingsItem.setValue(mergeDefaults(DEFAULT_SETTINGS, data.settings));
       if (data.ai) await aiSettingsItem.setValue(mergeDefaults(await getAISettings(), data.ai));
-      setMessage({
-        ok: true,
-        text: d.importedSettingsMsg(file.name),
-      });
+      setMessage({ card: 'settings', ok: true, text: d.importedSettingsMsg(file.name) });
     } catch (err) {
-      setMessage({ ok: false, text: d.importFailedMsg((err as Error).message) });
+      setMessage({ card: 'settings', ok: false, text: d.importFailedMsg((err as Error).message) });
     }
   };
   const exportVocab = async (format: 'csv' | 'anki' | 'json') => {
     const items = await listVocab();
-    if (format === 'csv') download(`captionary-words-${stamp}.csv`, `\uFEFF${toCsv(items)}`, 'text/csv');
+    if (format === 'csv') download(`captionary-words-${stamp}.csv`, `﻿${toCsv(items)}`, 'text/csv');
     else if (format === 'anki') download(`captionary-anki-${stamp}.txt`, toAnkiTsv(items), 'text/plain');
     else download(`captionary-words-${stamp}.json`, JSON.stringify(items, null, 2), 'application/json');
   };
@@ -595,18 +674,21 @@ export function DataSection() {
     if (!file) return;
     try {
       const n = await importVocab(JSON.parse(file.text) as VocabItem[]);
-      setMessage({ ok: true, text: d.importedWordsMsg(n, file.name) });
+      setMessage({ card: 'words', ok: true, text: d.importedWordsMsg(n, file.name) });
     } catch (err) {
-      setMessage({ ok: false, text: d.importFailedMsg((err as Error).message) });
+      setMessage({ card: 'words', ok: false, text: d.importFailedMsg((err as Error).message) });
     }
   };
   const resetAll = async () => {
-    // Everything the privacy policy lists: storage, the AI answer and word-frequency caches,
-    // and access to AI services (no connection needs it once settings are gone).
-    await Promise.all([browser.storage.local.clear(), browser.storage.session.clear(), clearCache(), clearFrequencyLists()]);
-    await releaseOrigins((await browser.permissions.getAll()).origins ?? []);
-    setConfirming(false);
-    setMessage({ ok: true, text: d.resetDoneMsg });
+    try {
+      // Everything the privacy policy lists: storage, the AI answer and word-frequency caches,
+      // and access to AI services (no connection needs it once settings are gone).
+      await Promise.all([browser.storage.local.clear(), browser.storage.session.clear(), clearCache(), clearFrequencyLists()]);
+      await releaseOrigins((await browser.permissions.getAll()).origins ?? []);
+      setMessage({ card: 'reset', ok: true, text: d.resetDoneMsg });
+    } catch (err) {
+      setMessage({ card: 'reset', ok: false, text: d.resetFailedMsg((err as Error).message) });
+    }
   };
 
   return (
@@ -630,45 +712,60 @@ export function DataSection() {
             {d.chooseFile}
           </button>
         </SettingRow>
+        {result('words')}
       </SettingsCard>
-
-      {message && <Note tone={message.ok ? 'success' : 'danger'}>{message.text}</Note>}
 
       <SettingsCard title={d.settingsCard}>
         <SettingRow title={d.exportImportSettings} help={d.exportImportSettingsHelp}>
           <button className="cap-btn" onClick={() => void exportSettings()}>
             {d.exportBtn}
           </button>
-          <button className="cap-btn" onClick={() => void importSettings()}>
+          <button className="cap-btn" ref={importing.trigger} aria-expanded={importing.open} onClick={importing.ask}>
             {d.importBtn}
           </button>
         </SettingRow>
+        {importing.open && (
+          <div className="cap-card__msg">
+            <Confirm
+              tone="primary"
+              action={d.chooseFile}
+              onCancel={importing.close}
+              onConfirm={() => {
+                importing.close();
+                void importSettings();
+              }}
+            >
+              {d.confirmImportSettings}
+            </Confirm>
+          </div>
+        )}
+        {result('settings')}
       </SettingsCard>
 
-      <SettingsCard title={d.startOverCard} style={confirming ? { borderColor: 'var(--danger)' } : undefined}>
-        {confirming ? (
-          <div className="cap-card__body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <p style={{ margin: 0 }}>
+      <SettingsCard title={d.startOverCard} className={deleting.open ? 'cap-card--danger' : undefined}>
+        {deleting.open ? (
+          <div className="cap-card__body">
+            <Confirm
+              action={d.deleteEverything}
+              onCancel={deleting.close}
+              onConfirm={() => {
+                deleting.close();
+                void resetAll();
+              }}
+            >
               {d.confirmDeleteTextBefore}
               <strong>{d.confirmDeleteWords(count ?? 0)}</strong>
               {d.confirmDeleteTextAfter}
-            </p>
-            <div className="cap-row">
-              <button className="cap-btn cap-btn--danger-fill" onClick={() => void resetAll()}>
-                {d.deleteEverything}
-              </button>
-              <button className="cap-btn cap-btn--ghost" onClick={() => setConfirming(false)}>
-                {m.common.cancel}
-              </button>
-            </div>
+            </Confirm>
           </div>
         ) : (
           <SettingRow title={d.deleteEverything} help={d.deleteEverythingHelp}>
-            <button className="cap-btn cap-btn--danger" onClick={() => setConfirming(true)}>
+            <button className="cap-btn cap-btn--danger" ref={deleting.trigger} onClick={deleting.ask}>
               {d.deleteEverythingEllipsis}
             </button>
           </SettingRow>
         )}
+        {result('reset')}
       </SettingsCard>
     </>
   );
@@ -680,7 +777,7 @@ export function WelcomeSection() {
   if (!s) return null;
   const w = m.options.welcomeSection;
   const keys = s.shortcuts;
-  const key = (k: string) => <span className="cap-kbd">{keyLabel(k)}</span>;
+  const key = (k: string) => <span className="cap-kbd">{keyLabel(k, m.common.space)}</span>;
   return (
     <>
       <PageHead title={w.title} lead={w.lead}>

@@ -10,7 +10,9 @@ import { keyName, type SessionController } from '../controller';
 import { useSession, type AnchorRect } from '../store';
 import {
   MenuBack,
+  MenuGroup,
   MenuRow,
+  MenuSep,
   MenuSwitch,
   OriginalChoices,
   originalTracks,
@@ -19,7 +21,8 @@ import {
   TranslationChoices,
 } from './menus';
 import { measureClearance, playerOf } from './clearance';
-import { sourceKey, translationChoices, translationValue } from './subtitles';
+import { useMenuKeys } from './focus';
+import { pickTranslation, sourceKey, translationChoices, translationValue } from './subtitles';
 import { useContainWheel } from './wheel';
 
 type Page = 'main' | 'original' | 'translation';
@@ -95,6 +98,7 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
     return () => window.removeEventListener('pointerdown', onDown, true);
   }, [s.menuOpen, controller]);
   useContainWheel(ref, s.menuOpen);
+  const onMenuKey = useMenuKeys(ref, s.menuOpen, () => controller.closeMenu(), page);
 
   if (!s.menuOpen) return null;
   const bounds = boundsRef.current?.getBoundingClientRect();
@@ -169,7 +173,13 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
     body = (
       <>
         <MenuBack title={m.content.playerMenu.translation} onBack={() => setPage('main')} />
-        <TranslationChoices controller={controller} choices={choices} current={s.translationSource} onDone={() => setPage('main')} />
+        <TranslationChoices
+          controller={controller}
+          choices={choices}
+          current={s.translationSource}
+          aiStatus={s.aiStatus}
+          onDone={() => setPage('main')}
+        />
       </>
     );
   } else if (skin === 'netflix') {
@@ -186,7 +196,9 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
         </div>
         <div className="cap-menu__cols">
           <div className="cap-menu__col" role="group" aria-label={m.content.playerMenu.originalSubtitles}>
-            <div className="cap-menu__colhead">{m.content.playerMenu.originalShort}</div>
+            <div className="cap-menu__colhead" aria-hidden="true">
+              {m.content.playerMenu.originalShort}
+            </div>
             {originalTracks(s.tracks).map((t) => (
               <button
                 key={t.id}
@@ -201,14 +213,16 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
             ))}
           </div>
           <div className="cap-menu__col" role="group" aria-label={m.content.playerMenu.translation}>
-            <div className="cap-menu__colhead">{m.content.playerMenu.translation}</div>
+            <div className="cap-menu__colhead" aria-hidden="true">
+              {m.content.playerMenu.translation}
+            </div>
             {choices.map((c) => (
               <button
                 key={c.key}
                 className="cap-menu__opt"
                 role="menuitemradio"
                 aria-checked={c.key === current}
-                onClick={() => c.key !== current && void controller.chooseTranslation(c.source)}
+                onClick={() => (c.key !== current || c.setup) && pickTranslation(controller, c, s.aiStatus)}
               >
                 <IconCheck />
                 {c.label}
@@ -217,7 +231,7 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
             ))}
           </div>
         </div>
-        <div className="cap-menu__sep" style={{ margin: '8px 0' }} />
+        <MenuSep style={{ margin: '8px 0' }} />
         <div className="cap-menu__cols">
           {pause}
           {list}
@@ -240,19 +254,26 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
           <span className="cap-menu__label">Captionary</span>
           {onSwitch}
         </div>
-        <div className="cap-menu__section">{m.content.playerMenu.originalShort}</div>
-        <OriginalChoices controller={controller} tracks={inline} originalTrackId={s.originalTrackId} />
-        {more && <MenuRow label={m.content.playerMenu.otherLanguages} onClick={() => setPage('original')} />}
-        <div className="cap-menu__section">{m.content.playerMenu.translation}</div>
-        <TranslationChoices controller={controller} choices={choices.filter((c) => c.primary)} current={s.translationSource} />
-        {choices.some((c) => !c.primary) && (
-          <MenuRow label={m.content.playerMenu.otherSubtitleTracks} onClick={() => setPage('translation')} />
-        )}
-        <div className="cap-menu__sep" />
+        <MenuGroup label={m.content.playerMenu.originalShort}>
+          <OriginalChoices controller={controller} tracks={inline} originalTrackId={s.originalTrackId} />
+          {more && <MenuRow label={m.content.playerMenu.otherLanguages} onClick={() => setPage('original')} />}
+        </MenuGroup>
+        <MenuGroup label={m.content.playerMenu.translation}>
+          <TranslationChoices
+            controller={controller}
+            choices={choices.filter((c) => c.primary)}
+            current={s.translationSource}
+            aiStatus={s.aiStatus}
+          />
+          {choices.some((c) => !c.primary) && (
+            <MenuRow label={m.content.playerMenu.otherSubtitleTracks} onClick={() => setPage('translation')} />
+          )}
+        </MenuGroup>
+        <MenuSep />
         {pause}
         {blur}
         {list}
-        <div className="cap-menu__sep" />
+        <MenuSep />
         {links}
       </>
     );
@@ -264,7 +285,7 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
           <span className="cap-menu__label">Captionary</span>
           {onSwitch}
         </div>
-        <div className="cap-menu__sep" />
+        <MenuSep />
         <MenuRow
           label={m.content.playerMenu.originalSubtitles}
           value={originalValue(s.tracks, s.originalTrackId)}
@@ -278,7 +299,7 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
         {pause}
         {blur}
         {list}
-        <div className="cap-menu__sep" />
+        <MenuSep />
         {links}
       </>
     );
@@ -294,8 +315,9 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => {
+        // The host's own shortcuts (volume on the arrows, seeking) stay out of the menu.
         e.stopPropagation();
-        if (e.key === 'Escape') controller.closeMenu();
+        onMenuKey(e);
       }}
     >
       {body}

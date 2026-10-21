@@ -1,11 +1,11 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { getCurrentUILocale, getMessages, useI18n } from '@/lib/i18n';
 import { languageName, sameLang } from '@/lib/languages';
+import type { AIStatus } from '@/lib/messaging';
 import type { TrackInfo } from '@/lib/subtitles/types';
-import { PlayerSwitch } from '@/ui/controls';
 import { IconCheck, IconChevronLeft, IconChevronRight } from '@/ui/icons';
 import type { SessionController } from '../controller';
-import { sourceKey, trackLabel, type TranslationChoice } from './subtitles';
+import { pickTranslation, sourceKey, trackLabel, type TranslationChoice } from './subtitles';
 import type { TranslationSource } from '@/lib/subtitles/types';
 
 /** A menu row that opens a sub-page or runs an action: label, value, chevron (`cap-menu__item`). */
@@ -32,7 +32,7 @@ export function MenuRow({
   );
 }
 
-/** An on/off row with the host's switch. */
+/** An on/off row with the host's switch; the whole row toggles it, as in the host's own menus. */
 export function MenuSwitch({
   label,
   keyName,
@@ -45,14 +45,31 @@ export function MenuSwitch({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <div className="cap-menu__item">
+    <button type="button" className="cap-menu__item" role="menuitemcheckbox" aria-checked={checked} onClick={() => onChange(!checked)}>
       <span className="cap-menu__label">
         {label}
         {keyName && <span className="cap-menu__key"> ({keyName})</span>}
       </span>
-      <PlayerSwitch role="menuitemcheckbox" label={label} checked={checked} onChange={onChange} />
+      <span className={`cap-pswitch${checked ? ' is-on' : ''}`} aria-hidden="true" />
+    </button>
+  );
+}
+
+/** A labelled section of a menu (Apple TV+'s "Original", "Translation"); the heading names the group. */
+export function MenuGroup({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div role="group" aria-label={label}>
+      <div className="cap-menu__section" aria-hidden="true">
+        {label}
+      </div>
+      {children}
     </div>
   );
+}
+
+/** A rule between groups of menu items. */
+export function MenuSep({ style }: { style?: CSSProperties }) {
+  return <div className="cap-menu__sep" role="separator" style={style} />;
 }
 
 /** One choice in a list of choices, with a check when it is the current one. */
@@ -82,12 +99,12 @@ export function MenuBack({ title, onBack }: { title: string; onBack: () => void 
   return (
     <>
       <div className="cap-menu__head">
-        <button type="button" className="cap-menu__back" aria-label={m.common.back} onClick={onBack}>
+        <button type="button" className="cap-menu__back" role="menuitem" aria-label={m.common.back} onClick={onBack}>
           <IconChevronLeft className="cap-ico" />
         </button>
         <span className="cap-menu__label">{title}</span>
       </div>
-      <div className="cap-menu__sep" />
+      <MenuSep />
     </>
   );
 }
@@ -150,11 +167,13 @@ export function TranslationChoices({
   controller,
   choices,
   current,
+  aiStatus,
   onDone,
 }: {
   controller: SessionController;
   choices: TranslationChoice[];
   current: TranslationSource;
+  aiStatus: AIStatus | null;
   onDone?: () => void;
 }) {
   const key = sourceKey(current);
@@ -167,7 +186,7 @@ export function TranslationChoices({
           meta={c.meta}
           checked={c.key === key}
           onClick={() => {
-            if (c.key !== key) void controller.chooseTranslation(c.source);
+            if (c.key !== key || c.setup) pickTranslation(controller, c, aiStatus);
             onDone?.();
           }}
         />
