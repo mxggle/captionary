@@ -3,6 +3,14 @@
 The landing page: plain HTML, CSS and a small script for the hero demo, with no build step. Deploy the
 folder as it is (GitHub Pages, Cloudflare Pages, Netlify, Vercel).
 
+## Production
+
+- Homepage: https://captionary.nihongo.day/
+- Privacy policy: https://captionary.nihongo.day/privacy.html
+- Vercel project: `mxggles-projects/captionary`
+- Git source root: `site`; framework Other; no install/build command; output `.`.
+- The initial production deployment includes local canonical/Open Graph URL updates. Commit those changes when ready so subsequent Git-based deployments retain them.
+
 Preview locally:
 
 ```bash
@@ -14,10 +22,8 @@ python3 -m http.server 4178 --directory site
 - **Store link.** Every "Add to Chrome" button points to
   `https://chromewebstore.google.com/detail/captionary/imcclapmlgkhceckdmnhhcchmgjkcbci` (`data-cta`
   marks them). The item is private until it's published, so the link 404s until then.
-- **Domain.** Once there is one, follow the TODO comment in the `<head>` of `index.html`: add
-  `<link rel="canonical">` and `og:url`, and change `og:image` from `og.png` to the absolute URL. Most
-  link previews ignore a relative image. Then enter the homepage and `privacy.html` URLs in the store
-  listing.
+- **Domain.** Canonical, Open Graph URL, and the absolute share-image URL now use `captionary.nihongo.day`.
+  The homepage and `privacy.html` URLs are saved in the Chrome Web Store submission.
 - **Privacy policy.** `privacy.html` is the text of `docs/chrome-web-store/privacy-policy.md`, linked from both
   footers, with the GitHub issues page as the public contact. Edit the Markdown file and the page together and
   change the "Last updated" date when the policy changes.
