@@ -71,15 +71,13 @@ export async function mountShadowUi(ctx: ContentScriptContext, opts: MountOption
     scheduled = 0;
     const anchor = resolve();
     const host = ui.shadowHost;
-    if (!anchor) {
-      if (host.isConnected) ui.remove();
-      current = null;
-      return;
-    }
-    if (host.isConnected && anchor === current && placed(anchor, host)) return;
-    if (host.isConnected) ui.remove();
-    current = anchor;
-    ui.mount();
+    if (host.isConnected && anchor && anchor === current && placed(anchor, host)) return;
+    // Unmount even when the site has already taken the host out with its old element (Netflix
+    // replaces its player on the next episode): a tree left mounted keeps its window listeners, and
+    // its "click elsewhere closes" handlers then close the new tree's menu and look-up on every click.
+    if (ui.mounted) ui.remove();
+    current = anchor ?? null;
+    if (anchor) ui.mount();
   };
   const schedule = () => {
     scheduled ||= requestAnimationFrame(check);
@@ -91,7 +89,7 @@ export async function mountShadowUi(ctx: ContentScriptContext, opts: MountOption
     observer.disconnect();
     document.removeEventListener('fullscreenchange', schedule);
     cancelAnimationFrame(scheduled);
-    if (ui.shadowHost.isConnected) ui.remove();
+    if (ui.mounted) ui.remove();
   });
   check();
   return { ui, refresh: schedule };
