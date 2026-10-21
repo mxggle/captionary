@@ -10,9 +10,10 @@ import { languagePair, useFollowPlayback, useSubtitleData } from './subtitles';
 import { useContainWheel } from './wheel';
 
 /**
- * The subtitle list as a right-edge drawer over a fullscreen video, read like song lyrics
- * (`SubtitleDrawer`): the line playing now in full ink, the rest muted. Opened only with W or from
- * the player menu.
+ * The subtitle list as a right-edge drawer on a fullscreen-style player, read like song lyrics
+ * (`SubtitleDrawer`): the line playing now in full ink, the rest muted. It sits beside the video on
+ * sites whose player makes room (`SiteAdapter.reserveRight`), over it elsewhere. Opened only with W
+ * or from the player menu.
  */
 export function SubtitleDrawer({ controller, width }: { controller: SessionController; width: number }) {
   const { m } = useI18n();

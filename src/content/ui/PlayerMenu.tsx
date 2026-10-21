@@ -208,7 +208,7 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
                 className="cap-menu__opt"
                 role="menuitemradio"
                 aria-checked={c.key === current}
-                onClick={() => c.key !== current && void controller.selectTranslation(c.source)}
+                onClick={() => c.key !== current && void controller.chooseTranslation(c.source)}
               >
                 <IconCheck />
                 {c.label}

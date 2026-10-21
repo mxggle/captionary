@@ -167,7 +167,7 @@ export function TranslationChoices({
           meta={c.meta}
           checked={c.key === key}
           onClick={() => {
-            if (c.key !== key) void controller.selectTranslation(c.source);
+            if (c.key !== key) void controller.chooseTranslation(c.source);
             onDone?.();
           }}
         />

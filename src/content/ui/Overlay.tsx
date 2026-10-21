@@ -140,6 +140,17 @@ export function Overlay({ controller }: { controller: SessionController }) {
     return () => clearTimeout(t);
   }, [wantFab]);
 
+  const drawerMode = controller.listMode() === 'drawer';
+  const drawerVisible = s.settings.enabled && !s.adShowing && drawerMode && s.drawerOpen && !s.off && s.site !== 'local';
+  const drawerWidth = drawerVisible ? Math.round(Math.min(400, width * 0.42)) : 0;
+  const drawerSpace = drawerVisible ? drawerWidth + (s.theme === 'appletv' ? 16 : 0) : 0;
+
+  // Where the site supports it, the player makes room so the drawer sits beside the video.
+  useEffect(() => {
+    controller.adapter.reserveRight?.(drawerSpace);
+  }, [controller, drawerSpace]);
+  useEffect(() => () => controller.adapter.reserveRight?.(0), [controller]);
+
   const { subtitles } = s.settings;
   if (!s.settings.enabled) return null;
   if (s.adShowing) return <HostRoot className="cap-overlay" rootRef={rootRef} />;
@@ -149,10 +160,6 @@ export function Overlay({ controller }: { controller: SessionController }) {
   const romanized = subtitles.showRomanization && s.activeIndex >= 0 ? s.romanizations[s.activeIndex] : '';
   const scale = Math.min(1.6, Math.max(0.55, width / 1000));
   const fontSize = Math.round(subtitles.fontSize * scale);
-  const drawerMode = controller.listMode() === 'drawer';
-  const drawerVisible = drawerMode && s.drawerOpen && !s.off && s.site !== 'local';
-  const drawerWidth = drawerVisible ? Math.round(Math.min(400, width * 0.42)) : 0;
-  const drawerSpace = drawerVisible ? drawerWidth + (s.theme === 'appletv' ? 16 : 0) : 0;
   const selected = s.popup?.surface === 'overlay' && s.popup.cueIndex === s.activeIndex ? s.popup.tokenRange : undefined;
 
   return (

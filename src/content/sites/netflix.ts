@@ -7,6 +7,7 @@ import { FROM_MAIN, onMessageFrom, postToMain, requestMain } from '../bridge';
 import type { SiteAdapter } from '../controller';
 
 const HIDE_STYLE_ID = 'lr-hide-native-captions';
+const ROOM_STYLE_ID = 'lr-drawer-room';
 
 export class NetflixAdapter implements SiteAdapter {
   readonly site = 'netflix' as const;
@@ -52,6 +53,29 @@ export class NetflixAdapter implements SiteAdapter {
     } else if (!hidden && style) {
       style.remove();
     }
+  }
+
+  /**
+   * `[data-uia="player"]` (video, timed text and controls) is absolutely positioned at inset 0 in
+   * the player view, next to Captionary's overlay; pulling its right edge in letterboxes the video
+   * (`object-fit: contain`) and lays the control bar out in the narrower width. Netflix writes the
+   * video's pixel width itself and redoes it on window resize, not when the player grows back, so a
+   * resize is sent after each change.
+   */
+  reserveRight(px: number) {
+    let style = document.getElementById(ROOM_STYLE_ID);
+    if (px <= 0) {
+      if (!style) return;
+      style.remove();
+    } else {
+      if (!style) {
+        style = document.createElement('style');
+        style.id = ROOM_STYLE_ID;
+        (document.head ?? document.documentElement).append(style);
+      }
+      style.textContent = `.watch-video--player-view > [data-uia="player"] { right: ${px}px !important; }`;
+    }
+    window.dispatchEvent(new Event('resize'));
   }
 
   title(): string {
