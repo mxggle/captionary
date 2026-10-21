@@ -25,6 +25,12 @@ export interface SiteAdapter {
    * are on screen; the captions sit above the highest of them.
    */
   readonly controlBars?: readonly string[];
+  /**
+   * Narrow the host's player by `px` on the right, so the video and its controls sit beside the
+   * subtitle drawer instead of under it; 0 gives the room back. Sites without it keep the drawer
+   * over the video.
+   */
+  reserveRight?(px: number): void;
 }
 
 /** Seconds before a cue's end at which auto-pause triggers (one animation frame of slack). */
@@ -326,7 +332,7 @@ export class SessionController {
 
   /**
    * Where the subtitle list lives right now: YouTube's side column (and the reader's), or a drawer
-   * over the video in fullscreen and on Netflix and Apple TV+.
+   * at the player's right edge in fullscreen and on Netflix and Apple TV+.
    */
   listMode(): 'panel' | 'drawer' {
     const { site, fullscreen } = getSession();
