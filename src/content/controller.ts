@@ -97,10 +97,12 @@ export class SessionController {
         syncUILocaleFromSettings(next);
         setSession({ settings: next });
         this.applyNativeHidden();
+        const engine = next.subtitles.translationEngine;
         if (
           prev.nativeLanguage !== next.nativeLanguage ||
           prev.targetLanguage !== next.targetLanguage ||
-          prev.subtitles.translationEngine !== next.subtitles.translationEngine
+          // A new engine picked in the player menu is already showing.
+          (prev.subtitles.translationEngine !== engine && engineOf(getSession().translationSource) !== engine)
         ) {
           void this.reloadForSettings(prev);
         }
@@ -650,6 +652,20 @@ export class SessionController {
     return { type: 'none' };
   }
 
+  /**
+   * The learner picks a translation in a menu: show it, and keep a machine translation's engine as
+   * the default for later videos (the "when the video has no subtitles in your language" setting).
+   * A subtitle track and "off" stay with this video; a human track in the learner's language still
+   * comes first elsewhere.
+   */
+  async chooseTranslation(source: TranslationSource) {
+    const engine = engineOf(source);
+    if (engine && engine !== 'none' && engine !== getSession().settings.subtitles.translationEngine) {
+      void updateSettings((s) => void (s.subtitles.translationEngine = engine));
+    }
+    await this.selectTranslation(source);
+  }
+
   async selectTranslation(source: TranslationSource, gen = this.generation) {
     this.translationAbort?.abort();
     const abort = new AbortController();
@@ -715,6 +731,22 @@ export class SessionController {
     const { lang, media } = getSession();
     if (!lang) return;
     await saveVocab({ lang, ...entry, status, context: cueIndex >= 0 ? this.contextFor(cueIndex, media) : undefined });
+  }
+}
+
+/** The translation setting a source comes from; a subtitle track is not one. */
+function engineOf(source: TranslationSource): Settings['subtitles']['translationEngine'] | null {
+  switch (source.type) {
+    case 'ai':
+      return 'ai';
+    case 'chrome':
+      return 'chrome';
+    case 'platform-mt':
+      return 'platform';
+    case 'none':
+      return 'none';
+    default:
+      return null;
   }
 }
 
