@@ -60,3 +60,12 @@ the card changes.
 Simplified Chinese (`zh-CN`), Traditional Chinese (`zh-TW`), and Japanese (`ja`). It supports `?lang=` URL
 parameters (including aliases like `zh` and `zh-HK`), persists the user's choice in `localStorage`
 (`captionary-site-lang`), and falls back to `navigator.languages` when no explicit choice is set.
+
+A small inline script in each page's `<head>` repeats that detection before the first paint: it sets
+`<html lang>` and, for a non-English page, the `i18n-pending` class that keeps the page hidden until
+`i18n.js` has put the text in (2.5 s at most). Change it together with `detectLang()`. Each language's
+`?lang=` URL is listed as an `hreflang` alternate, and `i18n.js` points the canonical link at it.
+
+CJK headings use `word-break: keep-all`, so they only break at spaces, punctuation and the `<wbr>`s in
+their strings. When you change a Chinese or Japanese heading, put a `<wbr>` between its phrases and check
+it at 360 px.
