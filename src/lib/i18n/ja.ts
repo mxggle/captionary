@@ -867,7 +867,7 @@ export const ja: Messages = {
       off: 'Captionary（オフ）',
     },
     playerMenu: {
-      onForVideoAria: 'この動画で Captionary を有効にする',
+      options: 'オプション',
       pauseAfterEachLine: '1行ごとに一時停止',
       blurTranslation: 'ホバーするまで翻訳をぼかす',
       subtitleList: '字幕リスト',

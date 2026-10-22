@@ -4,20 +4,18 @@ import { useI18n } from '@/lib/i18n';
 import { sameLang } from '@/lib/languages';
 import { bg } from '@/lib/messaging';
 import { updateSettings, type Settings } from '@/lib/settings';
-import { PlayerSwitch } from '@/ui/controls';
 import { IconBookmark, IconCaptions, IconCheck, IconEye, IconGlyph, IconList, IconPause, IconSettings, IconTranslate } from '@/ui/icons';
 import { keyName, type SessionController } from '../controller';
 import { useSession, type AnchorRect } from '../store';
 import {
   MenuBack,
   MenuGroup,
+  MenuRadio,
   MenuRow,
-  MenuSep,
   MenuSwitch,
   OriginalChoices,
   originalTracks,
   originalValue,
-  sameLanguageTracks,
   TranslationChoices,
 } from './menus';
 import { measureClearance, playerOf } from './clearance';
@@ -145,7 +143,7 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
   const skin = s.theme === 'netflix' ? 'netflix' : s.theme === 'appletv' ? 'appletv' : 'youtube';
   // Netflix's own panel is about as wide as the viewport is tall; its type is sized in vh too.
   const width =
-    skin === 'netflix' ? Math.min(bounds.width - 24, Math.max(480, Math.round(window.innerHeight))) : skin === 'appletv' ? 290 : 360;
+    skin === 'netflix' ? Math.min(bounds.width - 24, Math.max(480, Math.round(window.innerHeight))) : skin === 'appletv' ? 250 : 360;
   const style = { ...placeMenu(s.menuAnchor, bounds, width, skin === 'youtube', clearance), width };
   const { settings } = s;
   const set = (fn: (st: Settings) => void) => void updateSettings(fn);
@@ -155,14 +153,6 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
     void bg({ type: 'open.page', page, hash }).catch(() => undefined);
   };
 
-  const onSwitch = (
-    <PlayerSwitch
-      role="menuitemcheckbox"
-      label={m.content.playerMenu.onForVideoAria}
-      checked={!s.off}
-      onChange={(on) => controller.setOff(!on)}
-    />
-  );
   // YouTube's settings rows each lead with an icon; Apple TV+'s menu has none.
   const icon = (Glyph: typeof IconGlyph) => (skin === 'youtube' ? <Glyph className="cap-menu__icon" /> : undefined);
   const pause = (
@@ -315,36 +305,41 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
       </>
     );
   } else if (skin === 'appletv') {
-    const inline = sameLanguageTracks(s.tracks, s.originalTrackId);
-    const more = originalTracks(s.tracks).length > inline.length;
+    // Shaped like Apple's own player menus: grouped rows with checks (never switches), and a two-line row
+    // with the current choice under its name that opens a sub-menu, like Apple's Language row.
+    const check = (label: string, checked: boolean, toggle: () => void) => (
+      <MenuRadio role="menuitemcheckbox" label={label} checked={checked} onClick={toggle} />
+    );
     body = (
       <>
-        <div className="cap-menu__head">
-          <IconGlyph className="cap-ico-lg" />
-          <span className="cap-menu__label">Captionary</span>
-          {onSwitch}
-        </div>
-        <MenuGroup label={m.content.playerMenu.originalShort}>
-          <OriginalChoices controller={controller} tracks={inline} originalTrackId={s.originalTrackId} />
-          {more && <MenuRow label={m.content.playerMenu.otherLanguages} onClick={() => setPage('original')} />}
-        </MenuGroup>
-        <MenuGroup label={m.content.playerMenu.translation}>
-          <TranslationChoices
-            controller={controller}
-            choices={choices.filter((c) => c.primary)}
-            current={s.translationSource}
-            aiStatus={s.aiStatus}
+        <MenuGroup label="Captionary">
+          {check(s.off ? m.content.playerMenu.offForTitle : m.content.playerMenu.onForTitle, !s.off, () => controller.setOff(!s.off))}
+          <MenuRow
+            label={m.content.playerMenu.originalSubtitles}
+            value={originalValue(s.tracks, s.originalTrackId)}
+            onClick={() => setPage('original')}
           />
-          {choices.some((c) => !c.primary) && (
-            <MenuRow label={m.content.playerMenu.otherSubtitleTracks} onClick={() => setPage('translation')} />
-          )}
+          <MenuRow
+            label={m.content.playerMenu.translation}
+            value={translationValue(choices, s.translationSource)}
+            onClick={() => setPage('translation')}
+          />
         </MenuGroup>
-        <MenuSep />
-        {pause}
-        {blur}
-        {list}
-        <MenuSep />
-        {links}
+        <MenuGroup label={m.content.playerMenu.options} titled={false}>
+          {check(m.content.playerMenu.pauseAfterEachLine, settings.playback.autoPause, () =>
+            set((st) => void (st.playback.autoPause = !st.playback.autoPause)),
+          )}
+          {check(m.content.playerMenu.blurTranslation, settings.subtitles.blurTranslation, () =>
+            set((st) => void (st.subtitles.blurTranslation = !st.subtitles.blurTranslation)),
+          )}
+          {check(m.content.playerMenu.subtitleList, controller.isListOpen(), () => {
+            controller.toggleList();
+            if (controller.listMode() === 'drawer') controller.closeMenu();
+          })}
+        </MenuGroup>
+        <MenuGroup label={m.content.playerMenu.savedWords} titled={false}>
+          {links}
+        </MenuGroup>
       </>
     );
   } else {

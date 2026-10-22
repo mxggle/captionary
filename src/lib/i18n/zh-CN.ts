@@ -848,7 +848,7 @@ export const zhCN: Messages = {
       off: 'Captionary（已关闭）',
     },
     playerMenu: {
-      onForVideoAria: '在此视频上启用 Captionary',
+      options: '选项',
       pauseAfterEachLine: '每句后自动暂停',
       blurTranslation: '模糊译文，悬停显示',
       subtitleList: '字幕列表',

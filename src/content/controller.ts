@@ -31,6 +31,12 @@ export interface SiteAdapter {
    */
   readonly nativeControlsHeight?: number;
   /**
+   * Fade the host's own controls layer out while Captionary is in use (the pointer is on its captions,
+   * look-up or menu, or a look-up is open), as Netflix does by itself; it comes back once the pointer is
+   * elsewhere. Sites whose controls already step aside leave it out.
+   */
+  quietControls?(quiet: boolean): void;
+  /**
    * Narrow the host's player by `px` on the right, so the video and its controls sit beside the
    * subtitle drawer instead of under it; 0 gives the room back. Sites without it keep the drawer
    * over the video.

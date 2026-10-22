@@ -62,6 +62,26 @@ function usePointerActivity(rootRef: React.RefObject<HTMLElement | null>): boole
   return active;
 }
 
+/** Whether the pointer is on Captionary's own UI in the overlay (captions, look-up, menu, drawer). */
+function usePointerOverUi(rootRef: React.RefObject<HTMLElement | null>): boolean {
+  const [over, setOver] = useState(false);
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const enter = () => setOver(true);
+    const leave = (e: PointerEvent) => {
+      if (!(e.relatedTarget instanceof Node) || !root.contains(e.relatedTarget)) setOver(false);
+    };
+    root.addEventListener('pointerover', enter);
+    root.addEventListener('pointerout', leave);
+    return () => {
+      root.removeEventListener('pointerover', enter);
+      root.removeEventListener('pointerout', leave);
+    };
+  }, [rootRef]);
+  return over;
+}
+
 /**
  * A badge over the video while `show` holds: until dismissed, or faded after `fadeMs`. It comes back
  * when `key` (what it reports) changes.
@@ -108,6 +128,7 @@ export function Overlay({ controller }: { controller: SessionController }) {
       translationStatus: st.translationStatus,
       translationMessage: st.translationMessage,
       popup: st.popup,
+      menuOpen: st.menuOpen,
       off: st.off,
       drawerOpen: st.drawerOpen,
       fullscreen: st.fullscreen,
@@ -120,6 +141,7 @@ export function Overlay({ controller }: { controller: SessionController }) {
   const index = useVocabIndex(s.vocab, s.lang);
   const toastMessage = useToast();
   const pointerActive = usePointerActivity(rootRef);
+  const pointerOverUi = usePointerOverUi(rootRef);
   const hostBarsClearance = useControlsClearance(rootRef, controller.adapter.controlBars);
   const { nativeControlsHeight } = controller.adapter;
   const controlsClearance = Math.max(hostBarsClearance, nativeControlsHeight && (!s.playing || pointerActive) ? nativeControlsHeight : 0);
@@ -163,6 +185,13 @@ export function Overlay({ controller }: { controller: SessionController }) {
     const t = setTimeout(() => setFabArmed(true), 800);
     return () => clearTimeout(t);
   }, [wantFab]);
+
+  // While the learner is in Captionary's UI, a host whose controls layer covers the picture fades it out.
+  const quiet = pointerOverUi || !!s.popup || s.menuOpen;
+  useEffect(() => {
+    controller.adapter.quietControls?.(quiet);
+  }, [controller, quiet]);
+  useEffect(() => () => controller.adapter.quietControls?.(false), [controller]);
 
   const drawerMode = controller.listMode() === 'drawer';
   const drawerVisible = s.settings.enabled && !s.adShowing && drawerMode && s.drawerOpen && !s.off && s.site !== 'local';

@@ -859,7 +859,7 @@ export const en = {
       off: 'Captionary (off)',
     },
     playerMenu: {
-      onForVideoAria: 'Captionary on for this video',
+      options: 'Options',
       pauseAfterEachLine: 'Pause after each line',
       blurTranslation: 'Blur translation until hover',
       subtitleList: 'Subtitle list',

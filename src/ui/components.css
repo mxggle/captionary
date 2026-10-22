@@ -1707,8 +1707,9 @@ textarea.cap-input {
   border-radius: var(--radius-pill);
   background: var(--player-hover);
 }
+/* Apple TV+'s buttons have no pressed fill either. */
 [data-theme='appletv'] .cap-playerbtn[aria-expanded='true'] {
-  border-radius: var(--radius-md);
+  background: transparent;
 }
 /* Netflix's own buttons have no pressed fill: they only grow under the pointer. */
 [data-theme='netflix'] .cap-playerbtn[aria-expanded='true'] {
@@ -1734,11 +1735,24 @@ textarea.cap-input {
   border-radius: 1vh;
   box-shadow: none;
 }
+/* Apple TV+: its contextual menu, measured from the player: thick translucent material with a hairline edge,
+   6px corners, 13px system text, 32px rows with a check column and hairlines between, 2px rules between groups. */
 [data-theme='appletv'] .cap-menu {
-  width: 290px;
-  padding: 6px;
-  border-radius: var(--radius-lg);
-  backdrop-filter: blur(30px) saturate(1.6);
+  padding: 0;
+  border-radius: 6px;
+  background: rgb(40 40 40 / 0.7);
+  backdrop-filter: blur(60px) saturate(2.2);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.2),
+    0 8px 40px rgb(0 0 0 / 0.55);
+  color: rgb(255 255 255 / 0.92);
+  font-family: -apple-system, system-ui, sans-serif;
+  font-size: 13px;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.25) transparent;
+}
+[data-theme='appletv'] .cap-menu__group + .cap-menu__group {
+  border-top: 2px solid var(--player-line);
 }
 .cap-menu__head {
   display: flex;
@@ -1749,8 +1763,9 @@ textarea.cap-input {
   font-weight: 500;
 }
 [data-theme='appletv'] .cap-menu__head {
-  padding: 0 8px 0 10px;
-  font-size: 15px;
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 13px;
   font-weight: 600;
 }
 .cap-menu__sep {
@@ -1759,7 +1774,8 @@ textarea.cap-input {
   background: var(--player-line);
 }
 [data-theme='appletv'] .cap-menu__sep {
-  margin: 6px;
+  height: 2px;
+  margin: 0;
 }
 .cap-menu__section {
   padding: 8px 16px 4px;
@@ -1767,7 +1783,10 @@ textarea.cap-input {
   color: var(--player-ink-muted);
 }
 [data-theme='appletv'] .cap-menu__section {
-  padding: 8px 10px 4px;
+  padding: 6px 10px 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgb(255 255 255 / 0.4);
 }
 .cap-menu__item {
   width: 100%;
@@ -1787,10 +1806,46 @@ textarea.cap-input {
   background: var(--player-hover);
 }
 [data-theme='appletv'] .cap-menu__item {
-  min-height: 34px;
-  padding: 0 10px 0 6px;
-  border-radius: 8px;
-  font-size: 14px;
+  position: relative;
+  min-height: 32px;
+  gap: 0;
+  padding: 0 10px 0 36px;
+  border-radius: 0;
+  font-size: 13px;
+}
+[data-theme='appletv'] .cap-menu__item + .cap-menu__item {
+  border-top: 0.5px solid var(--player-line);
+}
+[data-theme='appletv'] .cap-menu__item:hover {
+  background: rgb(255 255 255 / 0.1);
+}
+[data-theme='appletv'] .cap-menu__item .cap-menu__check {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+}
+/* A row with its current choice beneath the name, like Apple's Language row. */
+[data-theme='appletv'] .cap-menu__item:has(> .cap-menu__value) {
+  display: grid;
+  grid-template: 'label chev' auto 'value chev' auto / minmax(0, 1fr) auto;
+  align-content: center;
+  row-gap: 1px;
+  padding-block: 6px;
+}
+[data-theme='appletv'] .cap-menu__item > .cap-menu__label {
+  grid-area: label;
+}
+[data-theme='appletv'] .cap-menu__item > .cap-menu__value {
+  grid-area: value;
+  padding: 0;
+  font-size: 10px;
+  text-align: left;
+  color: rgb(255 255 255 / 0.64);
+}
+[data-theme='appletv'] .cap-menu__item:has(> .cap-menu__value) > .cap-menu__chev {
+  grid-area: chev;
+  margin-left: 8px;
 }
 .cap-menu__item .cap-menu__check {
   width: 16px;
@@ -2547,9 +2602,17 @@ textarea.cap-input {
 [data-theme='netflix'] .cap-lookup--native .cap-lookup__tr {
   font-size: 16px;
 }
+/* The look-up card takes the same material as Apple's menus. */
 [data-theme='appletv'] .cap-lookup--native {
-  border-radius: var(--radius-lg);
-  backdrop-filter: blur(30px) saturate(1.6);
+  border-radius: 6px;
+  background: rgb(40 40 40 / 0.7);
+  backdrop-filter: blur(60px) saturate(2.2);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.2),
+    0 8px 40px rgb(0 0 0 / 0.55);
+}
+[data-theme='appletv'] .cap-lookup--native .cap-lookup__arrow {
+  display: none;
 }
 [data-theme='appletv'] .cap-lookup--native .cap-lookup__word:not(.is-sentence) {
   font-weight: 600;

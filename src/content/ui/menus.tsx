@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { getCurrentUILocale, getMessages, useI18n } from '@/lib/i18n';
-import { languageName, sameLang } from '@/lib/languages';
+import { languageName } from '@/lib/languages';
 import type { AIStatus } from '@/lib/messaging';
 import type { TrackInfo } from '@/lib/subtitles/types';
 import { IconCheck, IconChevronLeft, IconChevronRight } from '@/ui/icons';
@@ -60,12 +60,14 @@ export function MenuSwitch({
 }
 
 /** A labelled section of a menu (Apple TV+'s "Original", "Translation"); the heading names the group. */
-export function MenuGroup({ label, children }: { label: string; children: ReactNode }) {
+export function MenuGroup({ label, titled = true, children }: { label: string; titled?: boolean; children: ReactNode }) {
   return (
-    <div role="group" aria-label={label}>
-      <div className="cap-menu__section" aria-hidden="true">
-        {label}
-      </div>
+    <div role="group" aria-label={label} className="cap-menu__group">
+      {titled && (
+        <div className="cap-menu__section" aria-hidden="true">
+          {label}
+        </div>
+      )}
       {children}
     </div>
   );
@@ -81,15 +83,18 @@ export function MenuRadio({
   label,
   meta,
   checked,
+  role = 'menuitemradio',
   onClick,
 }: {
   label: ReactNode;
   meta?: ReactNode;
   checked: boolean;
+  /** A check that turns an option on and off (Apple TV+'s menus have checks, not switches). */
+  role?: 'menuitemradio' | 'menuitemcheckbox';
   onClick: () => void;
 }) {
   return (
-    <button type="button" className="cap-menu__item" role="menuitemradio" aria-checked={checked} onClick={onClick}>
+    <button type="button" className="cap-menu__item" role={role} aria-checked={checked} onClick={onClick}>
       <IconCheck className="cap-menu__check" />
       <span className="cap-menu__label">{label}</span>
       {meta && <span className="cap-menu__value">{meta}</span>}
@@ -123,14 +128,6 @@ export function originalValue(tracks: TrackInfo[], id: string | null): string {
   const m = getMessages(getCurrentUILocale());
   const t = tracks.find((x) => x.id === id);
   return t ? trackLabel(t) : m.common.none;
-}
-
-/** Tracks in the same language as the current original, for short inline lists. */
-export function sameLanguageTracks(tracks: TrackInfo[], id: string | null): TrackInfo[] {
-  const current = tracks.find((t) => t.id === id);
-  const all = originalTracks(tracks);
-  if (!current) return all.slice(0, 4);
-  return all.filter((t) => sameLang(t.lang, current.lang));
 }
 
 export function OriginalChoices({

@@ -848,7 +848,7 @@ export const zhTW: Messages = {
       off: 'Captionary（已關閉）',
     },
     playerMenu: {
-      onForVideoAria: '在此影片上啟用 Captionary',
+      options: '選項',
       pauseAfterEachLine: '每句後自動暫停',
       blurTranslation: '模糊譯文，移上才顯示',
       subtitleList: '字幕清單',
