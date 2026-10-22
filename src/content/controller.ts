@@ -5,10 +5,10 @@ import { getSettings, updateSettings, watchSettings, type Settings, type Shortcu
 import { alignTracks, cueIndexAt, cueIndexBefore } from '@/lib/subtitles/parse';
 import { buildRankMap } from '@/lib/text/frequency-map';
 import { canRomanize } from '@/lib/text/romanize';
-import type { Cue, TrackInfo, TranslationSource } from '@/lib/subtitles/types';
+import { SubtitleLoadError, type Cue, type TrackInfo, type TranslationSource } from '@/lib/subtitles/types';
 import { chromeTranslatorState, translateLines } from '@/lib/translate';
 import { listVocab, saveVocab, watchVocab, type SaveInput, type VocabItem } from '@/lib/vocab';
-import { getSession, setSession, type AnchorRect, type MediaInfo, type PopupTarget } from './store';
+import { getSession, sessionStore, setSession, type AnchorRect, type MediaInfo, type PopupTarget, type SessionState } from './store';
 
 export interface SiteAdapter {
   site: 'youtube' | 'netflix' | 'appletv' | 'local';
@@ -26,6 +26,17 @@ export interface SiteAdapter {
    */
   readonly controlBars?: readonly string[];
   /**
+   * Height of controls the browser draws itself (`<video controls>`), which can't be looked up like
+   * `controlBars`; the captions clear it while those controls show (paused, or the pointer moving).
+   */
+  readonly nativeControlsHeight?: number;
+  /**
+   * Fade the host's own controls layer out while Captionary is in use (the pointer is on its captions,
+   * look-up or menu, or a look-up is open), as Netflix does by itself; it comes back once the pointer is
+   * elsewhere. Sites whose controls already step aside leave it out.
+   */
+  quietControls?(quiet: boolean): void;
+  /**
    * Narrow the host's player by `px` on the right, so the video and its controls sit beside the
    * subtitle drawer instead of under it; 0 gives the room back. Sites without it keep the drawer
    * over the video.
@@ -35,6 +46,12 @@ export interface SiteAdapter {
 
 /** Seconds before a cue's end at which auto-pause triggers (one animation frame of slack). */
 const AUTO_PAUSE_LEAD = 0.06;
+
+/** How long the pointer rests on the captions before "pause on hover" pauses; passing over does not. */
+export const HOVER_INTENT_MS = 300;
+
+/** Controls that Space presses; Space on one of Captionary's own is left to it instead of a shortcut. */
+const ACTIVATES_ON_SPACE = 'button, a[href], summary, [role="button"], [role="link"], [role^="menuitem"], [role="switch"], [role="tab"]';
 
 /** A short confirmation over the video (`VideoToast`); one at a time, a new one replaces the old. */
 export interface ToastMessage {
@@ -83,6 +100,8 @@ export class SessionController {
   private generation = 0;
   private translationAbort: AbortController | null = null;
   private cleanups: (() => void)[] = [];
+  /** The learner's last input was a key, not the pointer: what it opens takes focus. */
+  private keyboardInput = false;
 
   constructor(public adapter: SiteAdapter) {}
 
@@ -91,12 +110,25 @@ export class SessionController {
     syncUILocaleFromSettings(settings);
     setSession({ settings, site: this.adapter.site });
     this.applyNativeHidden();
+    // The host's captions follow everything that decides whether Captionary draws its own.
+    this.cleanups.push(
+      sessionStore.subscribe((next, prev) => {
+        if (
+          next.settings !== prev.settings ||
+          next.media !== prev.media ||
+          next.status !== prev.status ||
+          next.off !== prev.off ||
+          next.adShowing !== prev.adShowing
+        ) {
+          this.applyNativeHidden();
+        }
+      }),
+    );
     this.cleanups.push(
       watchSettings((next) => {
         const prev = getSession().settings;
         syncUILocaleFromSettings(next);
         setSession({ settings: next });
-        this.applyNativeHidden();
         const engine = next.subtitles.translationEngine;
         if (
           prev.nativeLanguage !== next.nativeLanguage ||
@@ -123,9 +155,17 @@ export class SessionController {
       }),
     );
     void this.refreshAIStatus();
-    const onKey = (e: KeyboardEvent) => this.onKeyDown(e);
+    const onKey = (e: KeyboardEvent) => {
+      this.keyboardInput = true;
+      this.onKeyDown(e);
+    };
+    const onPointer = () => void (this.keyboardInput = false);
     window.addEventListener('keydown', onKey, true);
-    this.cleanups.push(() => window.removeEventListener('keydown', onKey, true));
+    window.addEventListener('pointerdown', onPointer, true);
+    this.cleanups.push(() => {
+      window.removeEventListener('keydown', onKey, true);
+      window.removeEventListener('pointerdown', onPointer, true);
+    });
     const onFs = () => setSession({ fullscreen: !!document.fullscreenElement });
     document.addEventListener('fullscreenchange', onFs);
     this.cleanups.push(() => document.removeEventListener('fullscreenchange', onFs));
@@ -136,13 +176,17 @@ export class SessionController {
     this.cleanups.forEach((c) => c());
     this.cleanups = [];
     this.translationAbort?.abort();
+    clearTimeout(this.hoverTimer);
+    // Without Captionary the host's own captions come back.
+    this.adapter.setNativeSubtitlesHidden(false);
   }
 
   async refreshAIStatus() {
     try {
       setSession({ aiStatus: await bg({ type: 'ai.status' }) });
     } catch {
-      setSession({ aiStatus: null });
+      // Keep what was known; with nothing known yet, the tutor counts as not set up (null means "still asking").
+      setSession({ aiStatus: getSession().aiStatus ?? { enabled: false, configured: false, autoExplain: false } });
     }
   }
 
@@ -284,15 +328,26 @@ export class SessionController {
     toast(m.content.toast.speed(clamped));
   }
 
-  hoverStart() {
-    const { settings } = getSession();
-    if (settings.playback.pauseOnHover && this.video && !this.video.paused) {
-      this.pausedByHover = true;
-      this.adapter.pause();
-    }
+  private hoverTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /**
+   * The pointer came onto the captions: pause once it has rested there for {@link HOVER_INTENT_MS}.
+   * `stillHovered` is asked again then: a line that ended meanwhile took its captions (and their
+   * mouseleave) with it, and pausing in the gap would leave nothing to resume from.
+   */
+  hoverStart(stillHovered: () => boolean = () => true) {
+    clearTimeout(this.hoverTimer);
+    if (!getSession().settings.playback.pauseOnHover) return;
+    this.hoverTimer = setTimeout(() => {
+      if (getSession().settings.playback.pauseOnHover && stillHovered() && this.video && !this.video.paused) {
+        this.pausedByHover = true;
+        this.adapter.pause();
+      }
+    }, HOVER_INTENT_MS);
   }
 
   hoverEnd() {
+    clearTimeout(this.hoverTimer);
     if (this.pausedByHover && !getSession().popup) {
       this.pausedByHover = false;
       this.adapter.play();
@@ -301,26 +356,36 @@ export class SessionController {
 
   /** Stop the hover logic from resuming playback (e.g. after a click). */
   keepPaused() {
+    clearTimeout(this.hoverTimer);
     this.pausedByHover = false;
     if (this.video && !this.video.paused) this.adapter.pause();
   }
 
   // ---------- Captionary on/off for this video, the player menu, the subtitle list ----------
 
-  /** Hide the site's own captions while Captionary draws its own. */
+  /** Captionary is on for this site, globally and in the site list (always in the reader). */
+  siteEnabled(settings = getSession().settings): boolean {
+    const { site } = this.adapter;
+    return settings.enabled && (site === 'local' || settings.sites[site]);
+  }
+
+  /**
+   * Hide the site's own captions only while Captionary draws its own (see {@link nativeHidden});
+   * loading, no subtitles, an error or a page without a video leave the host's captions alone.
+   */
   applyNativeHidden() {
-    const { settings, off } = getSession();
-    this.adapter.setNativeSubtitlesHidden(settings.enabled && !off && settings.subtitles.hideNativeSubtitles);
+    this.adapter.setNativeSubtitlesHidden(nativeHidden(getSession(), this.siteEnabled()));
   }
 
   /** Turn Captionary off (or back on) for the video being watched; off restores the host's captions. */
   setOff(off: boolean) {
     setSession({ off, popup: null, drawerOpen: off ? false : getSession().drawerOpen });
-    this.applyNativeHidden();
   }
 
   openMenu(anchor: AnchorRect | null) {
     setSession({ menuOpen: true, menuAnchor: anchor, popup: null });
+    // The translation choices say whether AI still needs setting up, which another tab may have changed.
+    void this.refreshAIStatus();
   }
 
   closeMenu() {
@@ -357,7 +422,7 @@ export class SessionController {
     const site = this.adapter.site;
     return {
       site,
-      enabled: settings.enabled && (site === 'local' || settings.sites[site]),
+      enabled: this.siteEnabled(settings),
       title: media?.title ?? null,
       status,
       message,
@@ -384,6 +449,7 @@ export class SessionController {
         before: i > 0 ? cues.slice(Math.max(0, i - 2), i).map((c) => c.text) : [],
         after: cue ? cues.slice(i + 1, i + 3).map((c) => c.text) : [],
         time: cue?.start,
+        byKeyboard: this.keyboardInput,
         ...target,
       },
     });
@@ -453,20 +519,23 @@ export class SessionController {
   // ---------- keyboard ----------
 
   private onKeyDown(e: KeyboardEvent) {
-    const { settings, cues } = getSession();
-    if (!settings.enabled || e.ctrlKey || e.metaKey || e.altKey) return;
+    const { settings, cues, media } = getSession();
+    // Where Captionary is off (globally or for this site) or has no video, every key belongs to the page.
+    if (!this.siteEnabled(settings) || !media || e.ctrlKey || e.metaKey || e.altKey) return;
     // Esc closes the look-up (even while typing a follow-up question in it), then the menu, then the drawer.
     if (e.key === 'Escape') {
       const { popup, menuOpen, drawerOpen } = getSession();
       if (popup) this.closePopup();
       else if (menuOpen) this.closeMenu();
-      else if (drawerOpen) setSession({ drawerOpen: false });
+      else if (drawerOpen && this.listMode() === 'drawer') setSession({ drawerOpen: false });
       else return;
       e.stopPropagation();
       return;
     }
     const target = (e.composedPath()[0] ?? e.target) as HTMLElement | null;
     if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
+    // Space on one of Captionary's own buttons, links or menu items presses it.
+    if (e.key === ' ' && target?.closest?.(ACTIVATES_ON_SPACE)?.closest('.cap-root')) return;
     const key = e.key.toLowerCase();
     const action = (Object.entries(settings.shortcuts) as [ShortcutAction, string][]).find(([, k]) => k && k.toLowerCase() === key)?.[0];
     if (!action) return;
@@ -556,7 +625,6 @@ export class SessionController {
       translationMessage: undefined,
       translationSource: { type: 'none' },
     });
-    this.applyNativeHidden();
     const track = this.pickOriginalTrack(tracks, defaultTrackId, settings);
     if (!track) {
       setSession({ status: 'none', message: m.content.errors.noSubtitles, originalTrackId: null, lang: '' });
@@ -595,7 +663,13 @@ export class SessionController {
     } catch (err) {
       if (gen !== this.generation) return;
       const raw = (err as Error)?.message;
-      const message = raw ? `${m.content.errors.loadSubtitlesFailed} (${raw})` : m.content.errors.loadSubtitlesFailed;
+      // The site's own explanation reads on its own; anything else is a technical detail behind the general message.
+      const message =
+        err instanceof SubtitleLoadError
+          ? raw
+          : raw
+            ? `${m.content.errors.loadSubtitlesFailed} (${raw})`
+            : m.content.errors.loadSubtitlesFailed;
       setSession({ status: 'error', message });
     }
   }
@@ -712,6 +786,8 @@ export class SessionController {
     } catch (err) {
       if (stale()) return;
       setSession({ translationStatus: 'error', translationMessage: (err as Error).message || m.content.errors.translationFailed });
+      // A failed AI translation may mean the tutor is not set up (any more); the error then offers setup.
+      if (source.type === 'ai') void this.refreshAIStatus();
     }
   }
 
@@ -732,6 +808,27 @@ export class SessionController {
     if (!lang) return;
     await saveVocab({ lang, ...entry, status, context: cueIndex >= 0 ? this.contextFor(cueIndex, media) : undefined });
   }
+}
+
+/**
+ * Whether the host's own captions are hidden: only while Captionary draws its own, that is on for
+ * the site, with a video whose subtitles are loaded, not turned off for it, not during an ad, and
+ * with at least one of its lines shown.
+ */
+export function nativeHidden(
+  state: Pick<SessionState, 'settings' | 'media' | 'status' | 'off' | 'adShowing'>,
+  siteEnabled: boolean,
+): boolean {
+  const { subtitles } = state.settings;
+  return (
+    siteEnabled &&
+    !!state.media &&
+    state.status === 'ready' &&
+    !state.off &&
+    !state.adShowing &&
+    (subtitles.showOriginal || subtitles.showTranslation) &&
+    subtitles.hideNativeSubtitles
+  );
 }
 
 /** The translation setting a source comes from; a subtitle track is not one. */

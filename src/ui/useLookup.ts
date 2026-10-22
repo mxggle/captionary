@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { extractTranslation, parseWordExplanation, wordExplanationMarkdown, type WordChunk } from '@/lib/ai/prompts';
-import type { AIJob, ChatTurn } from '@/lib/ai/types';
+import type { AIErrorInfo, AIJob, ChatTurn } from '@/lib/ai/types';
 import { externalDictionaries, type DictionaryResult } from '@/lib/dictionary';
 import { bg, streamJob, type AIStatus } from '@/lib/messaging';
 import type { Settings } from '@/lib/settings';
 import { canRomanize } from '@/lib/text/romanize';
 import { locateChunk, tokenize } from '@/lib/text/tokenize';
 import { chromeTranslatorState, translateWithChrome } from '@/lib/translate';
-import { findVocab, vocabKey, type VocabItem, type VocabStatus } from '@/lib/vocab';
+import { findVocab, importVocab, vocabKey, type VocabItem, type VocabStatus } from '@/lib/vocab';
 import type { PopupTarget } from '@/content/store';
 import { useAIStream } from './useAIStream';
 
@@ -15,7 +15,9 @@ export interface ChatEntry {
   q: string;
   a: string;
   status: 'streaming' | 'done' | 'error';
+  /** The error's message (kept for cards that show only that). */
   error?: string;
+  errorInfo?: AIErrorInfo;
 }
 
 export interface LookupInput {
@@ -28,8 +30,8 @@ export interface LookupInput {
   rank?: number;
   /** Start the tutor without waiting for Explain; defaults to sentences, and to words with "Explain words automatically". */
   autoExplain?: boolean;
-  /** Save the entry with this status, or remove it (null). */
-  onSave: (status: VocabStatus | null, entry: SaveEntry) => void;
+  /** Save the entry with this status, or remove it (null); may return the write, so the card can confirm it. */
+  onSave: (status: VocabStatus | null, entry: SaveEntry) => void | Promise<unknown>;
 }
 
 /** What a look-up saves or removes. */
@@ -156,6 +158,8 @@ export function useLookup({ target, settings, aiStatus, vocab, mediaTitle, autoE
 
   // ---- the tutor ----
   const ai = useAIStream();
+  const [turns, setTurns] = useState<ChatEntry[]>([]);
+  const chatCancel = useRef<(() => void) | null>(null);
   const job = useMemo<AIJob>(
     () =>
       isWord
@@ -186,11 +190,16 @@ export function useLookup({ target, settings, aiStatus, vocab, mediaTitle, autoE
   const { start: startAI, reset: resetAI } = ai;
   useEffect(() => {
     resetAI();
+    chatCancel.current?.();
     setTurns([]);
     if (autoStart) startAI(job);
   }, [job, autoStart, startAI, resetAI]);
+  // A new answer starts a new conversation: follow-ups about the old one would no longer fit.
   const explain = useCallback(() => {
-    if (aiReady) startAI(job);
+    if (!aiReady) return;
+    chatCancel.current?.();
+    setTurns([]);
+    startAI(job);
   }, [aiReady, startAI, job]);
 
   // ---- the tutor's answer, split into its sections ----
@@ -212,29 +221,35 @@ export function useLookup({ target, settings, aiStatus, vocab, mediaTitle, autoE
   );
 
   // ---- follow-up chat ----
-  const [turns, setTurns] = useState<ChatEntry[]>([]);
-  const chatCancel = useRef<(() => void) | null>(null);
   useEffect(() => () => chatCancel.current?.(), []);
-  const ask = (question: string) => {
-    const q = question.trim();
-    if (!q) return;
+  /** A follow-up is being answered; the next question waits for it. */
+  const chatting = turns.some((t) => t.status === 'streaming');
+  /** Ask `q` as turn `at`: a new turn at the end, or again in place of one that failed. */
+  const send = (q: string, at: number) => {
     const history: ChatTurn[] = [];
     if (ai.text) history.push({ role: 'assistant', content: answerText });
-    for (const t of turns) {
+    for (const t of turns.slice(0, at)) {
       if (t.status !== 'done') continue;
       history.push({ role: 'user', content: t.q }, { role: 'assistant', content: t.a });
     }
-    const idx = turns.length;
-    setTurns((ts) => [...ts, { q, a: '', status: 'streaming' }]);
-    const update = (fn: (t: ChatEntry) => ChatEntry) => setTurns((ts) => ts.map((t, i) => (i === idx ? fn(t) : t)));
+    setTurns((ts) => [...ts.slice(0, at), { q, a: '', status: 'streaming' }, ...ts.slice(at + 1)]);
+    const update = (fn: (t: ChatEntry) => ChatEntry) => setTurns((ts) => ts.map((t, i) => (i === at ? fn(t) : t)));
     chatCancel.current = streamJob(
       { task: 'chat', subject: target.text, sentence: target.sentence, targetLang: target.lang, history, question: q },
       {
         onDelta: (d) => update((t) => ({ ...t, a: t.a + d })),
         onDone: (r) => update((t) => ({ ...t, a: r.text, status: 'done' })),
-        onError: (err) => update((t) => ({ ...t, status: 'error', error: err.message })),
+        onError: (err) => update((t) => ({ ...t, status: 'error', error: err.message, errorInfo: err })),
       },
     );
+  };
+  const ask = (question: string) => {
+    const q = question.trim();
+    if (q && !chatting) send(q, turns.length);
+  };
+  const retryTurn = (index: number) => {
+    const turn = turns[index];
+    if (turn?.status === 'error' && !chatting) send(turn.q, index);
   };
 
   // ---- saving ----
@@ -245,18 +260,37 @@ export function useLookup({ target, settings, aiStatus, vocab, mediaTitle, autoE
     form: target.text,
     ...extra,
   });
+  // Pressing the pressed status removes the entry, notes and all; it is kept here until the next
+  // change so the card can offer to put it back exactly as it was.
+  const [removed, setRemoved] = useState<VocabItem | null>(null);
+  useEffect(() => setRemoved(null), [target.text, target.lang]);
   const setStatus = (status: VocabStatus) => {
-    if (saved?.status === status) onSave(null, entry());
-    else onSave(status, entry({ translation: saved?.translation ?? translationForSave ?? undefined }));
+    if (saved?.status === status) {
+      setRemoved(saved);
+      return Promise.resolve(onSave(null, entry()));
+    }
+    setRemoved(null);
+    return Promise.resolve(onSave(status, entry({ translation: saved?.translation ?? translationForSave ?? undefined })));
   };
-  const saveNotes = () =>
-    onSave(
-      saved?.status ?? 'learning',
-      entry({
-        translation: saved?.translation ?? translationForSave ?? undefined,
-        notes: explanation ? wordExplanationMarkdown(explanation, false) : ai.text,
-      }),
+  const undoRemove = async () => {
+    if (!removed) return;
+    setRemoved(null);
+    await importVocab([removed]);
+  };
+  /** Adds the explanation to the entry's notes (saving it as learning if it is new), below any notes it has. */
+  const saveNotes = () => {
+    const notes = explanation ? wordExplanationMarkdown(explanation, false) : ai.text;
+    const before = saved?.notes?.trim();
+    return Promise.resolve(
+      onSave(
+        saved?.status ?? 'learning',
+        entry({
+          translation: saved?.translation ?? translationForSave ?? undefined,
+          notes: !before ? notes : before.includes(notes.trim()) ? before : `${before}\n\n${notes}`,
+        }),
+      ),
     );
+  };
 
   const firstEntry = dict?.entries[0];
   const pos = firstEntry?.partOfSpeech?.toLowerCase();
@@ -279,6 +313,8 @@ export function useLookup({ target, settings, aiStatus, vocab, mediaTitle, autoE
     ai,
     job,
     aiReady,
+    /** The tutor's settings have not been read yet: neither ready nor missing. */
+    aiPending: aiStatus === null,
     /** The tutor's answer is on its way or shown: the card's content will keep growing. */
     answerShown: aiReady && (ai.status === 'loading' || ai.status === 'streaming' || ai.status === 'done'),
     /** The learner turned the tutor off (as opposed to never setting one up). */
@@ -290,13 +326,25 @@ export function useLookup({ target, settings, aiStatus, vocab, mediaTitle, autoE
     suggestion,
     answerText,
     turns,
+    chatting,
     ask,
+    retryTurn,
     setStatus,
+    /** The entry the learner just removed, until they save it again or undo. */
+    removed,
+    undoRemove,
     saveNotes,
     translation,
     pos,
     links: isWord ? externalDictionaries(target.text, target.lang, native) : [],
-    copy: (text: string) => void navigator.clipboard?.writeText(text).catch(() => undefined),
+    /** Resolves to whether the text reached the clipboard. */
+    copy: (text: string): Promise<boolean> =>
+      navigator.clipboard
+        ? navigator.clipboard.writeText(text).then(
+            () => true,
+            () => false,
+          )
+        : Promise.resolve(false),
   };
 }
 

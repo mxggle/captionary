@@ -1,11 +1,11 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { getCurrentUILocale, getMessages, useI18n } from '@/lib/i18n';
-import { languageName, sameLang } from '@/lib/languages';
+import { languageName } from '@/lib/languages';
+import type { AIStatus } from '@/lib/messaging';
 import type { TrackInfo } from '@/lib/subtitles/types';
-import { PlayerSwitch } from '@/ui/controls';
 import { IconCheck, IconChevronLeft, IconChevronRight } from '@/ui/icons';
 import type { SessionController } from '../controller';
-import { sourceKey, trackLabel, type TranslationChoice } from './subtitles';
+import { pickTranslation, sourceKey, trackLabel, type TranslationChoice } from './subtitles';
 import type { TranslationSource } from '@/lib/subtitles/types';
 
 /** A menu row that opens a sub-page or runs an action: label, value, chevron (`cap-menu__item`). */
@@ -32,27 +32,50 @@ export function MenuRow({
   );
 }
 
-/** An on/off row with the host's switch. */
+/** An on/off row with the host's switch; the whole row toggles it, as in the host's own menus. */
 export function MenuSwitch({
   label,
   keyName,
+  icon,
   checked,
   onChange,
 }: {
   label: string;
   keyName?: string;
+  /** The row's icon, where the host's own menu rows have one (YouTube). */
+  icon?: ReactNode;
   checked: boolean;
   onChange: (v: boolean) => void;
 }) {
   return (
-    <div className="cap-menu__item">
+    <button type="button" className="cap-menu__item" role="menuitemcheckbox" aria-checked={checked} onClick={() => onChange(!checked)}>
+      {icon}
       <span className="cap-menu__label">
         {label}
         {keyName && <span className="cap-menu__key"> ({keyName})</span>}
       </span>
-      <PlayerSwitch role="menuitemcheckbox" label={label} checked={checked} onChange={onChange} />
+      <span className={`cap-pswitch${checked ? ' is-on' : ''}`} aria-hidden="true" />
+    </button>
+  );
+}
+
+/** A labelled section of a menu (Apple TV+'s "Original", "Translation"); the heading names the group. */
+export function MenuGroup({ label, titled = true, children }: { label: string; titled?: boolean; children: ReactNode }) {
+  return (
+    <div role="group" aria-label={label} className="cap-menu__group">
+      {titled && (
+        <div className="cap-menu__section" aria-hidden="true">
+          {label}
+        </div>
+      )}
+      {children}
     </div>
   );
+}
+
+/** A rule between groups of menu items. */
+export function MenuSep({ style }: { style?: CSSProperties }) {
+  return <div className="cap-menu__sep" role="separator" style={style} />;
 }
 
 /** One choice in a list of choices, with a check when it is the current one. */
@@ -60,15 +83,18 @@ export function MenuRadio({
   label,
   meta,
   checked,
+  role = 'menuitemradio',
   onClick,
 }: {
   label: ReactNode;
   meta?: ReactNode;
   checked: boolean;
+  /** A check that turns an option on and off (Apple TV+'s menus have checks, not switches). */
+  role?: 'menuitemradio' | 'menuitemcheckbox';
   onClick: () => void;
 }) {
   return (
-    <button type="button" className="cap-menu__item" role="menuitemradio" aria-checked={checked} onClick={onClick}>
+    <button type="button" className="cap-menu__item" role={role} aria-checked={checked} onClick={onClick}>
       <IconCheck className="cap-menu__check" />
       <span className="cap-menu__label">{label}</span>
       {meta && <span className="cap-menu__value">{meta}</span>}
@@ -82,12 +108,12 @@ export function MenuBack({ title, onBack }: { title: string; onBack: () => void 
   return (
     <>
       <div className="cap-menu__head">
-        <button type="button" className="cap-menu__back" aria-label={m.common.back} onClick={onBack}>
+        <button type="button" className="cap-menu__back" role="menuitem" aria-label={m.common.back} onClick={onBack}>
           <IconChevronLeft className="cap-ico" />
         </button>
         <span className="cap-menu__label">{title}</span>
       </div>
-      <div className="cap-menu__sep" />
+      <MenuSep />
     </>
   );
 }
@@ -102,14 +128,6 @@ export function originalValue(tracks: TrackInfo[], id: string | null): string {
   const m = getMessages(getCurrentUILocale());
   const t = tracks.find((x) => x.id === id);
   return t ? trackLabel(t) : m.common.none;
-}
-
-/** Tracks in the same language as the current original, for short inline lists. */
-export function sameLanguageTracks(tracks: TrackInfo[], id: string | null): TrackInfo[] {
-  const current = tracks.find((t) => t.id === id);
-  const all = originalTracks(tracks);
-  if (!current) return all.slice(0, 4);
-  return all.filter((t) => sameLang(t.lang, current.lang));
 }
 
 export function OriginalChoices({
@@ -129,11 +147,12 @@ export function OriginalChoices({
       {tracks.length === 0 && <div className="cap-menu__section">{m.content.playerMenu.noSubtitleTracks}</div>}
       {tracks.map((t) => {
         const langLabel = languageName(t.lang, locale);
+        const label = trackLabel(t);
         return (
           <MenuRadio
             key={t.id}
-            label={trackLabel(t)}
-            meta={t.label.includes(langLabel) || t.label.includes(languageName(t.lang)) ? undefined : langLabel}
+            label={label}
+            meta={label.includes(langLabel) || label.includes(languageName(t.lang)) ? undefined : langLabel}
             checked={t.id === originalTrackId}
             onClick={() => {
               if (t.id !== originalTrackId) void controller.selectOriginalTrack(t.id);
@@ -150,11 +169,13 @@ export function TranslationChoices({
   controller,
   choices,
   current,
+  aiStatus,
   onDone,
 }: {
   controller: SessionController;
   choices: TranslationChoice[];
   current: TranslationSource;
+  aiStatus: AIStatus | null;
   onDone?: () => void;
 }) {
   const key = sourceKey(current);
@@ -167,7 +188,7 @@ export function TranslationChoices({
           meta={c.meta}
           checked={c.key === key}
           onClick={() => {
-            if (c.key !== key) void controller.chooseTranslation(c.source);
+            if (c.key !== key || c.setup) pickTranslation(controller, c, aiStatus);
             onDone?.();
           }}
         />

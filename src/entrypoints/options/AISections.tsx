@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { cacheSize, clearCache } from '@/lib/ai/cache';
 import { DEFAULT_PROMPTS, PROMPT_VARIABLES } from '@/lib/ai/prompts';
 import { PROVIDERS } from '@/lib/ai/registry';
@@ -6,7 +6,22 @@ import { AI_TASKS, type AISettings, type AITask, type ReasoningEffort, type Task
 import { getUsage, resetUsage, usageItem, type UsageStats } from '@/lib/ai/usage';
 import { useI18n } from '@/lib/i18n';
 import { languageName } from '@/lib/languages';
-import { Note, PageHead, Range, Segment, Select, SettingRow, SettingsCard, Switch } from '@/ui/controls';
+import { DEFAULT_AI_SETTINGS } from '@/lib/settings';
+import {
+  Confirm,
+  LabelledSwitch,
+  LiveRegion,
+  Note,
+  PageHead,
+  Range,
+  Segment,
+  Select,
+  SettingRow,
+  SettingsCard,
+  Switch,
+  Tabs,
+  useConfirm,
+} from '@/ui/controls';
 import { NumberInput, useAISettings, useSettings } from '@/ui/form';
 import { ModelPicker } from '@/ui/ModelPicker';
 
@@ -22,7 +37,8 @@ function RouteCard({ task, ai, updateAI }: { task: AITask; ai: AISettings; updat
   const info = conn ? PROVIDERS[conn.kind] : undefined;
   const models = conn && info ? (conn.models.length ? conn.models : info.suggestedModels) : [];
   const set = (fn: (r: TaskRoute) => void) => void updateAI((s) => fn(s.routes[task]));
-  const usesDefault = !route.connectionId && !route.model;
+  const defaults = DEFAULT_AI_SETTINGS.routes[task];
+  const customised = (Object.keys(defaults) as (keyof TaskRoute)[]).some((k) => route[k] !== defaults[k]);
   const fallbackModel = conn?.defaultModel || info?.defaultModel || '';
   const efforts: { value: ReasoningEffort; label: string }[] = [
     { value: 'default', label: t.efforts.default },
@@ -35,7 +51,7 @@ function RouteCard({ task, ai, updateAI }: { task: AITask; ai: AISettings; updat
     <SettingsCard
       title={m.tasks[task].name}
       help={m.tasks[task].description}
-      action={usesDefault ? <span className="cap-tag">{t.usesDefault}</span> : undefined}
+      action={customised ? <span className="cap-tag cap-tag--accent">{t.customisedTag}</span> : undefined}
     >
       <div className="cap-task">
         <div className="cap-field">
@@ -145,32 +161,37 @@ export function AITasksSection() {
           {t.noProviderWarnAfter}
         </Note>
       )}
-      {AI_TASKS.map((task) => (
-        <RouteCard key={task} task={task} ai={ai} updateAI={updateAI} />
-      ))}
-      <SettingsCard>
-        <SettingRow title={t.fallbackProvider} help={t.fallbackProviderHelp}>
-          {(id) => (
-            <Select
-              labelledBy={id}
-              value={ai.fallbackConnectionId ?? ''}
-              options={[{ value: '', label: m.common.none }, ...ai.connections.map((c) => ({ value: c.id, label: c.label }))]}
-              onChange={(v) => void updateAI((s) => void (s.fallbackConnectionId = v || null))}
-            />
-          )}
-        </SettingRow>
-      </SettingsCard>
+      {/* Without a provider nothing here takes effect yet: the cards stay readable but out of the way. */}
+      <fieldset className="cap-fieldset" disabled={ai.connections.length === 0}>
+        {AI_TASKS.map((task) => (
+          <RouteCard key={task} task={task} ai={ai} updateAI={updateAI} />
+        ))}
+        <SettingsCard>
+          <SettingRow title={t.fallbackProvider} help={t.fallbackProviderHelp}>
+            {(id) => (
+              <Select
+                labelledBy={id}
+                value={ai.fallbackConnectionId ?? ''}
+                options={[{ value: '', label: m.common.none }, ...ai.connections.map((c) => ({ value: c.id, label: c.label }))]}
+                onChange={(v) => void updateAI((s) => void (s.fallbackConnectionId = v || null))}
+              />
+            )}
+          </SettingRow>
+        </SettingsCard>
+      </fieldset>
     </>
   );
 }
 
-const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
-
 function UsageCard() {
-  const { m } = useI18n();
+  const { locale, m } = useI18n();
   const p = m.options.aiPrivacy;
   const [usage, setUsage] = useState<UsageStats | null>(null);
   const [cached, setCached] = useState<number | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+  const reset = useConfirm();
+  const num = useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const compact = useMemo(() => new Intl.NumberFormat(locale, { notation: 'compact', maximumFractionDigits: 1 }), [locale]);
   useEffect(() => {
     void getUsage().then(setUsage);
     void cacheSize().then(setCached);
@@ -182,18 +203,34 @@ function UsageCard() {
     <SettingsCard
       title={p.usageCard}
       action={
-        <button className="cap-btn cap-btn--sm" onClick={() => void resetUsage().then(() => getUsage().then(setUsage))}>
+        <button className="cap-btn cap-btn--sm" ref={reset.trigger} aria-expanded={reset.open} onClick={reset.ask}>
           {p.resetCounters}
         </button>
       }
     >
+      {reset.open && (
+        <div className="cap-card__body">
+          <Confirm
+            action={p.resetCounters}
+            onCancel={reset.close}
+            onConfirm={() => {
+              reset.close();
+              void resetUsage()
+                .then(() => getUsage().then(setUsage))
+                .then(() => setDone(p.countersResetMsg));
+            }}
+          >
+            {p.confirmResetCounters}
+          </Confirm>
+        </div>
+      )}
       <div className="cap-card__body cap-stats">
         <div className="cap-stat">
-          <span className="cap-stat__value">{usage.today.requests}</span>
+          <span className="cap-stat__value">{num.format(usage.today.requests)}</span>
           <span className="cap-stat__label">{p.requestsTodayStat}</span>
         </div>
         <div className="cap-stat">
-          <span className="cap-stat__value">{usage.today.cacheHits}</span>
+          <span className="cap-stat__value">{num.format(usage.today.cacheHits)}</span>
           <span className="cap-stat__label">{p.cacheHitsTodayStat}</span>
         </div>
         <div className="cap-stat">
@@ -219,10 +256,10 @@ function UsageCard() {
                   <td className="cap-mono" style={{ fontSize: 13 }}>
                     {model}
                   </td>
-                  <td>{c.requests.toLocaleString()}</td>
-                  <td>{c.inputTokens.toLocaleString()}</td>
-                  <td>{c.outputTokens.toLocaleString()}</td>
-                  <td>{c.cacheHits.toLocaleString()}</td>
+                  <td>{num.format(c.requests)}</td>
+                  <td>{num.format(c.inputTokens)}</td>
+                  <td>{num.format(c.outputTokens)}</td>
+                  <td>{num.format(c.cacheHits)}</td>
                 </tr>
               ))}
             </tbody>
@@ -231,10 +268,19 @@ function UsageCard() {
       )}
       <div className="cap-row" style={{ padding: '12px 18px', borderTop: models.length ? undefined : '1px solid var(--line)' }}>
         <span className="cap-help cap-spacer">{p.answersKept(cached ?? '…')}</span>
-        <button className="cap-btn cap-btn--sm" onClick={() => void clearCache().then(() => setCached(0))}>
+        <button
+          className="cap-btn cap-btn--sm"
+          onClick={() =>
+            void clearCache().then(() => {
+              setCached(0);
+              setDone(p.answersClearedMsg);
+            })
+          }
+        >
           {p.clearSavedAnswers}
         </button>
       </div>
+      <LiveRegion className="cap-card__msg">{done && <Note tone="success">{done}</Note>}</LiveRegion>
     </SettingsCard>
   );
 }
@@ -280,20 +326,25 @@ export function AIPrivacySection() {
   const p = m.options.aiPrivacy;
   const set = (fn: (s: AISettings) => void) => void updateAI(fn);
   const target = settings.targetLanguage === 'auto' ? p.theVideosLanguage : languageName(settings.targetLanguage, locale);
+  // With the tutor off nothing is sent, so these rows have no effect until it is on again.
+  const off = !ai.enabled;
   return (
     <>
       <PageHead title={p.title} lead={p.lead} />
       <SettingsCard
         title={p.whatGetsSentCard}
-        action={<Switch label={p.tutorOn} checked={ai.enabled} onChange={(v) => set((s) => void (s.enabled = v))} />}
+        action={<LabelledSwitch label={p.tutorOn} checked={ai.enabled} onChange={(v) => set((s) => void (s.enabled = v))} />}
       >
-        <SettingRow title={p.autoExplain} help={p.autoExplainHelp}>
-          {(id) => <Switch labelledBy={id} checked={ai.autoExplain} onChange={(v) => set((s) => void (s.autoExplain = v))} />}
+        <SettingRow title={p.autoExplain} help={p.autoExplainHelp} disabled={off}>
+          {(id) => (
+            <Switch labelledBy={id} disabled={off} checked={ai.autoExplain} onChange={(v) => set((s) => void (s.autoExplain = v))} />
+          )}
         </SettingRow>
-        <SettingRow title={p.contextScope} help={p.contextScopeHelp}>
+        <SettingRow title={p.contextScope} help={p.contextScopeHelp} disabled={off}>
           {(id) => (
             <Segment
               labelledBy={id}
+              disabled={off}
               value={ai.contextScope}
               options={[
                 { value: 'word', label: p.scopeWord },
@@ -304,13 +355,21 @@ export function AIPrivacySection() {
             />
           )}
         </SettingRow>
-        <SettingRow title={p.shareMediaTitle} help={p.shareMediaTitleHelp}>
-          {(id) => <Switch labelledBy={id} checked={ai.shareMediaTitle} onChange={(v) => set((s) => void (s.shareMediaTitle = v))} />}
+        <SettingRow title={p.shareMediaTitle} help={p.shareMediaTitleHelp} disabled={off}>
+          {(id) => (
+            <Switch
+              labelledBy={id}
+              disabled={off}
+              checked={ai.shareMediaTitle}
+              onChange={(v) => set((s) => void (s.shareMediaTitle = v))}
+            />
+          )}
         </SettingRow>
-        <SettingRow title={p.explanationsIn}>
+        <SettingRow title={p.explanationsIn} disabled={off}>
           {(id) => (
             <Segment
               labelledBy={id}
+              disabled={off}
               value={ai.explanationLanguage}
               options={[
                 { value: 'native', label: languageName(settings.nativeLanguage, locale) },
@@ -382,22 +441,45 @@ export function AIPrivacySection() {
   );
 }
 
-function PromptEditor({ task, ai, updateAI }: { task: AITask; ai: AISettings; updateAI: UpdateAI }) {
+/** Unsaved prompt edits, kept for the life of the page so switching tasks or sections never drops them. */
+const promptDrafts: Partial<Record<AITask, string>> = {};
+const warnBeforeLeaving = (e: BeforeUnloadEvent) => e.preventDefault();
+
+function storeDraft(task: AITask, text: string | undefined) {
+  if (text === undefined) delete promptDrafts[task];
+  else promptDrafts[task] = text;
+  // The browser asks before the page closes while an edit is unsaved.
+  if (Object.keys(promptDrafts).length) window.addEventListener('beforeunload', warnBeforeLeaving);
+  else window.removeEventListener('beforeunload', warnBeforeLeaving);
+}
+
+function PromptEditor({
+  task,
+  ai,
+  updateAI,
+  draft,
+  onDraft,
+}: {
+  task: AITask;
+  ai: AISettings;
+  updateAI: UpdateAI;
+  draft: string | undefined;
+  onDraft: (text: string | undefined) => void;
+}) {
   const { m } = useI18n();
   const pr = m.options.prompts;
   const custom = ai.prompts[task];
-  const [draft, setDraft] = useState(custom ?? DEFAULT_PROMPTS[task]);
+  const saved = custom ?? DEFAULT_PROMPTS[task];
+  const text = draft ?? saved;
+  const dirty = text !== saved;
   const ref = useRef<HTMLTextAreaElement>(null);
   const id = useId();
-  useEffect(() => setDraft(custom ?? DEFAULT_PROMPTS[task]), [custom, task]);
-  const dirty = draft !== (custom ?? DEFAULT_PROMPTS[task]);
   const insert = (name: string) => {
     const el = ref.current;
     const token = `{{${name}}}`;
-    if (!el) return setDraft((d) => d + token);
+    if (!el) return onDraft(text + token);
     const start = el.selectionStart;
-    const next = draft.slice(0, start) + token + draft.slice(el.selectionEnd);
-    setDraft(next);
+    onDraft(text.slice(0, start) + token + text.slice(el.selectionEnd));
     requestAnimationFrame(() => {
       el.focus();
       el.setSelectionRange(start + token.length, start + token.length);
@@ -426,22 +508,32 @@ function PromptEditor({ task, ai, updateAI }: { task: AITask; ai: AISettings; up
           ref={ref}
           className="cap-input"
           style={{ minHeight: 300 }}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+          value={text}
+          onChange={(e) => onDraft(e.target.value)}
           spellCheck={false}
         />
         <div className="cap-row">
+          {/* aria-disabled, not disabled: pressing either one disables it, and a disabled button drops focus. */}
           <button
             className="cap-btn cap-btn--primary"
-            disabled={!dirty}
-            onClick={() => void updateAI((s) => void (s.prompts[task] = draft === DEFAULT_PROMPTS[task] ? undefined : draft))}
+            aria-disabled={!dirty}
+            onClick={() => {
+              if (!dirty) return;
+              void updateAI((s) => void (s.prompts[task] = text === DEFAULT_PROMPTS[task] ? undefined : text)).then(() =>
+                onDraft(undefined),
+              );
+            }}
           >
             {m.common.save}
           </button>
           <button
             className="cap-btn cap-btn--ghost"
-            disabled={!custom && !dirty}
-            onClick={() => void updateAI((s) => void delete s.prompts[task])}
+            aria-disabled={!custom && !dirty}
+            // The draft goes too: a prompt that was never customised has nothing saved to delete.
+            onClick={() => {
+              if (!custom && !dirty) return;
+              void updateAI((s) => void delete s.prompts[task]).then(() => onDraft(undefined));
+            }}
           >
             {pr.resetToDefault}
           </button>
@@ -457,8 +549,15 @@ export function PromptsSection() {
   const [ai, updateAI] = useAISettings();
   const { m } = useI18n();
   const [task, setTask] = useState<AITask>('word');
+  const [drafts, setDrafts] = useState(() => ({ ...promptDrafts }));
   if (!ai) return null;
   const pr = m.options.prompts;
+  const saved = (t: AITask) => ai.prompts[t] ?? DEFAULT_PROMPTS[t];
+  const setDraft = (t: AITask) => (text: string | undefined) => {
+    storeDraft(t, text === saved(t) ? undefined : text);
+    setDrafts({ ...promptDrafts });
+  };
+  const dirty = (t: AITask) => drafts[t] !== undefined && drafts[t] !== saved(t);
   return (
     <>
       <PageHead title={pr.title} lead={pr.lead} />
@@ -467,16 +566,27 @@ export function PromptsSection() {
         <span className="cap-mono">&lt;context&gt;</span>
         {pr.contextNoteAfter}
       </Note>
-      <div style={{ alignSelf: 'flex-start', maxWidth: '100%', overflowX: 'auto' }}>
-        <Segment
-          role="tablist"
-          label={pr.taskLabel}
-          value={task}
-          options={AI_TASKS.map((t) => ({ value: t, label: m.tasks[t].name }))}
-          onChange={setTask}
-        />
-      </div>
-      <PromptEditor key={task} task={task} ai={ai} updateAI={updateAI} />
+      <Tabs
+        label={pr.taskLabel}
+        value={task}
+        options={AI_TASKS.map((t) => ({
+          value: t,
+          label: (
+            <>
+              {m.tasks[t].name}
+              {dirty(t) && (
+                <>
+                  <span className="cap-tabs__dot" aria-hidden="true" />
+                  <span className="cap-sr"> ({pr.unsavedChanges})</span>
+                </>
+              )}
+            </>
+          ),
+        }))}
+        onChange={setTask}
+      >
+        <PromptEditor key={task} task={task} ai={ai} updateAI={updateAI} draft={drafts[task]} onDraft={setDraft(task)} />
+      </Tabs>
     </>
   );
 }

@@ -1,7 +1,7 @@
 import { getCurrentUILocale, getMessages } from '@/lib/i18n';
 import { sameLang } from '@/lib/languages';
 import { parseYouTubeJson3 } from '@/lib/subtitles/parse';
-import type { Cue, TrackInfo } from '@/lib/subtitles/types';
+import { type Cue, type TrackInfo, SubtitleLoadError } from '@/lib/subtitles/types';
 import { FROM_MAIN, onMessageFrom, postToMain, requestMain } from '../bridge';
 import type { SiteAdapter } from '../controller';
 
@@ -138,6 +138,9 @@ export class YouTubeAdapter implements SiteAdapter {
       lang: t.lang,
       label: t.name || t.lang,
       auto: t.kind === 'asr',
+      // ".ja" and "a.en" are standard tracks named after their language; a named track ("English – SDH")
+      // has an id of its own after the language and keeps the name the uploader gave it.
+      namedByLang: /^a?\.[^.]+$/.test(t.vssId),
     }));
     const def = data.defaultIndex !== null ? tracks[data.defaultIndex] : undefined;
     return { tracks, defaultId: def?.id ?? null };
@@ -187,20 +190,20 @@ export class YouTubeAdapter implements SiteAdapter {
       if (await this.waitForToken(videoId, 8000)) body = await get();
     }
     if (!body.trim()) {
-      throw new Error(getMessages(getCurrentUILocale()).content.errors.youtubeNoSubtitlesReturned);
+      throw new SubtitleLoadError(getMessages(getCurrentUILocale()).content.errors.youtubeNoSubtitlesReturned);
     }
     return parseYouTubeJson3(JSON.parse(body));
   }
 
   async loadTrack(trackId: string): Promise<Cue[]> {
     const track = this.tracks.get(trackId);
-    if (!track) throw new Error(getMessages(getCurrentUILocale()).content.errors.unknownSubtitleTrack);
+    if (!track) throw new SubtitleLoadError(getMessages(getCurrentUILocale()).content.errors.unknownSubtitleTrack);
     return this.fetchCues(track);
   }
 
   async loadPlatformTranslation(trackId: string, lang: string): Promise<Cue[]> {
     const track = this.tracks.get(trackId);
-    if (!track) throw new Error(getMessages(getCurrentUILocale()).content.errors.unknownSubtitleTrack);
+    if (!track) throw new SubtitleLoadError(getMessages(getCurrentUILocale()).content.errors.unknownSubtitleTrack);
     const code = this.translationLanguages.find((l) => sameLang(l.code, lang))?.code ?? ytLangCode(lang);
     return this.fetchCues(track, code);
   }

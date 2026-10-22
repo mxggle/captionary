@@ -10,8 +10,10 @@ import { getFrequencyList } from '@/lib/frequency';
 import { getCurrentUILocale, getMessages, resolveUILocale, syncUILocaleFromSettings } from '@/lib/i18n';
 import { baseLang } from '@/lib/languages';
 import { setupProgress } from '@/lib/onboarding';
+import { guessLanguage } from '@/lib/text/detect';
 import { romanizeLine } from '@/lib/text/romanize';
 import { romanizeChinese } from '@/lib/text/romanize-zh';
+import { selectionKind } from '@/lib/text/selection-kind';
 import { AI_PORT, type AIStatus, type BgRequest, type BgResponse, type SidePanelPayload } from '@/lib/messaging';
 import { readerImport, sidePanelPayload } from '@/lib/session-items';
 import { aiSettingsItem, getAISettings, getSettings, watchSettings, type Settings } from '@/lib/settings';
@@ -195,9 +197,10 @@ export default defineBackground(() => {
   browser.contextMenus.onClicked.addListener((info, tab) => {
     if (info.menuItemId === 'lr-explain-selection' && info.selectionText) {
       const text = info.selectionText.trim().slice(0, 2000);
-      // Must run synchronously inside the click handler to keep the user gesture.
+      // Must run synchronously inside the click handler to keep the user gesture, so the language is
+      // the offline guess; the side panel detects it properly.
       void openSidePanel(
-        { kind: /\s/.test(text) && text.split(/\s+/).length > 3 ? 'sentence' : 'word', text, url: tab?.url, title: tab?.title },
+        { kind: selectionKind(text, guessLanguage(text) ?? ''), text, url: tab?.url, title: tab?.title },
         tab?.id,
         tab?.windowId,
       );

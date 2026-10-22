@@ -72,7 +72,7 @@
         ' ',
         W('que', 'conjunction', 'that', '*Que* is “that”. It introduces what he realized.'),
         ' ',
-        W('yo', 'pronoun', 'I', '*Yo* is “I”. Spanish usually leaves it out; here it adds stress: *I* was the one who was right.'),
+        W('yo', 'pronoun', 'I', '*Yo* is “I”. Spanish usually leaves it out; here it adds stress: _I_ was the one who was right.'),
         ' ',
         W('tenía', 'verb', 'had', '*Tenía* is the imperfect of *tener*, “to have”. With *razón* it means “was right”.', { chunk: 'razon' }),
         ' ',
@@ -189,6 +189,7 @@
   const orig = $('cap-orig');
   const trLine = $('cap-tr');
   const card = $('lk');
+  const live = $('lk-live');
   const hint = $('demo-hint');
   if (!demo || !player || !orig || !trLine || !card) return;
 
@@ -207,7 +208,11 @@
   let gaps = []; // the text between words
 
   const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-  const md = (s) => esc(s).replace(/\*([^*]+)\*/g, '<i>$1</i>');
+  // *term* is a word of the sample line, in its language; _word_ is stress in the page's own language.
+  const md = (s, lang) =>
+    esc(s)
+      .replace(/\*([^*]+)\*/g, `<i lang="${lang}">$1</i>`)
+      .replace(/_([^_]+)_/g, '<em>$1</em>');
   const icon = (id, cls = '') => `<svg class="${cls}" aria-hidden="true"><use href="#${id}"/></svg>`;
 
   // ---------- the line ----------
@@ -347,9 +352,15 @@
     state.explain = explain || fromChunk;
     paintLine();
     renderCard(!quiet);
+    if (!quiet && live) {
+      const e = state.entry;
+      live.textContent = `${getPack().ui.lookupAria(e.text)}. ${e.tr}`;
+    }
   }
 
   function close() {
+    // With the card gone focus would drop to the page, so hand it back to the word the card came from.
+    if (card.contains(document.activeElement) && state.sel) buttons[state.sel[0]]?.focus();
     state.sel = null;
     state.entry = null;
     card.hidden = true;
@@ -394,14 +405,18 @@
     }
     if (state.explain) {
       html += '<div class="lk-sep"></div><div class="lk-ai">';
-      html += `<p>${md(e.ex)}</p>`;
-      if (e.warn) html += `<p class="lk-warn">⚠ ${md(e.warn)}</p>`;
+      html += `<p>${md(e.ex, d.lang)}</p>`;
+      if (e.warn) html += `<p class="lk-warn">⚠ ${md(e.warn, d.lang)}</p>`;
       if (e.kind !== 'other') html += `<p class="lk-meta">${esc(ui.sampleAnswer)}</p>`;
       html += '</div>';
     }
     html += '</div><span class="lk-arrow" aria-hidden="true"></span>';
 
+    // Rebuilding the card drops the focused button, so put focus back on the same action, or on Save
+    // when that action is gone (after following the phrase the tutor named).
+    const act = card.contains(document.activeElement) ? document.activeElement.dataset.act : null;
     card.innerHTML = html;
+    if (act) (card.querySelector(`[data-act="${act}"]`) || card.querySelector('[data-act="save"]')).focus();
     card.setAttribute('aria-label', ui.lookupAria(e.text));
     card.hidden = false;
     if (animate) {
@@ -541,7 +556,7 @@
     btn.addEventListener('click', () => {
       if (btn.dataset.lang === state.lang) return;
       state.lang = btn.dataset.lang;
-      seg.forEach((b) => b.setAttribute('aria-checked', String(b === btn)));
+      seg.forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
       anchor = null;
       renderLine();
       start();

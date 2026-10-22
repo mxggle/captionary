@@ -1,25 +1,26 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useI18n } from '@/lib/i18n';
 import { sameLang } from '@/lib/languages';
 import { bg } from '@/lib/messaging';
 import { updateSettings, type Settings } from '@/lib/settings';
-import { PlayerSwitch } from '@/ui/controls';
-import { IconCheck, IconGlyph } from '@/ui/icons';
+import { IconBookmark, IconCaptions, IconCheck, IconEye, IconGlyph, IconList, IconPause, IconSettings, IconTranslate } from '@/ui/icons';
 import { keyName, type SessionController } from '../controller';
 import { useSession, type AnchorRect } from '../store';
 import {
   MenuBack,
+  MenuGroup,
+  MenuRadio,
   MenuRow,
   MenuSwitch,
   OriginalChoices,
   originalTracks,
   originalValue,
-  sameLanguageTracks,
   TranslationChoices,
 } from './menus';
 import { measureClearance, playerOf } from './clearance';
-import { sourceKey, translationChoices, translationValue } from './subtitles';
+import { useMenuKeys } from './focus';
+import { pickTranslation, sourceKey, trackLabel, translationChoices, translationValue } from './subtitles';
 import { useContainWheel } from './wheel';
 
 type Page = 'main' | 'original' | 'translation';
@@ -40,6 +41,44 @@ function placeMenu(anchor: AnchorRect | null, bounds: DOMRect, width: number, al
   }
   const top = anchor.top + anchor.height - bounds.top + 8;
   return { right, top, maxHeight: Math.max(160, bounds.height - top - 12) };
+}
+
+/**
+ * One row of the Netflix panel, in Netflix's own idiom: grey text, white with a check once chosen.
+ * Choices (radio), options (checkbox) and links share it, so the whole panel reads as one list.
+ */
+function NetflixOption({
+  label,
+  keyHint,
+  meta,
+  checked,
+  role = 'menuitemradio',
+  onClick,
+}: {
+  label: string;
+  /** The shortcut, right after the name. */
+  keyHint?: string;
+  meta?: string;
+  checked?: boolean;
+  role?: 'menuitemradio' | 'menuitemcheckbox' | 'menuitem';
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="cap-menu__opt"
+      role={role}
+      aria-checked={role === 'menuitem' ? undefined : !!checked}
+      onClick={onClick}
+    >
+      <IconCheck />
+      <span className="cap-menu__opt-label">
+        {label}
+        {keyHint && <span className="cap-menu__key"> ({keyHint})</span>}
+      </span>
+      {meta && <small>{meta}</small>}
+    </button>
+  );
 }
 
 /**
@@ -95,13 +134,16 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
     return () => window.removeEventListener('pointerdown', onDown, true);
   }, [s.menuOpen, controller]);
   useContainWheel(ref, s.menuOpen);
+  const onMenuKey = useMenuKeys(ref, s.menuOpen, () => controller.closeMenu(), page);
 
   if (!s.menuOpen) return null;
   const bounds = boundsRef.current?.getBoundingClientRect();
   if (!bounds) return null;
 
   const skin = s.theme === 'netflix' ? 'netflix' : s.theme === 'appletv' ? 'appletv' : 'youtube';
-  const width = skin === 'netflix' ? Math.min(560, bounds.width - 24) : skin === 'appletv' ? 290 : 300;
+  // Netflix's own panel is about as wide as the viewport is tall; its type is sized in vh too.
+  const width =
+    skin === 'netflix' ? Math.min(bounds.width - 24, Math.max(480, Math.round(window.innerHeight))) : skin === 'appletv' ? 250 : 360;
   const style = { ...placeMenu(s.menuAnchor, bounds, width, skin === 'youtube', clearance), width };
   const { settings } = s;
   const set = (fn: (st: Settings) => void) => void updateSettings(fn);
@@ -111,24 +153,20 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
     void bg({ type: 'open.page', page, hash }).catch(() => undefined);
   };
 
-  const onSwitch = (
-    <PlayerSwitch
-      role="menuitemcheckbox"
-      label={m.content.playerMenu.onForVideoAria}
-      checked={!s.off}
-      onChange={(on) => controller.setOff(!on)}
-    />
-  );
+  // YouTube's settings rows each lead with an icon; Apple TV+'s menu has none.
+  const icon = (Glyph: typeof IconGlyph) => (skin === 'youtube' ? <Glyph className="cap-menu__icon" /> : undefined);
   const pause = (
     <MenuSwitch
+      icon={icon(IconPause)}
       label={m.content.playerMenu.pauseAfterEachLine}
-      keyName={skin === 'appletv' ? undefined : keyName(keys.toggleAutoPause)}
+      keyName={skin === 'appletv' ? undefined : keyName(keys.toggleAutoPause, m.common.space)}
       checked={settings.playback.autoPause}
       onChange={(v) => set((st) => void (st.playback.autoPause = v))}
     />
   );
   const blur = (
     <MenuSwitch
+      icon={icon(IconEye)}
       label={m.content.playerMenu.blurTranslation}
       checked={settings.subtitles.blurTranslation}
       onChange={(v) => set((st) => void (st.subtitles.blurTranslation = v))}
@@ -136,8 +174,9 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
   );
   const list = (
     <MenuSwitch
+      icon={icon(IconList)}
       label={m.content.playerMenu.subtitleList}
-      keyName={skin === 'appletv' ? undefined : keyName(keys.toggleSidebar)}
+      keyName={skin === 'appletv' ? undefined : keyName(keys.toggleSidebar, m.common.space)}
       checked={controller.isListOpen()}
       onChange={() => {
         controller.toggleList();
@@ -147,8 +186,13 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
   );
   const links = (
     <>
-      <MenuRow label={m.content.playerMenu.savedWords} value={m.content.playerMenu.learningCount(learning)} onClick={() => open('vocab')} />
-      <MenuRow label={m.content.playerMenu.allSettings} onClick={() => open('options', 'subtitles')} />
+      <MenuRow
+        icon={icon(IconBookmark)}
+        label={m.content.playerMenu.savedWords}
+        value={m.content.playerMenu.learningCount(learning)}
+        onClick={() => open('vocab')}
+      />
+      <MenuRow icon={icon(IconSettings)} label={m.content.playerMenu.allSettings} onClick={() => open('options', 'subtitles')} />
     </>
   );
 
@@ -169,7 +213,13 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
     body = (
       <>
         <MenuBack title={m.content.playerMenu.translation} onBack={() => setPage('main')} />
-        <TranslationChoices controller={controller} choices={choices} current={s.translationSource} onDone={() => setPage('main')} />
+        <TranslationChoices
+          controller={controller}
+          choices={choices}
+          current={s.translationSource}
+          aiStatus={s.aiStatus}
+          onDone={() => setPage('main')}
+        />
       </>
     );
   } else if (skin === 'netflix') {
@@ -178,99 +228,133 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
       <>
         <div className="cap-menu__head">
           <IconGlyph className="cap-ico-lg" />
-          <span className="cap-menu__label" style={{ fontWeight: 700 }}>
-            Captionary
-          </span>
-          <span className="cap-menu__muted">{s.off ? m.content.playerMenu.offForTitle : m.content.playerMenu.onForTitle}</span>
-          {onSwitch}
+          <span className="cap-menu__label">Captionary</span>
+          <NetflixOption
+            role="menuitemcheckbox"
+            label={s.off ? m.content.playerMenu.offForTitle : m.content.playerMenu.onForTitle}
+            checked={!s.off}
+            onClick={() => controller.setOff(!s.off)}
+          />
         </div>
         <div className="cap-menu__cols">
           <div className="cap-menu__col" role="group" aria-label={m.content.playerMenu.originalSubtitles}>
-            <div className="cap-menu__colhead">{m.content.playerMenu.originalShort}</div>
+            <div className="cap-menu__colhead" aria-hidden="true">
+              {m.content.playerMenu.originalShort}
+            </div>
             {originalTracks(s.tracks).map((t) => (
-              <button
+              <NetflixOption
                 key={t.id}
-                className="cap-menu__opt"
-                role="menuitemradio"
-                aria-checked={t.id === s.originalTrackId}
+                label={trackLabel(t)}
+                checked={t.id === s.originalTrackId}
                 onClick={() => t.id !== s.originalTrackId && void controller.selectOriginalTrack(t.id)}
-              >
-                <IconCheck />
-                {t.label}
-              </button>
+              />
             ))}
           </div>
           <div className="cap-menu__col" role="group" aria-label={m.content.playerMenu.translation}>
-            <div className="cap-menu__colhead">{m.content.playerMenu.translation}</div>
-            {choices.map((c) => (
-              <button
-                key={c.key}
-                className="cap-menu__opt"
-                role="menuitemradio"
-                aria-checked={c.key === current}
-                onClick={() => c.key !== current && void controller.chooseTranslation(c.source)}
-              >
-                <IconCheck />
-                {c.label}
-                {c.meta && <small>{c.meta}</small>}
-              </button>
+            <div className="cap-menu__colhead" aria-hidden="true">
+              {m.content.playerMenu.translationShort}
+            </div>
+            {choices.map((c, i) => (
+              <Fragment key={c.key}>
+                {!c.primary && choices[i - 1]?.primary && (
+                  <div className="cap-menu__colsub" aria-hidden="true">
+                    {m.content.playerMenu.otherLanguages}
+                  </div>
+                )}
+                <NetflixOption
+                  label={c.label}
+                  meta={c.meta}
+                  checked={c.key === current}
+                  onClick={() => (c.key !== current || c.setup) && pickTranslation(controller, c, s.aiStatus)}
+                />
+              </Fragment>
             ))}
           </div>
         </div>
-        <div className="cap-menu__sep" style={{ margin: '8px 0' }} />
-        <div className="cap-menu__cols">
-          {pause}
-          {list}
-          {blur}
-          <MenuRow
+        <div className="cap-menu__cols cap-menu__cols--options" role="group" aria-label="Captionary">
+          <NetflixOption
+            role="menuitemcheckbox"
+            label={m.content.playerMenu.pauseAfterEachLine}
+            keyHint={keyName(keys.toggleAutoPause, m.common.space)}
+            checked={settings.playback.autoPause}
+            onClick={() => set((st) => void (st.playback.autoPause = !st.playback.autoPause))}
+          />
+          <NetflixOption
+            role="menuitemcheckbox"
+            label={m.content.playerMenu.subtitleList}
+            keyHint={keyName(keys.toggleSidebar, m.common.space)}
+            checked={controller.isListOpen()}
+            onClick={() => {
+              controller.toggleList();
+              if (controller.listMode() === 'drawer') controller.closeMenu();
+            }}
+          />
+          <NetflixOption
+            role="menuitemcheckbox"
+            label={m.content.playerMenu.blurTranslation}
+            checked={settings.subtitles.blurTranslation}
+            onClick={() => set((st) => void (st.subtitles.blurTranslation = !st.subtitles.blurTranslation))}
+          />
+          <NetflixOption
+            role="menuitem"
             label={m.content.playerMenu.savedWords}
-            value={m.content.playerMenu.learningCount(learning)}
+            meta={`${m.content.playerMenu.learningCount(learning)} ›`}
             onClick={() => open('vocab')}
           />
         </div>
       </>
     );
   } else if (skin === 'appletv') {
-    const inline = sameLanguageTracks(s.tracks, s.originalTrackId);
-    const more = originalTracks(s.tracks).length > inline.length;
+    // Shaped like Apple's own player menus: grouped rows with checks (never switches), and a two-line row
+    // with the current choice under its name that opens a sub-menu, like Apple's Language row.
+    const check = (label: string, checked: boolean, toggle: () => void) => (
+      <MenuRadio role="menuitemcheckbox" label={label} checked={checked} onClick={toggle} />
+    );
     body = (
       <>
-        <div className="cap-menu__head">
-          <IconGlyph className="cap-ico-lg" />
-          <span className="cap-menu__label">Captionary</span>
-          {onSwitch}
-        </div>
-        <div className="cap-menu__section">{m.content.playerMenu.originalShort}</div>
-        <OriginalChoices controller={controller} tracks={inline} originalTrackId={s.originalTrackId} />
-        {more && <MenuRow label={m.content.playerMenu.otherLanguages} onClick={() => setPage('original')} />}
-        <div className="cap-menu__section">{m.content.playerMenu.translation}</div>
-        <TranslationChoices controller={controller} choices={choices.filter((c) => c.primary)} current={s.translationSource} />
-        {choices.some((c) => !c.primary) && (
-          <MenuRow label={m.content.playerMenu.otherSubtitleTracks} onClick={() => setPage('translation')} />
-        )}
-        <div className="cap-menu__sep" />
-        {pause}
-        {blur}
-        {list}
-        <div className="cap-menu__sep" />
-        {links}
+        <MenuGroup label="Captionary">
+          {check(s.off ? m.content.playerMenu.offForTitle : m.content.playerMenu.onForTitle, !s.off, () => controller.setOff(!s.off))}
+          <MenuRow
+            label={m.content.playerMenu.originalSubtitles}
+            value={originalValue(s.tracks, s.originalTrackId)}
+            onClick={() => setPage('original')}
+          />
+          <MenuRow
+            label={m.content.playerMenu.translation}
+            value={translationValue(choices, s.translationSource)}
+            onClick={() => setPage('translation')}
+          />
+        </MenuGroup>
+        <MenuGroup label={m.content.playerMenu.options} titled={false}>
+          {check(m.content.playerMenu.pauseAfterEachLine, settings.playback.autoPause, () =>
+            set((st) => void (st.playback.autoPause = !st.playback.autoPause)),
+          )}
+          {check(m.content.playerMenu.blurTranslation, settings.subtitles.blurTranslation, () =>
+            set((st) => void (st.subtitles.blurTranslation = !st.subtitles.blurTranslation)),
+          )}
+          {check(m.content.playerMenu.subtitleList, controller.isListOpen(), () => {
+            controller.toggleList();
+            if (controller.listMode() === 'drawer') controller.closeMenu();
+          })}
+        </MenuGroup>
+        <MenuGroup label={m.content.playerMenu.savedWords} titled={false}>
+          {links}
+        </MenuGroup>
       </>
     );
   } else {
+    // Laid out like YouTube's own settings menu: one list of icon rows, no header or rules.
     body = (
       <>
-        <div className="cap-menu__head">
-          <IconGlyph className="cap-ico-lg" />
-          <span className="cap-menu__label">Captionary</span>
-          {onSwitch}
-        </div>
-        <div className="cap-menu__sep" />
+        <MenuSwitch icon={icon(IconGlyph)} label="Captionary" checked={!s.off} onChange={(on) => controller.setOff(!on)} />
         <MenuRow
+          icon={icon(IconCaptions)}
           label={m.content.playerMenu.originalSubtitles}
           value={originalValue(s.tracks, s.originalTrackId)}
           onClick={() => setPage('original')}
         />
         <MenuRow
+          icon={icon(IconTranslate)}
           label={m.content.playerMenu.translation}
           value={translationValue(choices, s.translationSource)}
           onClick={() => setPage('translation')}
@@ -278,7 +362,6 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
         {pause}
         {blur}
         {list}
-        <div className="cap-menu__sep" />
         {links}
       </>
     );
@@ -294,8 +377,9 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => {
+        // The host's own shortcuts (volume on the arrows, seeking) stay out of the menu.
         e.stopPropagation();
-        if (e.key === 'Escape') controller.closeMenu();
+        onMenuKey(e);
       }}
     >
       {body}

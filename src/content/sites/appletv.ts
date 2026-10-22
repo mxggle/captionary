@@ -10,7 +10,7 @@ import {
   type TimelineDomain,
 } from '@/lib/subtitles/hls';
 import { normalizeCues, parseVttOrSrt } from '@/lib/subtitles/parse';
-import type { Cue, TrackInfo } from '@/lib/subtitles/types';
+import { type Cue, type TrackInfo, SubtitleLoadError } from '@/lib/subtitles/types';
 import { postToMain, requestMain } from '../bridge';
 import type { SiteAdapter } from '../controller';
 
@@ -36,6 +36,8 @@ function readTimeline(data: unknown): TimelineDomain[] | null {
 }
 
 const HIDE_STYLE_ID = 'lr-hide-native-captions';
+const QUIET_STYLE_ID = 'lr-quiet-controls';
+const QUIET_ATTR = 'data-captionary-quiet';
 export const PLAYER_DIALOG = 'dialog.playback-view[open]';
 
 /** Apple's subtitle CDN allows any origin; fall back to the background if that ever changes. */
@@ -51,6 +53,11 @@ async function fetchText(url: string): Promise<string> {
 
 export class AppleTvAdapter implements SiteAdapter {
   readonly site = 'appletv' as const;
+  /**
+   * Apple's progress bar, while its controls layer shows (it marks the layer `--hidden` when idle). The layer
+   * faded by `quietControls` still counts, so the captions don't drop away from under the pointer.
+   */
+  readonly controlBars = ['.video-player-scrim:not(.video-player-scrim--hidden) .video-player__progress'];
   private renditions = new Map<string, SubtitleRendition>();
   /** Apple's id of the episode or film (the stream also carries promos for other titles). */
   private featureAsset: string | null = null;
@@ -85,6 +92,17 @@ export class AppleTvAdapter implements SiteAdapter {
     }
   }
 
+  quietControls(quiet: boolean) {
+    if (!document.getElementById(QUIET_STYLE_ID)) {
+      const style = document.createElement('style');
+      style.id = QUIET_STYLE_ID;
+      // Apple's dimming gradient, centre buttons and footer fade out and stop taking clicks.
+      style.textContent = `.video-player-scrim[${QUIET_ATTR}] { opacity: 0 !important; pointer-events: none !important; transition: opacity 0.2s; }`;
+      (document.head ?? document.documentElement).append(style);
+    }
+    for (const scrim of document.querySelectorAll(`${PLAYER_DIALOG} .video-player-scrim`)) scrim.toggleAttribute(QUIET_ATTR, quiet);
+  }
+
   /** The playing title's master playlist; its text is left out when it is still `knownUrl`. */
   current(knownUrl: string | null = null): Promise<AppleTvCurrent> {
     return requestMain<AppleTvCurrent>({ type: 'atv.getCurrent', knownUrl }, 1500);
@@ -104,6 +122,9 @@ export class AppleTvAdapter implements SiteAdapter {
       lang: r.lang,
       label: `${r.name}${r.sdh ? ' [SDH]' : ''}`,
       forced: r.forced,
+      cc: r.sdh,
+      // Apple names each track in its own language ("中文（简体）"); menus name it in Captionary's.
+      namedByLang: true,
     }));
     // The original language is the default audio language.
     const original = master.audioLang
@@ -115,12 +136,12 @@ export class AppleTvAdapter implements SiteAdapter {
 
   async loadTrack(trackId: string): Promise<Cue[]> {
     const rendition = this.renditions.get(trackId);
-    if (!rendition) throw new Error(getMessages(getCurrentUILocale()).content.errors.unknownSubtitleTrack);
+    if (!rendition) throw new SubtitleLoadError(getMessages(getCurrentUILocale()).content.errors.unknownSubtitleTrack);
     this.timeline ??= this.videoTimeline(this.featureAsset);
     const [playlist, timeline] = await Promise.all([fetchText(rendition.uri), this.timeline]);
     if (!timeline) this.timeline = null; // look again on the next load
     const segments = parseMediaPlaylist(playlist, rendition.uri);
-    if (!segments.length) throw new Error(getMessages(getCurrentUILocale()).content.errors.appletvEmptyPlaylist);
+    if (!segments.length) throw new SubtitleLoadError(getMessages(getCurrentUILocale()).content.errors.appletvEmptyPlaylist);
     const parts = planSubtitleParts(segments, this.featureAsset, timeline);
     const cues = await Promise.all(
       parts.map(async ({ uris, offset }) => {

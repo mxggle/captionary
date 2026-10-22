@@ -42,13 +42,18 @@ export function useControlsClearance(rootRef: React.RefObject<HTMLElement | null
     measure();
     const ro = new ResizeObserver(schedule);
     ro.observe(player);
-    // Control bars that are added and removed as they show and hide.
+    // Control bars that are added and removed, or shown and hidden by a class (Apple TV+), as they come and go.
     const mo = new MutationObserver(schedule);
-    mo.observe(player, { childList: true, subtree: true });
+    mo.observe(player, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+    // A bar that slides into place is measured again once it has arrived.
+    player.addEventListener('transitionend', schedule, true);
+    player.addEventListener('animationend', schedule, true);
     return () => {
       cancelAnimationFrame(frame);
       ro.disconnect();
       mo.disconnect();
+      player.removeEventListener('transitionend', schedule, true);
+      player.removeEventListener('animationend', schedule, true);
     };
   }, [rootRef, controlBars]);
   return px;

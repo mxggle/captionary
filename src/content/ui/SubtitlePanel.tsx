@@ -20,14 +20,17 @@ import {
 import { TokenizedText } from '@/ui/TokenizedText';
 import { useVocabIndex } from '@/ui/vocab-index';
 import { keyName, toast, type SessionController } from '../controller';
+import { useMenuKeys } from './focus';
 import { LookupHost } from './LookupHost';
-import { MenuBack, MenuRow, OriginalChoices, originalTracks, originalValue, TranslationChoices } from './menus';
+import { MenuBack, MenuRow, MenuSep, MenuSwitch, OriginalChoices, originalTracks, originalValue, TranslationChoices } from './menus';
+import { TranslationErrorAction } from './TranslationError';
 import {
   downloadText,
   fileBase,
   languagePair,
   openInReader,
   translationChoices,
+  translationLang,
   translationValue,
   useFollowPlayback,
   useSubtitleData,
@@ -99,6 +102,7 @@ export function SubtitlePanel({
   const { settings } = s;
   const showTr = settings.sidebar.showTranslations;
   const blur = settings.subtitles.blurTranslation;
+  const trLang = translationLang(s);
   const current = s.activeIndex >= 0 ? s.activeIndex : s.lastIndex;
   const follow = useFollowPlayback(listRef, current, settings.sidebar.autoScroll && tab === 'subs' && !query);
 
@@ -113,6 +117,7 @@ export function SubtitlePanel({
     window.addEventListener('pointerdown', onDown, true);
     return () => window.removeEventListener('pointerdown', onDown, true);
   }, [menu]);
+  const onMenuKey = useMenuKeys(menuRef, !!menu, () => setMenu(null), menu);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -287,11 +292,9 @@ export function SubtitlePanel({
       )}
       {s.frequency && tab === 'subs' && <FrequencyLegend className="cap-panel__legend" />}
       {s.translationStatus === 'error' && tab === 'subs' && (
-        <div className="cap-panel__status is-error">
+        <div className="cap-panel__status is-error" role="alert">
           <span className="cap-spacer">{m.content.panel.translationFailed(s.translationMessage)}</span>
-          <button className="cap-btn cap-btn--sm cap-btn--ghost" onClick={() => void controller.selectTranslation(s.translationSource)}>
-            {m.common.retry}
-          </button>
+          <TranslationErrorAction controller={controller} className="cap-btn cap-btn--sm cap-btn--ghost" />
         </div>
       )}
 
@@ -339,7 +342,7 @@ export function SubtitlePanel({
                   {roman && <div className="cap-cue__roman">{roman}</div>}
                   {showTr &&
                     (tr ? (
-                      <div className={`cap-cue__tr${blur ? ' is-blurred' : ''}`}>
+                      <div className={`cap-cue__tr${blur ? ' is-blurred' : ''}`} lang={trLang} tabIndex={blur ? 0 : undefined}>
                         {query.trim() ? <Highlighted text={tr} query={query.trim()} /> : tr}
                       </div>
                     ) : (
@@ -415,7 +418,11 @@ export function SubtitlePanel({
                   </span>
                   {v.kind === 'phrase' && <span className="cap-tag">{m.common.phrase}</span>}
                 </div>
-                {v.translation && <div className="cap-cue__tr">{v.translation}</div>}
+                {v.translation && (
+                  <div className="cap-cue__tr" lang={settings.nativeLanguage}>
+                    {v.translation}
+                  </div>
+                )}
               </div>
             </li>
           ))}
@@ -465,7 +472,17 @@ export function SubtitlePanel({
         ))}
 
       {menu && (
-        <div ref={menuRef} role="menu" aria-label={m.content.panel.subtitleOptionsAria} className="cap-menu cap-menu--page cap-panel__menu">
+        <div
+          ref={menuRef}
+          role="menu"
+          aria-label={m.content.panel.subtitleOptionsAria}
+          className="cap-menu cap-menu--page cap-panel__menu"
+          onKeyDown={(e) => {
+            // Like the player menu: Space and Enter on an item never also reach the host's shortcuts.
+            e.stopPropagation();
+            onMenuKey(e);
+          }}
+        >
           {menu === 'original' ? (
             <>
               <MenuBack title={m.content.panel.originalTrack} onBack={() => setMenu('main')} />
@@ -479,7 +496,13 @@ export function SubtitlePanel({
           ) : menu === 'translation' ? (
             <>
               <MenuBack title={m.content.playerMenu.translation} onBack={() => setMenu('main')} />
-              <TranslationChoices controller={controller} choices={choices} current={s.translationSource} onDone={() => setMenu(null)} />
+              <TranslationChoices
+                controller={controller}
+                choices={choices}
+                current={s.translationSource}
+                aiStatus={s.aiStatus}
+                onDone={() => setMenu(null)}
+              />
             </>
           ) : (
             <>
@@ -493,16 +516,12 @@ export function SubtitlePanel({
                 value={translationValue(choices, s.translationSource)}
                 onClick={() => setMenu('translation')}
               />
-              <div className="cap-menu__item">
-                <span className="cap-menu__label">{m.content.panel.colourByFrequency}</span>
-                <PlayerSwitch
-                  role="menuitemcheckbox"
-                  label={m.content.panel.colourByFrequency}
-                  checked={settings.subtitles.frequencyColors}
-                  onChange={(v) => void updateSettings((st) => void (st.subtitles.frequencyColors = v))}
-                />
-              </div>
-              <div className="cap-menu__sep" />
+              <MenuSwitch
+                label={m.content.panel.colourByFrequency}
+                checked={settings.subtitles.frequencyColors}
+                onChange={(v) => void updateSettings((st) => void (st.subtitles.frequencyColors = v))}
+              />
+              <MenuSep />
               <MenuRow
                 label={m.content.panel.copyAllSubtitles}
                 icon={<IconCopy className="cap-menu__icon" />}
@@ -530,7 +549,7 @@ export function SubtitlePanel({
                   setMenu(null);
                 }}
               />
-              <div className="cap-menu__sep" />
+              <MenuSep />
               <MenuRow
                 label={m.content.panel.captionarySettings}
                 onClick={() => {

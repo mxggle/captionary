@@ -1,16 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useI18n } from '@/lib/i18n';
-import { languageName } from '@/lib/languages';
+import { LANGUAGES, languageName } from '@/lib/languages';
 import type { SidePanelPayload } from '@/lib/messaging';
 import { sidePanelPayload } from '@/lib/session-items';
+import { selectionKind } from '@/lib/text/selection-kind';
 import { detectLanguage } from '@/lib/translate';
 import { removeVocab, saveVocab, vocabKey } from '@/lib/vocab';
 import type { PopupTarget } from '@/content/store';
 import { AppShell } from '@/ui/AppShell';
-import { PageHead } from '@/ui/controls';
-import { LanguageSelect, useSettings } from '@/ui/form';
-import { BrandMark, IconSettings, IconSpark } from '@/ui/icons';
-import { PaperLookup } from '@/ui/PaperLookup';
+import { Note, PageHead, Select, type SelectOption } from '@/ui/controls';
+import { useSettings } from '@/ui/form';
+import { BrandMark, IconChevronLeft, IconSettings, IconSpark } from '@/ui/icons';
+import { isComposing, PaperLookup } from '@/ui/PaperLookup';
 import { useAIStatus, useVocabMap } from '@/ui/useVocab';
 
 const NO_RECT = { left: 0, top: 0, width: 0, height: 0 };
@@ -30,13 +31,25 @@ function Tutor() {
   const aiStatus = useAIStatus();
   const vocab = useVocabMap();
   const [payload, setPayload] = useState<SidePanelPayload | null>(null);
+  /** The cards the learner came from (a sentence, then a word picked in it), for the way back. */
+  const [trail, setTrail] = useState<SidePanelPayload[]>([]);
+  /** The card was opened from the one before it, so it takes focus from the control that went away. */
+  const [stepped, setStepped] = useState(false);
   const [target, setTarget] = useState<PopupTarget | null>(null);
   const [draft, setDraft] = useState('');
-  const [lang, setLang] = useState<string>('');
+  /** The language picked for typed text; 'auto' detects it again for each text. */
+  const [pick, setPick] = useState('auto');
 
+  // A selection from a page, or typed text, starts afresh.
+  const open = (next: SidePanelPayload | null) => {
+    setTrail([]);
+    setStepped(false);
+    setPayload(next);
+  };
   useEffect(() => {
-    void sidePanelPayload.getValue().then(setPayload);
-    return sidePanelPayload.watch(setPayload);
+    void sidePanelPayload.getValue().then(open);
+    return sidePanelPayload.watch(open);
+    // `open` only calls state setters.
   }, []);
 
   useEffect(() => {
@@ -46,7 +59,6 @@ function Tutor() {
       const fallback = settings.targetLanguage !== 'auto' ? settings.targetLanguage : 'en';
       const detected = payload.lang ?? (await detectLanguage(payload.sentence ?? payload.text)) ?? fallback;
       if (!alive) return;
-      setLang(detected);
       setTarget({
         kind: payload.kind,
         text: payload.text,
@@ -65,46 +77,72 @@ function Tutor() {
     };
   }, [payload, settings]);
 
+  const languages = useMemo<SelectOption<string>[]>(
+    () => [
+      { value: 'auto', label: m.sidepanel.autoDetect },
+      ...LANGUAGES.map((l) => {
+        const name = languageName(l.code, locale);
+        return { value: l.code, label: name, text: name === l.native ? name : `${name} — ${l.native}` };
+      }),
+    ],
+    [m, locale],
+  );
+
   if (!settings) return null;
 
-  const explain = () => {
+  const explain = async () => {
     const text = draft.trim();
     if (!text) return;
-    const words = text.split(/\s+/).length;
-    setPayload({ kind: words > 3 ? 'sentence' : 'word', text, lang: lang || undefined });
+    const fallback = settings.targetLanguage !== 'auto' ? settings.targetLanguage : 'en';
+    const lang = pick !== 'auto' ? pick : ((await detectLanguage(text)) ?? fallback);
+    // Word or sentence is decided once the language is known: Chinese and Japanese have no spaces to count.
+    open({ kind: selectionKind(text, lang), text, lang });
+  };
+  const back = trail[trail.length - 1];
+  const goBack = () => {
+    setTrail((t) => t.slice(0, -1));
+    setStepped(true);
+    setPayload(back);
   };
   const host = hostOf(payload?.url);
+  const tutorMissing = !!aiStatus && !(aiStatus.enabled && aiStatus.configured);
 
   return (
     <>
-      <div className="cap-card" style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {tutorMissing && (
+        <Note>
+          {aiStatus.enabled ? m.lookup.addTutorPrompt : m.lookup.tutorOff}{' '}
+          <a href={aiStatus.enabled ? '/welcome.html#tutor' : '/options.html#ai'} target="_blank" rel="noopener noreferrer">
+            {aiStatus.enabled ? m.lookup.setUpTutor : m.lookup.openAISettings}
+          </a>
+        </Note>
+      )}
+      <div className="cap-card cap-sidepanel__ask">
         <label className="cap-sr" htmlFor="tutor-text">
           {m.sidepanel.wordOrSentenceAria}
         </label>
         <textarea
           id="tutor-text"
-          className="cap-input"
-          style={{ minHeight: 70, fontFamily: 'var(--font-sans)', fontSize: 14 }}
+          className="cap-input cap-sidepanel__input"
           placeholder={m.sidepanel.inputPlaceholder}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              explain();
-            }
+            if (e.key !== 'Enter' || e.shiftKey || isComposing(e)) return;
+            e.preventDefault();
+            void explain();
           }}
         />
-        <div className="cap-row" style={{ flexWrap: 'nowrap' }}>
-          <LanguageSelect
-            variant="button"
-            className="cap-btn--sm"
-            label={m.sidepanel.languageOfText}
-            value={lang || (settings.targetLanguage === 'auto' ? 'en' : settings.targetLanguage)}
-            onChange={setLang}
-          />
-          <span className="cap-spacer" />
-          <button className="cap-btn cap-btn--primary cap-btn--sm" disabled={!draft.trim()} onClick={explain}>
+        <div className="cap-row">
+          <label className="cap-sidepanel__label" htmlFor="tutor-lang">
+            {m.sidepanel.languageOfText}
+          </label>
+          <Select id="tutor-lang" variant="button" className="cap-btn--sm" value={pick} options={languages} onChange={setPick} />
+          <button
+            className="cap-btn cap-btn--primary cap-btn--sm cap-sidepanel__explain"
+            disabled={!draft.trim()}
+            onClick={() => void explain()}
+          >
             <IconSpark className="cap-ico" />
             {m.common.explain}
           </button>
@@ -112,7 +150,13 @@ function Tutor() {
       </div>
       {target ? (
         <>
-          <div style={{ fontSize: 12.5, color: 'var(--ink-subtle)' }}>
+          {back && (
+            <button className="cap-link cap-sidepanel__back" onClick={goBack}>
+              <IconChevronLeft className="cap-ico" />
+              <span className="cap-ellipsis">{m.sidepanel.backTo(back.text)}</span>
+            </button>
+          )}
+          <div className="cap-sidepanel__source">
             {payload?.url ? (
               <>
                 {m.sidepanel.fromSource}
@@ -128,21 +172,24 @@ function Tutor() {
           <PaperLookup
             key={`${target.kind}:${target.text}:${target.lang}`}
             docked
+            autoFocus={stepped}
             autoExplain
             target={target}
             settings={settings}
             aiStatus={aiStatus}
             vocab={vocab}
             onSave={(status, entry) => {
-              if (!status) return void removeVocab(vocabKey(entry.text, target.lang).id);
-              void saveVocab({
+              if (!status) return removeVocab(vocabKey(entry.text, target.lang).id);
+              return saveVocab({
                 lang: target.lang,
                 ...entry,
                 status,
                 context: { sentence: target.sentence, title: payload?.title, url: payload?.url, site: 'web' },
               });
             }}
-            onSelectWord={(sel) =>
+            onSelectWord={(sel) => {
+              if (payload) setTrail((t) => [...t, payload]);
+              setStepped(true);
               setPayload({
                 kind: 'word',
                 text: sel.text,
@@ -151,12 +198,12 @@ function Tutor() {
                 lang: target.lang,
                 url: payload?.url,
                 title: payload?.title,
-              })
-            }
+              });
+            }}
           />
         </>
       ) : (
-        <p className="cap-help" style={{ margin: 0 }}>
+        <p className="cap-help cap-sidepanel__empty">
           {m.sidepanel.emptyTipBefore}
           <strong>{m.sidepanel.emptyTipStrong}</strong>
           {m.sidepanel.emptyTipAfter}
