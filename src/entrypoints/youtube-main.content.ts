@@ -52,7 +52,8 @@ function readPlayerData(player: YtPlayer | null) {
  * Runs in the page's JavaScript world. It reads the player's caption track list and
  * observes the player's own /api/timedtext requests: YouTube now rejects caption
  * requests without a proof-of-origin token, so the isolated script reuses the token
- * from the player's request.
+ * from the player's request. It also reports when the player becomes able to sign
+ * those requests.
  */
 export default defineContentScript({
   matches: ['https://www.youtube.com/*'],
@@ -60,6 +61,9 @@ export default defineContentScript({
   runAt: 'document_start',
   main() {
     const isTimedText = (u: string) => u.includes('/api/timedtext');
+    // The reply that lets the player's token minter sign requests. Captions the player loads
+    // before it go out without a token and come back empty.
+    const isMinterReply = (u: string) => u.includes('/GenerateIT');
     const absolute = (u: string) => new URL(u, location.origin).toString();
     const report = (url: string, body: string) => {
       rememberToken(absolute(url));
@@ -77,6 +81,8 @@ export default defineContentScript({
             // ignore
           }
         });
+      } else if (isMinterReply(u)) {
+        this.addEventListener('load', () => postToIsolated({ type: 'yt.potReady' }));
       }
       return (origOpen as any).call(this, method, url, ...rest);
     } as typeof XMLHttpRequest.prototype.open;
@@ -90,6 +96,11 @@ export default defineContentScript({
           promise
             .then((r) => r.clone().text())
             .then((body) => report(u, body))
+            .catch(() => undefined);
+        } else if (isMinterReply(u)) {
+          promise
+            .then((r) => r.clone().text())
+            .then(() => postToIsolated({ type: 'yt.potReady' }))
             .catch(() => undefined);
         }
       } catch {
@@ -105,12 +116,17 @@ export default defineContentScript({
           case 'yt.getPlayerData':
             postToIsolated({ type: 'yt.playerData', reqId: msg.reqId, data: readPlayerData(player) });
             break;
-          case 'yt.enableCaptions':
+          case 'yt.enableCaptions': {
             // Makes the player fetch a caption track (with its token). Native captions
-            // stay hidden by our stylesheet.
+            // stay hidden by our stylesheet. Choosing the track it already has fetches
+            // nothing, so that one is reloaded: it may have loaded before the player
+            // could sign the request, and come back empty.
             player?.loadModule?.('captions');
-            if (msg.lang) player?.setOption?.('captions', 'track', { languageCode: msg.lang });
+            const current = player?.getOption?.('captions', 'track');
+            if (msg.lang && current?.languageCode !== msg.lang) player?.setOption?.('captions', 'track', { languageCode: msg.lang });
+            else player?.setOption?.('captions', 'reload', true);
             break;
+          }
           case 'yt.seek':
             player?.seekTo?.(Number(msg.time), true);
             break;
