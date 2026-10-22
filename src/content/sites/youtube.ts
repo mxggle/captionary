@@ -39,13 +39,21 @@ export class YouTubeAdapter implements SiteAdapter {
   private videoId: string | null = null;
   /** Token params captured from the player's own caption request, per video. */
   private tokens = new Map<string, URLSearchParams>();
-  private tokenWaiters: (() => void)[] = [];
+  /** Each returns true once it is done with. */
+  private tokenWaiters: (() => boolean)[] = [];
+  /**
+   * The captions Captionary asked the player to load, until a request brings their token. The player
+   * can't sign the request before its token minter is ready: it then comes back empty and the player
+   * doesn't fetch the track again by itself.
+   */
+  private awaiting: { videoId: string; lang: string } | null = null;
   /** Called with the video id whenever the player makes a caption request with a token. */
   onToken: ((videoId: string) => void) | null = null;
 
   constructor() {
     onMessageFrom(FROM_MAIN, (msg) => {
       if (msg.type === 'yt.timedtext' && typeof msg.url === 'string') this.takeToken(msg.url);
+      else if (msg.type === 'yt.potReady') this.onPotReady();
     });
   }
 
@@ -55,11 +63,24 @@ export class YouTubeAdapter implements SiteAdapter {
       const v = url.searchParams.get('v');
       if (!v || !url.searchParams.has('pot')) return;
       this.tokens.set(v, url.searchParams);
-      this.tokenWaiters.splice(0).forEach((w) => w());
+      if (this.awaiting?.videoId === v) this.awaiting = null;
+      this.tokenWaiters = this.tokenWaiters.filter((done) => !done());
       this.onToken?.(v);
     } catch {
       // ignore malformed URLs
     }
+  }
+
+  /** The player can sign caption requests now: ask again for captions it loaded before it could. */
+  private onPotReady() {
+    const awaiting = this.awaiting;
+    if (awaiting && awaiting.videoId === this.videoId) this.askPlayer(awaiting.videoId, awaiting.lang);
+  }
+
+  /** Have the player load captions, to reuse the token its request carries. */
+  private askPlayer(videoId: string, lang: string) {
+    this.awaiting = { videoId, lang };
+    postToMain({ type: 'yt.enableCaptions', lang });
   }
 
   adShowing(): boolean {
@@ -146,12 +167,11 @@ export class YouTubeAdapter implements SiteAdapter {
     return { tracks, defaultId: def?.id ?? null };
   }
 
-  private buildUrl(track: YtTrack, tlang?: string): URL {
+  private buildUrl(track: YtTrack, tlang: string | undefined, token: URLSearchParams | undefined): URL {
     const url = new URL(track.baseUrl, location.origin);
     url.searchParams.set('fmt', 'json3');
     if (tlang) url.searchParams.set('tlang', tlang);
     else url.searchParams.delete('tlang');
-    const token = this.videoId ? this.tokens.get(this.videoId) : undefined;
     if (token) {
       for (const key of TOKEN_PARAMS) {
         const value = token.get(key);
@@ -161,38 +181,47 @@ export class YouTubeAdapter implements SiteAdapter {
     return url;
   }
 
-  private waitForToken(videoId: string, timeoutMs: number): Promise<boolean> {
-    if (this.tokens.has(videoId)) return Promise.resolve(true);
+  /** Wait for a token for the video other than `used`, which a request just got no captions with. */
+  private waitForToken(videoId: string, used: URLSearchParams | undefined, timeoutMs: number): Promise<boolean> {
+    const fresh = () => this.tokens.get(videoId) !== used;
+    if (fresh()) return Promise.resolve(true);
     return new Promise((resolve) => {
-      const timer = setTimeout(() => resolve(this.tokens.has(videoId)), timeoutMs);
-      this.tokenWaiters.push(() => {
-        if (this.tokens.has(videoId)) {
-          clearTimeout(timer);
-          resolve(true);
-        }
-      });
+      const done = () => {
+        if (!fresh()) return false;
+        clearTimeout(timer);
+        resolve(true);
+        return true;
+      };
+      const timer = setTimeout(() => {
+        this.tokenWaiters = this.tokenWaiters.filter((w) => w !== done);
+        resolve(false);
+      }, timeoutMs);
+      this.tokenWaiters.push(done);
     });
   }
 
   private async fetchCues(track: YtTrack, tlang?: string): Promise<Cue[]> {
-    const get = async () => {
-      const res = await fetch(this.buildUrl(track, tlang), { credentials: 'include' });
-      return res.ok ? res.text() : '';
-    };
-    let body = await get();
     const videoId = this.videoId;
-    if (!body.trim() && videoId && !this.tokens.has(videoId)) {
-      // Captions need the player's token: have the player load captions once. It fetches the
-      // video's captions only after a preroll ad, so wait that out first.
+    let askedPlayer = false;
+    for (;;) {
+      const token = videoId ? this.tokens.get(videoId) : undefined;
+      const res = await fetch(this.buildUrl(track, tlang, token), { credentials: 'include' });
+      const body = res.ok ? await res.text() : '';
+      if (body.trim()) return parseYouTubeJson3(JSON.parse(body));
+      if (!videoId) break;
+      // Captions need the player's token. One that came in while this request was out (the player
+      // fetched captions itself) is what it lacked.
+      if (this.tokens.get(videoId) !== token) continue;
+      if (askedPlayer) break;
+      askedPlayer = true;
+      // Otherwise have the player load captions once and reuse the token its request carries. It
+      // fetches the video's captions only after a preroll ad, so wait that out first.
       const deadline = Date.now() + AD_WAIT_MS;
       while (this.adShowing() && Date.now() < deadline) await new Promise((r) => setTimeout(r, 500));
-      postToMain({ type: 'yt.enableCaptions', lang: track.lang });
-      if (await this.waitForToken(videoId, 8000)) body = await get();
+      if (this.tokens.get(videoId) === token) this.askPlayer(videoId, track.lang);
+      if (!(await this.waitForToken(videoId, token, 8000))) break;
     }
-    if (!body.trim()) {
-      throw new SubtitleLoadError(getMessages(getCurrentUILocale()).content.errors.youtubeNoSubtitlesReturned);
-    }
-    return parseYouTubeJson3(JSON.parse(body));
+    throw new SubtitleLoadError(getMessages(getCurrentUILocale()).content.errors.youtubeNoSubtitlesReturned);
   }
 
   async loadTrack(trackId: string): Promise<Cue[]> {

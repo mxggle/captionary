@@ -38,6 +38,8 @@ function playerData(extra: Partial<YtPlayerData> = {}): YtPlayerData {
 
 /** The player's own caption request, as relayed by the MAIN-world script. */
 const playerRequest = (url = TOKEN_URL) => bridge.listeners.forEach((l) => l({ type: 'yt.timedtext', url }));
+/** The player's token minter is ready to sign requests, as relayed by the MAIN-world script. */
+const minterReady = () => bridge.listeners.forEach((l) => l({ type: 'yt.potReady' }));
 
 async function setup(extra?: Partial<YtPlayerData>) {
   bridge.playerData = playerData(extra);
@@ -97,5 +99,59 @@ describe('YouTubeAdapter caption token', () => {
     playerRequest();
     expect(onToken).toHaveBeenCalledWith('vid1');
     await expect(adapter.loadTrack('.en')).resolves.toHaveLength(1);
+  });
+
+  it('uses a token that comes in while its own request is out', async () => {
+    const adapter = await setup();
+    let answer!: (res: Response) => void;
+    fetchMock.mockImplementationOnce(() => new Promise((r) => (answer = r)));
+    const load = adapter.loadTrack('.en');
+
+    // The player fetches captions itself (CC was on) before the unsigned request comes back empty.
+    playerRequest();
+    answer(new Response(''));
+    await expect(load).resolves.toHaveLength(1);
+    expect(bridge.posted).toEqual([]);
+    expect(String(fetchMock.mock.calls[1][0])).toContain('pot=TOKEN');
+  });
+
+  it('asks the player for a new token when the one it has gets no captions', async () => {
+    const adapter = await setup({ tokenUrl: TOKEN_URL.replace('TOKEN', 'STALE') });
+    fetchMock.mockImplementationOnce(async () => new Response(''));
+    const load = adapter.loadTrack('.en');
+
+    await vi.waitFor(() => expect(bridge.posted).toEqual([{ type: 'yt.enableCaptions', lang: 'en' }]));
+    playerRequest();
+    await expect(load).resolves.toHaveLength(1);
+    expect(String(fetchMock.mock.calls.at(-1)![0])).toContain('pot=TOKEN');
+  });
+
+  it('asks the player again once it can sign the caption request it sent without a token', async () => {
+    vi.useFakeTimers();
+    const adapter = await setup();
+    const onToken = vi.fn();
+    adapter.onToken = onToken;
+    const load = adapter.loadTrack('.en');
+    const failed = expect(load).rejects.toThrow(SubtitleLoadError);
+
+    // Its token minter isn't ready yet: the request goes out unsigned, and the player won't send another.
+    await vi.advanceTimersByTimeAsync(0);
+    playerRequest('https://www.youtube.com/api/timedtext?v=vid1&lang=en&c=WEB');
+    await vi.advanceTimersByTimeAsync(8_500);
+    await failed;
+    expect(bridge.posted).toHaveLength(1);
+
+    minterReady();
+    expect(bridge.posted).toEqual([
+      { type: 'yt.enableCaptions', lang: 'en' },
+      { type: 'yt.enableCaptions', lang: 'en' },
+    ]);
+    playerRequest();
+    expect(onToken).toHaveBeenCalledWith('vid1');
+    await expect(adapter.loadTrack('.en')).resolves.toHaveLength(1);
+
+    // Nothing is awaited any more.
+    minterReady();
+    expect(bridge.posted).toHaveLength(2);
   });
 });
