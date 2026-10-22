@@ -193,6 +193,17 @@ export const IconDocument = (p: SVGProps<SVGSVGElement>) => (
     <path d="M8 13h8M8 17h6" />
   </svg>
 );
+/** A character and a letter: translation. */
+export const IconTranslate = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <path d="m5 8 6 6" />
+    <path d="m4 14 6-6 2-3" />
+    <path d="M2 5h12" />
+    <path d="M7 2h1" />
+    <path d="m22 22-5-10-5 10" />
+    <path d="M14 18h6" />
+  </svg>
+);
 /** A pen on a page: the learner's own note (not "save", which is the bookmark). */
 export const IconNote = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}>

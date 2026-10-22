@@ -27,3 +27,6 @@ export type TranslationSource =
   | { type: 'platform-mt'; lang: string }
   | { type: 'chrome'; lang: string }
   | { type: 'ai'; lang: string };
+
+/** A subtitle load that failed for a reason already worded for the learner (what happened, what to do): shown as is. */
+export class SubtitleLoadError extends Error {}

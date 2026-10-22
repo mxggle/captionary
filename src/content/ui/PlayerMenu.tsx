@@ -5,7 +5,7 @@ import { sameLang } from '@/lib/languages';
 import { bg } from '@/lib/messaging';
 import { updateSettings, type Settings } from '@/lib/settings';
 import { PlayerSwitch } from '@/ui/controls';
-import { IconCheck, IconGlyph } from '@/ui/icons';
+import { IconBookmark, IconCaptions, IconCheck, IconEye, IconGlyph, IconList, IconPause, IconSettings, IconTranslate } from '@/ui/icons';
 import { keyName, type SessionController } from '../controller';
 import { useSession, type AnchorRect } from '../store';
 import {
@@ -145,7 +145,7 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
   const skin = s.theme === 'netflix' ? 'netflix' : s.theme === 'appletv' ? 'appletv' : 'youtube';
   // Netflix's own panel is about as wide as the viewport is tall; its type is sized in vh too.
   const width =
-    skin === 'netflix' ? Math.min(bounds.width - 24, Math.max(480, Math.round(window.innerHeight))) : skin === 'appletv' ? 290 : 300;
+    skin === 'netflix' ? Math.min(bounds.width - 24, Math.max(480, Math.round(window.innerHeight))) : skin === 'appletv' ? 290 : 360;
   const style = { ...placeMenu(s.menuAnchor, bounds, width, skin === 'youtube', clearance), width };
   const { settings } = s;
   const set = (fn: (st: Settings) => void) => void updateSettings(fn);
@@ -163,8 +163,11 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
       onChange={(on) => controller.setOff(!on)}
     />
   );
+  // YouTube's settings rows each lead with an icon; Apple TV+'s menu has none.
+  const icon = (Glyph: typeof IconGlyph) => (skin === 'youtube' ? <Glyph className="cap-menu__icon" /> : undefined);
   const pause = (
     <MenuSwitch
+      icon={icon(IconPause)}
       label={m.content.playerMenu.pauseAfterEachLine}
       keyName={skin === 'appletv' ? undefined : keyName(keys.toggleAutoPause, m.common.space)}
       checked={settings.playback.autoPause}
@@ -173,6 +176,7 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
   );
   const blur = (
     <MenuSwitch
+      icon={icon(IconEye)}
       label={m.content.playerMenu.blurTranslation}
       checked={settings.subtitles.blurTranslation}
       onChange={(v) => set((st) => void (st.subtitles.blurTranslation = v))}
@@ -180,6 +184,7 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
   );
   const list = (
     <MenuSwitch
+      icon={icon(IconList)}
       label={m.content.playerMenu.subtitleList}
       keyName={skin === 'appletv' ? undefined : keyName(keys.toggleSidebar, m.common.space)}
       checked={controller.isListOpen()}
@@ -191,8 +196,13 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
   );
   const links = (
     <>
-      <MenuRow label={m.content.playerMenu.savedWords} value={m.content.playerMenu.learningCount(learning)} onClick={() => open('vocab')} />
-      <MenuRow label={m.content.playerMenu.allSettings} onClick={() => open('options', 'subtitles')} />
+      <MenuRow
+        icon={icon(IconBookmark)}
+        label={m.content.playerMenu.savedWords}
+        value={m.content.playerMenu.learningCount(learning)}
+        onClick={() => open('vocab')}
+      />
+      <MenuRow icon={icon(IconSettings)} label={m.content.playerMenu.allSettings} onClick={() => open('options', 'subtitles')} />
     </>
   );
 
@@ -338,20 +348,18 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
       </>
     );
   } else {
+    // Laid out like YouTube's own settings menu: one list of icon rows, no header or rules.
     body = (
       <>
-        <div className="cap-menu__head">
-          <IconGlyph className="cap-ico-lg" />
-          <span className="cap-menu__label">Captionary</span>
-          {onSwitch}
-        </div>
-        <MenuSep />
+        <MenuSwitch icon={icon(IconGlyph)} label="Captionary" checked={!s.off} onChange={(on) => controller.setOff(!on)} />
         <MenuRow
+          icon={icon(IconCaptions)}
           label={m.content.playerMenu.originalSubtitles}
           value={originalValue(s.tracks, s.originalTrackId)}
           onClick={() => setPage('original')}
         />
         <MenuRow
+          icon={icon(IconTranslate)}
           label={m.content.playerMenu.translation}
           value={translationValue(choices, s.translationSource)}
           onClick={() => setPage('translation')}
@@ -359,7 +367,6 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
         {pause}
         {blur}
         {list}
-        <MenuSep />
         {links}
       </>
     );

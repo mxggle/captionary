@@ -74,15 +74,15 @@ export function PlayerButton({
   const label = s.off ? m.content.playerButton.off : on ? m.content.playerButton.on : 'Captionary';
   const glyphScale = size && baseHeight ? size.height / baseHeight : 1;
   return (
-    <HostRoot className="cap-playerbtn-root" style={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+    <HostRoot className="cap-playerbtn-root" style={{ position: 'relative', display: 'flex', alignItems: 'center', height: '100%' }}>
       <button
         ref={ref}
         className={`cap-playerbtn${on ? ' is-on' : ''}`}
         aria-label={label}
         aria-haspopup="menu"
         aria-expanded={s.menuOpen}
-        // Netflix's own buttons show no tooltip; elsewhere the host shows the name on hover.
-        title={s.theme === 'netflix' ? undefined : label}
+        // Netflix's buttons show no tooltip, YouTube's show their own (drawn below); Apple TV+ gets the browser's.
+        title={s.theme === 'appletv' ? label : undefined}
         style={{ ...size, '--glyph-scale': glyphScale, ...style } as CSSProperties}
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => {
@@ -94,6 +94,11 @@ export function PlayerButton({
       >
         <IconGlyph />
       </button>
+      {s.theme?.startsWith('youtube') && !s.menuOpen && (
+        <span className="cap-playerbtn__tip" aria-hidden="true">
+          {label}
+        </span>
+      )}
     </HostRoot>
   );
 }

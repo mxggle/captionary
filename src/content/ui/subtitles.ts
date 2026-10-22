@@ -126,7 +126,9 @@ export function translationChoices(
 export function trackLabel(t: TrackInfo): string {
   const locale = getCurrentUILocale();
   const m = getMessages(locale);
-  if (t.namedByLang) return `${regionalLanguageName(t.lang, locale)}${t.cc ? ' (CC)' : ''}`;
+  if (t.namedByLang) {
+    return `${regionalLanguageName(t.lang, locale)}${t.auto ? m.content.subtitles.autoSuffix : ''}${t.cc ? ' (CC)' : ''}`;
+  }
   return `${t.label}${t.auto && !/auto/i.test(t.label) ? m.content.subtitles.autoSuffix : ''}`;
 }
 

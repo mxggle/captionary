@@ -10,7 +10,7 @@ import {
   type TimelineDomain,
 } from '@/lib/subtitles/hls';
 import { normalizeCues, parseVttOrSrt } from '@/lib/subtitles/parse';
-import type { Cue, TrackInfo } from '@/lib/subtitles/types';
+import { type Cue, type TrackInfo, SubtitleLoadError } from '@/lib/subtitles/types';
 import { postToMain, requestMain } from '../bridge';
 import type { SiteAdapter } from '../controller';
 
@@ -115,12 +115,12 @@ export class AppleTvAdapter implements SiteAdapter {
 
   async loadTrack(trackId: string): Promise<Cue[]> {
     const rendition = this.renditions.get(trackId);
-    if (!rendition) throw new Error(getMessages(getCurrentUILocale()).content.errors.unknownSubtitleTrack);
+    if (!rendition) throw new SubtitleLoadError(getMessages(getCurrentUILocale()).content.errors.unknownSubtitleTrack);
     this.timeline ??= this.videoTimeline(this.featureAsset);
     const [playlist, timeline] = await Promise.all([fetchText(rendition.uri), this.timeline]);
     if (!timeline) this.timeline = null; // look again on the next load
     const segments = parseMediaPlaylist(playlist, rendition.uri);
-    if (!segments.length) throw new Error(getMessages(getCurrentUILocale()).content.errors.appletvEmptyPlaylist);
+    if (!segments.length) throw new SubtitleLoadError(getMessages(getCurrentUILocale()).content.errors.appletvEmptyPlaylist);
     const parts = planSubtitleParts(segments, this.featureAsset, timeline);
     const cues = await Promise.all(
       parts.map(async ({ uris, offset }) => {

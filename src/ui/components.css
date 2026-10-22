@@ -2658,6 +2658,28 @@ textarea.cap-input {
   width: calc(var(--glyph) * var(--glyph-scale, 1));
   height: calc(var(--glyph) * var(--glyph-scale, 1));
 }
+/* YouTube's own control-bar tooltip, measured: a translucent pill above the button. */
+.cap-playerbtn__tip {
+  position: absolute;
+  bottom: calc(100% + 18px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 5px 9px;
+  border-radius: 8px;
+  background: rgb(0 0 0 / 0.6);
+  color: #eeeeee;
+  font-size: 12.98px;
+  font-weight: 500;
+  line-height: 15px;
+  white-space: nowrap;
+  text-shadow: 0 0 2px rgb(0 0 0 / 0.5);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+.cap-playerbtn:is(:hover, :focus-visible) + .cap-playerbtn__tip {
+  opacity: 1;
+}
 [data-theme='appletv'] .cap-playerbtn svg {
   --glyph: 22px;
 }
@@ -2881,6 +2903,75 @@ div.cap-menu__item {
 .cap-panel .cap-pswitch:is([aria-checked='true'], .is-on)::after {
   background: var(--switch-knob-on);
 }
+/* YouTube: its own settings menu, measured from the player: translucent black with a soft text shadow,
+   48px rows that light up on hover, a 24px icon in a 56px column, 14px text, the grey-track switch. */
+[data-theme^='youtube'] .cap-overlay__menu {
+  padding: 8px;
+  border-radius: 12px;
+  background: rgb(0 0 0 / 0.6);
+  box-shadow: none;
+  font-size: 14px;
+  text-shadow: 0 0 2px rgb(0 0 0 / 0.5);
+}
+[data-theme^='youtube'] .cap-overlay__menu :is(.cap-menu__item, .cap-menu__head) {
+  min-height: 48px;
+  gap: 0;
+  padding: 0 8px;
+  border-radius: 8px;
+  color: #eeeeee;
+}
+[data-theme^='youtube'] .cap-overlay__menu .cap-menu__item:hover {
+  background: rgb(255 255 255 / 0.1);
+}
+[data-theme^='youtube'] .cap-overlay__menu :is(.cap-menu__icon, .cap-menu__check) {
+  width: 24px;
+  height: 24px;
+  margin-right: 24px;
+  color: #eeeeee;
+}
+[data-theme^='youtube'] .cap-overlay__menu :is(.cap-menu__value, .cap-menu__key, .cap-menu__chev) {
+  color: rgb(255 255 255 / 0.7);
+}
+[data-theme^='youtube'] .cap-overlay__menu .cap-menu__value {
+  padding: 0 4px 0 15px;
+}
+[data-theme^='youtube'] .cap-overlay__menu .cap-menu__label {
+  padding-right: 15px;
+}
+[data-theme^='youtube'] .cap-overlay__menu .cap-menu__back {
+  margin: 0 16px 0 0;
+}
+[data-theme^='youtube'] .cap-overlay__menu .cap-pswitch,
+[data-theme^='youtube'] .cap-overlay__menu .cap-pswitch.is-on {
+  width: 40px;
+  height: 24px;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 0.3);
+}
+[data-theme^='youtube'] .cap-overlay__menu .cap-pswitch::after {
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: #ffffff;
+}
+[data-theme^='youtube'] .cap-overlay__menu .cap-pswitch.is-on::after {
+  transform: translateX(16px);
+  background: #ffffff;
+}
+
+/* The look-up card on YouTube takes the same surface as its popups: translucent and blurred, no pointer. */
+[data-theme^='youtube'] .cap-lookup--native {
+  border-radius: 12px;
+  background: rgb(0 0 0 / 0.6);
+  backdrop-filter: blur(16px);
+  box-shadow: none;
+  text-shadow: 0 0 2px rgb(0 0 0 / 0.5);
+}
+[data-theme^='youtube'] .cap-lookup--native .cap-lookup__arrow {
+  display: none;
+}
+
 /* Netflix: the same panel as its own "Audio & Subtitles", measured from it: sizes follow the viewport
    height (vh) as Netflix's do, rows are grey and turn white with a check once chosen, no rules or switches. */
 .cap-menu--wide {

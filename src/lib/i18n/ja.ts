@@ -848,8 +848,7 @@ export const ja: Messages = {
       loadSubtitlesFailed: '字幕を読み込めませんでした。',
       translationFailed: '翻訳に失敗しました。',
       youtubePlayerNotRead: 'YouTube プレーヤーを読み取れませんでした。ページを再読み込みしてください。',
-      youtubeNoSubtitlesReturned:
-        'YouTube から字幕を取得できませんでした。プレーヤーの CC ボタンを一度押すか、ページを再読み込みしてください。',
+      youtubeNoSubtitlesReturned: 'YouTube から字幕がまだ届いていません。プレーヤーの CC ボタンを一度押すと読み込まれます。',
       netflixSubtitlesNotFound: '字幕が見つかりませんでした。ページを再読み込みして Captionary に字幕を読み込ませてください。',
       netflixNoDownloadableFormat: 'ダウンロード可能な字幕形式がありません',
       appletvNoSubtitlesFound: 'この作品の字幕が見つかりませんでした。ページを再読み込みしてもう一度再生してください。',
@@ -891,7 +890,7 @@ export const ja: Messages = {
       choiceOnDevice: 'デバイス内翻訳',
       choiceAi: 'AI翻訳',
       metaAiNeedsSetup: '要設定',
-      autoSuffix: ' (自動)',
+      autoSuffix: '（自動生成）',
       pairTranslation: (orig: string, tr: string, short?: boolean) => `${orig} · ${tr || '翻訳'}${short ? '' : '訳'}`,
       subtitlesFallbackTitle: '字幕',
     },

@@ -36,16 +36,20 @@ export function MenuRow({
 export function MenuSwitch({
   label,
   keyName,
+  icon,
   checked,
   onChange,
 }: {
   label: string;
   keyName?: string;
+  /** The row's icon, where the host's own menu rows have one (YouTube). */
+  icon?: ReactNode;
   checked: boolean;
   onChange: (v: boolean) => void;
 }) {
   return (
     <button type="button" className="cap-menu__item" role="menuitemcheckbox" aria-checked={checked} onClick={() => onChange(!checked)}>
+      {icon}
       <span className="cap-menu__label">
         {label}
         {keyName && <span className="cap-menu__key"> ({keyName})</span>}

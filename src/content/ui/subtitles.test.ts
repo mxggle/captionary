@@ -42,6 +42,9 @@ describe('the translation list', () => {
     );
     expect(trackLabel({ id: '2', lang: 'ja', label: '日本語', namedByLang: true })).toBe('Japanese');
     expect(trackLabel({ id: '3', lang: 'en', label: 'English (auto-generated)' })).toBe('English (auto-generated)');
+    expect(trackLabel({ id: 'a.ja', lang: 'ja', label: '日本語 (自動生成)', auto: true, namedByLang: true })).toBe(
+      'Japanese (auto-generated)',
+    );
   });
 });
 

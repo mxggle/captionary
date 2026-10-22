@@ -5,7 +5,7 @@ import { getSettings, updateSettings, watchSettings, type Settings, type Shortcu
 import { alignTracks, cueIndexAt, cueIndexBefore } from '@/lib/subtitles/parse';
 import { buildRankMap } from '@/lib/text/frequency-map';
 import { canRomanize } from '@/lib/text/romanize';
-import type { Cue, TrackInfo, TranslationSource } from '@/lib/subtitles/types';
+import { SubtitleLoadError, type Cue, type TrackInfo, type TranslationSource } from '@/lib/subtitles/types';
 import { chromeTranslatorState, translateLines } from '@/lib/translate';
 import { listVocab, saveVocab, watchVocab, type SaveInput, type VocabItem } from '@/lib/vocab';
 import { getSession, sessionStore, setSession, type AnchorRect, type MediaInfo, type PopupTarget, type SessionState } from './store';
@@ -657,7 +657,13 @@ export class SessionController {
     } catch (err) {
       if (gen !== this.generation) return;
       const raw = (err as Error)?.message;
-      const message = raw ? `${m.content.errors.loadSubtitlesFailed} (${raw})` : m.content.errors.loadSubtitlesFailed;
+      // The site's own explanation reads on its own; anything else is a technical detail behind the general message.
+      const message =
+        err instanceof SubtitleLoadError
+          ? raw
+          : raw
+            ? `${m.content.errors.loadSubtitlesFailed} (${raw})`
+            : m.content.errors.loadSubtitlesFailed;
       setSession({ status: 'error', message });
     }
   }
