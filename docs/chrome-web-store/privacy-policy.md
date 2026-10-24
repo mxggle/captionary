@@ -30,7 +30,7 @@ These services can receive ordinary network information, such as your IP address
 
 ## Optional AI features
 
-No cloud AI provider is configured by default. If you add one and use an AI feature, Captionary sends the relevant word, phrase, sentence, subtitle text, prompt, or chat to that provider. Requests can also contain your selected languages and learning level. Depending on the task and your privacy settings, requests may include nearby subtitle lines, an existing translation, or the media title. Title sharing is on by default; in the reader, the title is the web page's title. Follow-up chat includes recent conversation turns; subtitle translation sends batches of subtitle lines.
+No cloud AI provider is configured by default. If you add one and use an AI feature, Captionary sends the relevant word, phrase, sentence, subtitle text, prompt, or chat to that provider. Requests can also contain your selected languages and learning level. Depending on the task and your privacy settings, requests may include nearby subtitle lines, an existing translation, or the media title. Title sharing is on by default; in the reader, the title is the web page's title. The "In the show" tab is off by default; if you turn it on and open it for a name or term in a video, that request also includes the episode's subtitle lines that mention it (only lines up to where you are watching, unless you allow spoilers). Follow-up chat includes recent conversation turns; subtitle translation sends batches of subtitle lines.
 
 If you choose a fallback provider, a request the main provider cannot answer (for example during an outage, a rate limit, or a usage limit) is sent to the fallback provider instead, with the same content.
 

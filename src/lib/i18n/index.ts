@@ -72,7 +72,8 @@ export function formatAIError(err: unknown, m: Messages): { primary: string; det
       primary = m.runtime.ai.noProviderConfigured;
       break;
     case 'disabled':
-      primary = m.runtime.ai.aiDisabled;
+      // The whole tutor, or only the feature asked for (the "In the show" tab).
+      primary = msg || m.runtime.ai.aiDisabled;
       break;
     case 'missing_key':
       primary = msg || m.runtime.ai.apiKeyRejected;

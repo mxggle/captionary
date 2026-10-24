@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { extractTranslation, parseWordExplanation, wordExplanationMarkdown, type WordChunk } from '@/lib/ai/prompts';
+import { extractTranslation, parseStoryExplanation, parseWordExplanation, wordExplanationMarkdown, type WordChunk } from '@/lib/ai/prompts';
 import type { AIErrorInfo, AIJob, ChatTurn } from '@/lib/ai/types';
 import { externalDictionaries, type DictionaryResult } from '@/lib/dictionary';
 import { bg, streamJob, type AIStatus } from '@/lib/messaging';
 import type { Settings } from '@/lib/settings';
+import { findMentions, storyExcerpts } from '@/lib/story';
+import type { Cue } from '@/lib/subtitles/types';
 import { canRomanize } from '@/lib/text/romanize';
 import { locateChunk, tokenize } from '@/lib/text/tokenize';
 import { chromeTranslatorState, translateWithChrome } from '@/lib/translate';
@@ -30,6 +32,8 @@ export interface LookupInput {
   rank?: number;
   /** Start the tutor without waiting for Explain; defaults to sentences, and to words with "Explain words automatically". */
   autoExplain?: boolean;
+  /** The episode, for the "In the show" tab: its lines, and the last one the learner has heard. */
+  episode?: { cues: Cue[]; heard: number };
   /** Save the entry with this status, or remove it (null); may return the write, so the card can confirm it. */
   onSave: (status: VocabStatus | null, entry: SaveEntry) => void | Promise<unknown>;
 }
@@ -90,11 +94,18 @@ export function rankBand(rank: number | undefined, known: boolean): string | und
   return 'rarer';
 }
 
+/** A line of the episode that mentions the looked-up word. */
+export interface Mention {
+  index: number;
+  time: number;
+  text: string;
+}
+
 /**
  * Everything a look-up card needs, independent of how it is drawn: on-device translation,
  * romanization, the dictionary entry, the tutor's answer and follow-up chat, and saving.
  */
-export function useLookup({ target, settings, aiStatus, vocab, mediaTitle, autoExplain, onSave }: LookupInput) {
+export function useLookup({ target, settings, aiStatus, vocab, mediaTitle, autoExplain, episode, onSave }: LookupInput) {
   const isWord = target.kind === 'word';
   const native = settings.nativeLanguage;
   const identity = useMemo(() => vocabKey(target.text, target.lang), [target.text, target.lang]);
@@ -160,6 +171,9 @@ export function useLookup({ target, settings, aiStatus, vocab, mediaTitle, autoE
   const ai = useAIStream();
   const [turns, setTurns] = useState<ChatEntry[]>([]);
   const chatCancel = useRef<(() => void) | null>(null);
+  // With the "In the show" tab on, the word's explanation says first whether it is a name or term.
+  const spoilers = aiStatus?.story;
+  const storyOn = isWord && !!spoilers && !!episode?.cues.length;
   const job = useMemo<AIJob>(
     () =>
       isWord
@@ -172,6 +186,7 @@ export function useLookup({ target, settings, aiStatus, vocab, mediaTitle, autoE
             sentenceTranslation: target.translation,
             targetLang: target.lang,
             mediaTitle,
+            ...(storyOn && { askKind: true }),
           }
         : {
             task: 'sentence',
@@ -182,18 +197,21 @@ export function useLookup({ target, settings, aiStatus, vocab, mediaTitle, autoE
             targetLang: target.lang,
             mediaTitle,
           },
-    [isWord, target, mediaTitle],
+    [isWord, target, mediaTitle, storyOn],
   );
   const aiReady = !!aiStatus?.enabled && !!aiStatus.configured;
   // Word explanations start on their own only when the learner opted in (each is a paid request).
   const autoStart = aiReady && (autoExplain ?? explainsAtOnce(target, aiStatus));
   const { start: startAI, reset: resetAI } = ai;
+  const story = useAIStream();
+  const { reset: resetStory } = story;
   useEffect(() => {
     resetAI();
+    resetStory();
     chatCancel.current?.();
     setTurns([]);
     if (autoStart) startAI(job);
-  }, [job, autoStart, startAI, resetAI]);
+  }, [job, autoStart, startAI, resetAI, resetStory]);
   // A new answer starts a new conversation: follow-ups about the old one would no longer fit.
   const explain = useCallback(() => {
     if (!aiReady) return;
@@ -218,6 +236,41 @@ export function useLookup({ target, settings, aiStatus, vocab, mediaTitle, autoE
     () => (isWord && chunk ? chunkSuggestion(target, chunk) : null),
     // The answer is parsed again with each streamed piece; the chunk's fields are what matter.
     [isWord, target, chunk?.text, chunk?.base, chunk?.meaning],
+  );
+
+  // ---- in the show ----
+  const kind = explanation?.kind;
+  const cues = episode?.cues;
+  // Without spoilers, only what has been heard; otherwise the whole episode.
+  const upTo = episode ? (spoilers === 'allow' ? episode.cues.length - 1 : episode.heard) : -1;
+  const mentions = useMemo<Mention[]>(() => {
+    if (!storyOn || !cues) return [];
+    return findMentions(cues, upTo, target.text, target.lang).map((index) => ({ index, time: cues[index].start, text: cues[index].text }));
+  }, [storyOn, cues, upTo, target.text, target.lang]);
+  // The tab is for names and terms; a prompt that does not say what the word is falls back on a capital letter.
+  const inShowShown = storyOn && (kind ? kind !== 'word' : ai.status === 'done' && mentions.length > 0 && /^\p{Lu}/u.test(target.text));
+  const { start: startStory } = story;
+  const askStory = useCallback(() => {
+    if (!aiReady || !cues || !spoilers) return;
+    startStory({
+      task: 'story',
+      text: target.text,
+      kind,
+      sentence: target.sentence,
+      excerpts: storyExcerpts(
+        cues,
+        mentions.map((x) => x.index),
+        upTo,
+      ),
+      spoilers,
+      targetLang: target.lang,
+      mediaTitle,
+    });
+  }, [aiReady, cues, spoilers, startStory, target, kind, mentions, upTo, mediaTitle]);
+  const storyAnswering = story.status === 'streaming' || story.status === 'done';
+  const storyExplanation = useMemo(
+    () => (storyAnswering ? parseStoryExplanation(story.text, story.status === 'streaming') : null),
+    [storyAnswering, story.text, story.status],
   );
 
   // ---- follow-up chat ----
@@ -324,6 +377,18 @@ export function useLookup({ target, settings, aiStatus, vocab, mediaTitle, autoE
     explanation,
     /** The tutor's chunk, when it is a larger part of the line than the selection. */
     suggestion,
+    /** The "In the show" tab: null unless it is on and the tutor says the word is a name or term. */
+    inShow: inShowShown
+      ? {
+          ai: story,
+          kind,
+          explanation: storyExplanation,
+          mentions,
+          /** Without spoilers: the end of the last line heard, which nothing after is sent. */
+          heardUntil: spoilers === 'avoid' ? cues?.[upTo]?.end : undefined,
+          ask: askStory,
+        }
+      : null,
     answerText,
     turns,
     chatting,
@@ -349,3 +414,4 @@ export function useLookup({ target, settings, aiStatus, vocab, mediaTitle, autoE
 }
 
 export type Lookup = ReturnType<typeof useLookup>;
+export type InShow = NonNullable<Lookup['inShow']>;
