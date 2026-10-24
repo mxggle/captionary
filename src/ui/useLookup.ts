@@ -171,9 +171,10 @@ export function useLookup({ target, settings, aiStatus, vocab, mediaTitle, autoE
   const ai = useAIStream();
   const [turns, setTurns] = useState<ChatEntry[]>([]);
   const chatCancel = useRef<(() => void) | null>(null);
-  // With the "In the show" tab on, the word's explanation says first whether it is a name or term.
   const spoilers = aiStatus?.story;
   const storyOn = isWord && !!spoilers && !!episode?.cues.length;
+  // The answer belongs to the target: settings changed on another page while the card is open
+  // (In the show, Explain words automatically) apply to the next request, never discard this one.
   const job = useMemo<AIJob>(
     () =>
       isWord
@@ -186,7 +187,6 @@ export function useLookup({ target, settings, aiStatus, vocab, mediaTitle, autoE
             sentenceTranslation: target.translation,
             targetLang: target.lang,
             mediaTitle,
-            ...(storyOn && { askKind: true }),
           }
         : {
             task: 'sentence',
@@ -197,8 +197,10 @@ export function useLookup({ target, settings, aiStatus, vocab, mediaTitle, autoE
             targetLang: target.lang,
             mediaTitle,
           },
-    [isWord, target, mediaTitle, storyOn],
+    [isWord, target, mediaTitle],
   );
+  // With the "In the show" tab on, the word's explanation says first whether it is a name or term.
+  const request = useMemo<AIJob>(() => (job.task === 'word' && storyOn ? { ...job, askKind: true } : job), [job, storyOn]);
   const aiReady = !!aiStatus?.enabled && !!aiStatus.configured;
   // Word explanations start on their own only when the learner opted in (each is a paid request).
   const autoStart = aiReady && (autoExplain ?? explainsAtOnce(target, aiStatus));
@@ -210,15 +212,21 @@ export function useLookup({ target, settings, aiStatus, vocab, mediaTitle, autoE
     resetStory();
     chatCancel.current?.();
     setTurns([]);
-    if (autoStart) startAI(job);
-  }, [job, autoStart, startAI, resetAI, resetStory]);
+  }, [job, resetAI, resetStory]);
+  // Whether the tutor starts at once is decided when the tutor's settings are first known for this target.
+  const decided = useRef<AIJob | null>(null);
+  useEffect(() => {
+    if (aiStatus === null || decided.current === job) return;
+    decided.current = job;
+    if (autoStart) startAI(request);
+  }, [job, aiStatus, autoStart, startAI, request]);
   // A new answer starts a new conversation: follow-ups about the old one would no longer fit.
   const explain = useCallback(() => {
     if (!aiReady) return;
     chatCancel.current?.();
     setTurns([]);
-    startAI(job);
-  }, [aiReady, startAI, job]);
+    startAI(request);
+  }, [aiReady, startAI, request]);
 
   // ---- the tutor's answer, split into its sections ----
   const answering = ai.status === 'streaming' || ai.status === 'done';
@@ -267,6 +275,8 @@ export function useLookup({ target, settings, aiStatus, vocab, mediaTitle, autoE
       mediaTitle,
     });
   }, [aiReady, cues, spoilers, startStory, target, kind, mentions, upTo, mediaTitle]);
+  // An answer written for one spoiler setting is withdrawn when it changes; an open tab asks again.
+  useEffect(() => resetStory(), [spoilers, resetStory]);
   const storyAnswering = story.status === 'streaming' || story.status === 'done';
   const storyExplanation = useMemo(
     () => (storyAnswering ? parseStoryExplanation(story.text, story.status === 'streaming') : null),

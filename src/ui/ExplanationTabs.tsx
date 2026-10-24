@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import type { StorySection, WordExplanation, WordSection } from '@/lib/ai/prompts';
 import { formatAIError, useI18n } from '@/lib/i18n';
 import { formatTime } from '@/lib/subtitles/parse';
@@ -89,11 +89,14 @@ export function ExplanationTabs({
   if (inShow) tabs.push({ id: 'story', label: m.lookup.inShowTab });
   // The tab goes away while a regenerated explanation has not yet said the word is a name.
   const tab = tabs.some((t) => t.id === picked) ? picked : 'context';
-  // Opening "In the show" is what sends its request.
-  const open = (t: Tab) => {
-    setTab(t);
-    if (t === 'story' && inShow?.ai.status === 'idle') inShow.ask();
-  };
+  const open = (t: Tab) => setTab(t);
+  // "In the show" asks for its answer while it is open: once opened, and again when the answer was
+  // withdrawn (the spoiler setting changed). Closed, it sends nothing.
+  const storyWanted = tab === 'story' && inShow?.ai.status === 'idle';
+  useEffect(() => {
+    if (storyWanted) inShow?.ask();
+    // Only a change of whether it is wanted asks again; `ask` is a new function with every answer piece.
+  }, [storyWanted]);
   // Arrows, Home and End move between the tabs and open the one they land on.
   const onKeyDown = (e: KeyboardEvent) => {
     const at = tabs.findIndex((t) => t.id === tab);
