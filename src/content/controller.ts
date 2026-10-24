@@ -1,7 +1,7 @@
 import { getMessages, resolveUILocale, syncUILocaleFromSettings } from '@/lib/i18n';
 import { normalizeLang, sameLang } from '@/lib/languages';
 import { bg } from '@/lib/messaging';
-import { getSettings, updateSettings, watchSettings, type Settings, type ShortcutAction } from '@/lib/settings';
+import { getSettings, updateSettings, watchAISettings, watchSettings, type Settings, type ShortcutAction } from '@/lib/settings';
 import { alignTracks, cueIndexAt, cueIndexBefore } from '@/lib/subtitles/parse';
 import { buildRankMap } from '@/lib/text/frequency-map';
 import { canRomanize } from '@/lib/text/romanize';
@@ -155,6 +155,8 @@ export class SessionController {
       }),
     );
     void this.refreshAIStatus();
+    // The look-up follows the tutor's settings changed on another page (Explain words automatically, In the show).
+    this.cleanups.push(watchAISettings(() => void this.refreshAIStatus()));
     const onKey = (e: KeyboardEvent) => {
       this.keyboardInput = true;
       this.onKeyDown(e);

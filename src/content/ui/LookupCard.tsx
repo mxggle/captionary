@@ -114,6 +114,9 @@ export interface LookupCardProps {
   onClose: () => void;
   onSave: LookupInput['onSave'];
   onPlayLine?: () => void;
+  /** The episode, for the "In the show" tab of a name or term. */
+  episode?: LookupInput['episode'];
+  onPlayCue?: (index: number) => void;
   onSelectWord?: (sel: WordSelection) => void;
   onOpenSidePanel?: () => void;
 }
@@ -310,6 +313,7 @@ export function LookupCard(props: LookupCardProps) {
               lang={target.lang}
               speechRate={settings.dictionary.speechRate}
               chunkShown={!!suggestion}
+              onPlayCue={props.onPlayCue}
             />
             {lookup.aiReady && (ai.status === 'done' || lookup.turns.length > 0) && (
               <form className="cap-lookup__ask" onSubmit={ask}>
@@ -397,6 +401,7 @@ function TutorNative({
   lang,
   speechRate,
   chunkShown,
+  onPlayCue,
 }: {
   lookup: ReturnType<typeof useLookup>;
   openSettings: () => void;
@@ -405,6 +410,7 @@ function TutorNative({
   lang: string;
   speechRate: number;
   chunkShown: boolean;
+  onPlayCue?: (index: number) => void;
 }) {
   const { m } = useI18n();
   const { ai } = lookup;
@@ -465,6 +471,8 @@ function TutorNative({
           native={lookup.native}
           speechRate={speechRate}
           chunkShown={chunkShown}
+          inShow={lookup.inShow}
+          onPlayCue={onPlayCue}
         />
       ) : (
         <div className={ai.status === 'streaming' ? 'cap-cursor' : undefined}>

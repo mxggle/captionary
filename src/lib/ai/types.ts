@@ -18,9 +18,9 @@ export type ProviderKind =
 export type ProviderProtocol = 'openai' | 'chatgpt' | 'anthropic' | 'gemini' | 'chrome';
 
 /** The jobs the extension asks an AI model to do. Each can be routed to a different model. */
-export type AITask = 'word' | 'sentence' | 'chat' | 'translate';
+export type AITask = 'word' | 'sentence' | 'chat' | 'story' | 'translate';
 
-export const AI_TASKS: AITask[] = ['word', 'sentence', 'chat', 'translate'];
+export const AI_TASKS: AITask[] = ['word', 'sentence', 'chat', 'story', 'translate'];
 
 /** "default" leaves reasoning effort to the provider. */
 export type ReasoningEffort = 'default' | 'minimal' | 'low' | 'medium' | 'high';
@@ -56,6 +56,15 @@ export interface TaskRoute {
 
 export type ContextScope = 'word' | 'sentence' | 'surrounding';
 
+/**
+ * What the "In the show" tab may draw on: the lines heard so far, with who people are and how they
+ * are related taken only from those lines (the default), or the whole episode and all the model knows.
+ */
+export type StorySpoilers = 'avoid' | 'allow';
+
+/** What a looked-up word is, as the word explanation names it when the "In the show" tab is on. */
+export type EntityKind = 'person' | 'place' | 'group' | 'title' | 'term' | 'word';
+
 export interface AISettings {
   enabled: boolean;
   connections: ProviderConnection[];
@@ -68,6 +77,11 @@ export interface AISettings {
   /** How much surrounding text is sent with a lookup (privacy vs. quality). */
   contextScope: ContextScope;
   shareMediaTitle: boolean;
+  /**
+   * The "In the show" tab for names and terms in a video's look-up. Off by default: each tab opened
+   * is one more request, and it sends every line of the episode that mentions the word.
+   */
+  story: { enabled: boolean; spoilers: StorySpoilers };
   /** Start an AI explanation as soon as a word is clicked (costs a request per click). */
   autoExplain: boolean;
   stream: boolean;
@@ -97,6 +111,8 @@ export type AIJob =
       sentenceTranslation?: string;
       targetLang: string;
       mediaTitle?: string;
+      /** Ask the tutor to say first what the word is (a person, a place…), for the "In the show" tab. */
+      askKind?: boolean;
     }
   | {
       task: 'sentence';
@@ -115,6 +131,19 @@ export type AIJob =
       targetLang: string;
       history: ChatTurn[];
       question: string;
+    }
+  | {
+      task: 'story';
+      /** The name or term looked up. */
+      text: string;
+      kind?: EntityKind;
+      /** The line it was picked from. */
+      sentence: string;
+      /** The episode's lines around each mention, in order (see `storyExcerpts`). */
+      excerpts: string[];
+      spoilers: StorySpoilers;
+      targetLang: string;
+      mediaTitle?: string;
     }
   | {
       task: 'translate';

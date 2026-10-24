@@ -1524,6 +1524,95 @@ textarea.cap-input {
   background: var(--x-chip);
   color: var(--x-ink);
 }
+/* "In the show": the name, who or what it is, its connections and the lines that mention it */
+.cap-story__wait {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--x-muted);
+}
+.cap-story__sec {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.cap-story__sec + .cap-story__sec {
+  margin-top: 4px;
+}
+.cap-story__label {
+  font-size: 12px;
+  color: var(--x-muted);
+}
+.cap-story__forms {
+  margin: 0;
+  font-size: 13px;
+  color: var(--x-muted);
+}
+.cap-explain .cap-story__rel,
+.cap-explain .cap-story__lines {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cap-story__rel li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 8px;
+  padding: 2px 0;
+}
+.cap-story__who {
+  font-weight: 500;
+}
+.cap-story__src {
+  padding: 0 6px;
+  border-radius: var(--radius-xs);
+  background: var(--x-chip);
+  font-size: 11.5px;
+  color: var(--x-muted);
+}
+.cap-story__line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: calc(100% + 12px);
+  padding: 4px 6px;
+  margin: 0 -6px;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: none;
+  color: var(--x-ink);
+  font: inherit;
+  font-size: 13.5px;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+}
+.cap-story__line:hover:not(:disabled) {
+  background: var(--x-chip);
+}
+.cap-story__line:focus-visible {
+  outline: 2px solid var(--x-mark);
+  outline-offset: -2px;
+}
+.cap-story__line:disabled {
+  cursor: default;
+}
+.cap-story__time {
+  flex: none;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--x-muted);
+}
+.cap-story__more {
+  align-self: flex-start;
+  font-size: 13px;
+}
+.cap-story__note {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--x-muted);
+}
 
 /* player text button (inside native look-up and menus) */
 .cap-pbtn {
