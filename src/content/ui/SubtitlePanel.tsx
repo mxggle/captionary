@@ -490,6 +490,7 @@ export function SubtitlePanel({
                 controller={controller}
                 tracks={originalTracks(s.tracks)}
                 originalTrackId={s.originalTrackId}
+                shown={s.settings.subtitles.showOriginal}
                 onDone={() => setMenu(null)}
               />
             </>
@@ -508,7 +509,7 @@ export function SubtitlePanel({
             <>
               <MenuRow
                 label={m.content.panel.originalTrack}
-                value={originalValue(s.tracks, s.originalTrackId)}
+                value={originalValue(s.tracks, s.originalTrackId, s.settings.subtitles.showOriginal)}
                 onClick={() => setMenu('original')}
               />
               <MenuRow

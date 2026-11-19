@@ -205,6 +205,7 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
           controller={controller}
           tracks={originalTracks(s.tracks)}
           originalTrackId={s.originalTrackId}
+          shown={settings.subtitles.showOriginal}
           onDone={() => setPage('main')}
         />
       </>
@@ -241,14 +242,24 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
             <div className="cap-menu__colhead" aria-hidden="true">
               {m.content.playerMenu.originalShort}
             </div>
-            {originalTracks(s.tracks).map((t) => (
+            {originalTracks(s.tracks).length > 0 && (
               <NetflixOption
-                key={t.id}
-                label={trackLabel(t)}
-                checked={t.id === s.originalTrackId}
-                onClick={() => t.id !== s.originalTrackId && void controller.selectOriginalTrack(t.id)}
+                label={m.common.off}
+                checked={!settings.subtitles.showOriginal}
+                onClick={() => settings.subtitles.showOriginal && void controller.chooseOriginal(null)}
               />
-            ))}
+            )}
+            {originalTracks(s.tracks).map((t) => {
+              const checked = settings.subtitles.showOriginal && t.id === s.originalTrackId;
+              return (
+                <NetflixOption
+                  key={t.id}
+                  label={trackLabel(t)}
+                  checked={checked}
+                  onClick={() => !checked && void controller.chooseOriginal(t.id)}
+                />
+              );
+            })}
           </div>
           <div className="cap-menu__col" role="group" aria-label={m.content.playerMenu.translation}>
             <div className="cap-menu__colhead" aria-hidden="true">
@@ -316,7 +327,7 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
           {check(s.off ? m.content.playerMenu.offForTitle : m.content.playerMenu.onForTitle, !s.off, () => controller.setOff(!s.off))}
           <MenuRow
             label={m.content.playerMenu.originalSubtitles}
-            value={originalValue(s.tracks, s.originalTrackId)}
+            value={originalValue(s.tracks, s.originalTrackId, settings.subtitles.showOriginal)}
             onClick={() => setPage('original')}
           />
           <MenuRow
@@ -350,7 +361,7 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
         <MenuRow
           icon={icon(IconCaptions)}
           label={m.content.playerMenu.originalSubtitles}
-          value={originalValue(s.tracks, s.originalTrackId)}
+          value={originalValue(s.tracks, s.originalTrackId, settings.subtitles.showOriginal)}
           onClick={() => setPage('original')}
         />
         <MenuRow

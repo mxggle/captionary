@@ -123,9 +123,10 @@ export function originalTracks(tracks: TrackInfo[]): TrackInfo[] {
   return tracks.filter((t) => !t.forced);
 }
 
-/** The current original track as menus show it: "Español (auto)". */
-export function originalValue(tracks: TrackInfo[], id: string | null): string {
+/** The current original track as menus show it: "Español (auto)", or "Off" when the line is hidden. */
+export function originalValue(tracks: TrackInfo[], id: string | null, shown = true): string {
   const m = getMessages(getCurrentUILocale());
+  if (!shown) return m.common.off;
   const t = tracks.find((x) => x.id === id);
   return t ? trackLabel(t) : m.common.none;
 }
@@ -134,17 +135,30 @@ export function OriginalChoices({
   controller,
   tracks,
   originalTrackId,
+  shown,
   onDone,
 }: {
   controller: SessionController;
   tracks: TrackInfo[];
   originalTrackId: string | null;
+  /** The original line is showing (`settings.subtitles.showOriginal`); else "Off" is the choice. */
+  shown: boolean;
   onDone?: () => void;
 }) {
   const { m, locale } = useI18n();
   return (
     <>
       {tracks.length === 0 && <div className="cap-menu__section">{m.content.playerMenu.noSubtitleTracks}</div>}
+      {tracks.length > 0 && (
+        <MenuRadio
+          label={m.common.off}
+          checked={!shown}
+          onClick={() => {
+            if (shown) void controller.chooseOriginal(null);
+            onDone?.();
+          }}
+        />
+      )}
       {tracks.map((t) => {
         const langLabel = languageName(t.lang, locale);
         const label = trackLabel(t);
@@ -153,9 +167,9 @@ export function OriginalChoices({
             key={t.id}
             label={label}
             meta={label.includes(langLabel) || label.includes(languageName(t.lang)) ? undefined : langLabel}
-            checked={t.id === originalTrackId}
+            checked={shown && t.id === originalTrackId}
             onClick={() => {
-              if (t.id !== originalTrackId) void controller.selectOriginalTrack(t.id);
+              if (!shown || t.id !== originalTrackId) void controller.chooseOriginal(t.id);
               onDone?.();
             }}
           />

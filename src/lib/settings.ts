@@ -61,8 +61,10 @@ export interface Settings {
     translationScale: number;
     bottomOffset: number;
     hideNativeSubtitles: boolean;
-    /** Where translations come from when the platform has none. */
+    /** Where translations come from when the platform has none; 'none' turns translation off altogether. */
     translationEngine: 'platform' | 'chrome' | 'ai' | 'none';
+    /** The engine last in use, which turning translation back on after 'none' returns to. */
+    lastTranslationEngine: Exclude<Settings['subtitles']['translationEngine'], 'none'>;
     highlight: WordStatusHighlight;
   };
   playback: {
@@ -122,6 +124,7 @@ export const DEFAULT_SETTINGS: Settings = {
     bottomOffset: 9,
     hideNativeSubtitles: true,
     translationEngine: 'platform',
+    lastTranslationEngine: 'platform',
     highlight: 'learning',
   },
   playback: {
@@ -241,19 +244,48 @@ export async function getAISettings(): Promise<AISettings> {
   return mergeDefaults(DEFAULT_AI_SETTINGS, await aiSettingsItem.getValue());
 }
 
-export async function updateSettings(patch: (s: Settings) => Settings | void): Promise<Settings> {
-  const draft = structuredClone(await getSettings());
-  const next = patch(draft) ?? draft;
-  await settingsItem.setValue(next);
+/** Writes run one at a time per page: two read-modify-writes in flight would each start from the old value and the later one would erase the earlier. */
+let settingsWrites: Promise<unknown> = Promise.resolve();
+let aiSettingsWrites: Promise<unknown> = Promise.resolve();
+
+function serial<T>(queue: 'settings' | 'ai', run: () => Promise<T>): Promise<T> {
+  const prev = queue === 'settings' ? settingsWrites : aiSettingsWrites;
+  const next = prev.then(run, run);
+  const tail = next.catch(() => undefined);
+  if (queue === 'settings') settingsWrites = tail;
+  else aiSettingsWrites = tail;
   return next;
 }
 
-export async function updateAISettings(patch: (s: AISettings) => AISettings | void): Promise<AISettings> {
-  const current = await getAISettings();
-  const draft = structuredClone(current);
-  const next = patch(draft) ?? draft;
-  await aiSettingsItem.setValue(next);
-  return next;
+/** Set the translation engine, remembering it (unless 'none') for {@link translationEngineToRestore}. */
+export function setTranslationEngine(subtitles: Settings['subtitles'], engine: Settings['subtitles']['translationEngine']) {
+  subtitles.translationEngine = engine;
+  if (engine !== 'none') subtitles.lastTranslationEngine = engine;
+}
+
+/** The engine to turn translation back on with: the one in use, or after 'none' the one last in use. */
+export function translationEngineToRestore(subtitles: Settings['subtitles']): Settings['subtitles']['lastTranslationEngine'] {
+  return subtitles.translationEngine === 'none' ? subtitles.lastTranslationEngine : subtitles.translationEngine;
+}
+
+export function updateSettings(patch: (s: Settings) => Settings | void): Promise<Settings> {
+  return serial('settings', async () => {
+    const draft = structuredClone(await getSettings());
+    const next = patch(draft) ?? draft;
+    // Whoever changed the engine (the options page included), the one in use is the one to come back to.
+    setTranslationEngine(next.subtitles, next.subtitles.translationEngine);
+    await settingsItem.setValue(next);
+    return next;
+  });
+}
+
+export function updateAISettings(patch: (s: AISettings) => AISettings | void): Promise<AISettings> {
+  return serial('ai', async () => {
+    const draft = structuredClone(await getAISettings());
+    const next = patch(draft) ?? draft;
+    await aiSettingsItem.setValue(next);
+    return next;
+  });
 }
 
 export function watchSettings(cb: (s: Settings) => void): () => void {
