@@ -14,6 +14,8 @@ const adapter: SiteAdapter = {
   setNativeSubtitlesHidden() {},
 };
 
+const media = { id: '1', title: 'Title', url: 'https://www.netflix.com/watch/1' };
+
 /** Lets the storage write and its watcher run. */
 const settled = () => new Promise((r) => setTimeout(r, 20));
 
@@ -51,11 +53,65 @@ describe('chooseTranslation', () => {
     expect(getSession().translationSource).toEqual({ type: 'ai', lang: 'zh-CN' });
   });
 
-  it('keeps a subtitle track or "off" to this video', async () => {
+  it('turns the translation line back on when a translation is picked while it is hidden', async () => {
+    await updateSettings((s) => void (s.subtitles.showTranslation = false));
+    await settled();
     void controller.chooseTranslation({ type: 'track', trackId: 'zh' });
-    void controller.chooseTranslation({ type: 'none' });
+    await settled();
+    expect((await getSettings()).subtitles.showTranslation).toBe(true);
+    expect(getSession().settings.subtitles.showTranslation).toBe(true);
+  });
+
+  it('keeps a subtitle track to this video', async () => {
+    void controller.chooseTranslation({ type: 'track', trackId: 'zh' });
     await settled();
     expect((await getSettings()).subtitles.translationEngine).toBe('platform');
+  });
+
+  it('keeps "off" for later videos, even one with a human track in the learner\'s language', async () => {
+    void controller.chooseTranslation({ type: 'none' });
+    await settled();
+    expect((await getSettings()).subtitles.translationEngine).toBe('none');
+
+    await controller.startMedia({ ...media, id: '2' }, getSession().tracks, 'ja');
+    expect(getSession().status).toBe('ready');
+    expect(getSession().translationSource).toEqual({ type: 'none' });
+  });
+
+  it('brings translation back for later videos when a subtitle track is picked after "off"', async () => {
+    void controller.chooseTranslation({ type: 'none' });
+    await settled();
+    void controller.chooseTranslation({ type: 'track', trackId: 'zh' });
+    await settled();
+    expect((await getSettings()).subtitles.translationEngine).toBe('platform');
+    expect(getSession().translationSource).toEqual({ type: 'track', trackId: 'zh' });
+  });
+
+  it('lets the translation key bring translation back after "off"', async () => {
+    void controller.chooseTranslation({ type: 'none' });
+    await settled();
+    controller.runAction('toggleTranslation');
+    await settled();
+    const { subtitles } = await getSettings();
+    expect(subtitles.translationEngine).toBe('platform');
+    expect(subtitles.showTranslation).toBe(true);
+    expect(getSession().translationSource).toEqual({ type: 'track', trackId: 'zh' });
+  });
+
+  it('brings back the engine in use before "off", not the default', async () => {
+    await updateSettings((s) => void (s.subtitles.translationEngine = 'ai'));
+    await settled();
+    void controller.chooseTranslation({ type: 'none' });
+    await settled();
+    controller.runAction('toggleTranslation');
+    await settled();
+    expect((await getSettings()).subtitles.translationEngine).toBe('ai');
+
+    void controller.chooseTranslation({ type: 'none' });
+    await settled();
+    void controller.chooseTranslation({ type: 'track', trackId: 'zh' });
+    await settled();
+    expect((await getSettings()).subtitles.translationEngine).toBe('ai');
   });
 
   it('still applies an engine changed on the settings page', async () => {
@@ -68,7 +124,53 @@ describe('chooseTranslation', () => {
   });
 });
 
-const media = { id: '1', title: 'Title', url: 'https://www.netflix.com/watch/1' };
+describe('chooseOriginal', () => {
+  let controller: SessionController;
+
+  beforeEach(async () => {
+    fakeBrowser.reset();
+    controller = new SessionController(adapter);
+    await controller.init();
+    setSession({
+      media,
+      lang: 'ja',
+      originalTrackId: 'ja',
+      tracks: [
+        { id: 'ja', lang: 'ja', label: 'Japanese' },
+        { id: 'en', lang: 'en', label: 'English' },
+      ],
+    });
+  });
+
+  afterEach(() => controller.destroy());
+
+  it('turns the original line off from the menu and keeps it off', async () => {
+    void controller.chooseOriginal(null);
+    expect(getSession().settings.subtitles.showOriginal).toBe(false);
+    await settled();
+    expect((await getSettings()).subtitles.showOriginal).toBe(false);
+    expect(getSession().settings.subtitles.showOriginal).toBe(false);
+    expect(getSession().originalTrackId).toBe('ja');
+  });
+
+  it('turns it back on when a track is picked, the current one included', async () => {
+    void controller.chooseOriginal(null);
+    await settled();
+    void controller.chooseOriginal('ja');
+    await settled();
+    expect((await getSettings()).subtitles.showOriginal).toBe(true);
+    expect(getSession().originalTrackId).toBe('ja');
+  });
+
+  it('switches track and shows it', async () => {
+    void controller.chooseOriginal(null);
+    await settled();
+    await controller.chooseOriginal('en');
+    await settled();
+    expect((await getSettings()).subtitles.showOriginal).toBe(true);
+    expect(getSession().originalTrackId).toBe('en');
+  });
+});
 
 describe('the host captions', () => {
   let hidden: boolean[];
@@ -130,10 +232,154 @@ describe('the host captions', () => {
     expect(now()).toBe(false);
   });
 
+  it('come back when the original line is off and there is no translation to show', () => {
+    setSession({ media, status: 'ready', translationSource: { type: 'track', trackId: 'zh' } });
+    setSession({ settings: { ...getSession().settings, subtitles: { ...getSession().settings.subtitles, showOriginal: false } } });
+    expect(now()).toBe(true);
+    setSession({ translationSource: { type: 'none' } });
+    expect(now()).toBe(false);
+  });
+
   it('come back when Captionary goes away', () => {
     setSession({ media, status: 'ready' });
     controller.destroy();
     expect(now()).toBe(false);
+  });
+});
+
+describe('the host captions button', () => {
+  const tracks = [{ id: 'ja', lang: 'ja', label: 'Japanese' }];
+  let cc: boolean | null;
+  let presses: number;
+  let loads: number;
+  let controller: SessionController;
+
+  const start = async (on: boolean | null, id = '1') => {
+    cc = on;
+    await controller.startMedia({ ...media, id }, tracks, 'ja');
+  };
+  const press = async (on: boolean | null) => {
+    cc = on;
+    controller.syncHostCaptions();
+    await settled();
+  };
+
+  beforeEach(async () => {
+    fakeBrowser.reset();
+    setSession({ media: null, status: 'idle', off: false, cues: [], originalTrackId: null });
+    presses = 0;
+    loads = 0;
+    controller = new SessionController({
+      ...adapter,
+      hostCaptionsOn: () => cc,
+      showHostCaptions: () => {
+        presses++;
+        cc = true;
+      },
+      loadTrack: async () => {
+        loads++;
+        return [{ start: 0, end: 1, text: 'こんにちは' }];
+      },
+    });
+    await controller.init();
+  });
+
+  afterEach(() => controller.destroy());
+
+  it('off: Captionary stays out of the video and fetches nothing', async () => {
+    await start(false);
+    expect(getSession().off).toBe(true);
+    expect(getSession().status).toBe('idle');
+    expect(loads).toBe(0);
+    expect(presses).toBe(0);
+  });
+
+  it('on: the video loads as always', async () => {
+    await start(true);
+    expect(getSession().off).toBe(false);
+    expect(getSession().status).toBe('ready');
+  });
+
+  it('pressed on: loads what was held back', async () => {
+    await start(false);
+    await press(true);
+    expect(getSession().off).toBe(false);
+    expect(getSession().status).toBe('ready');
+    expect(loads).toBe(1);
+    expect(presses).toBe(0);
+  });
+
+  it('pressed off: turns Captionary off, and back on without loading again', async () => {
+    await start(true);
+    await press(false);
+    expect(getSession().off).toBe(true);
+    await press(true);
+    expect(getSession().off).toBe(false);
+    expect(loads).toBe(1);
+  });
+
+  it('starts each video the way it stands, not the way the last one ended', async () => {
+    await start(true);
+    await start(false, '2');
+    expect(getSession().off).toBe(true);
+    await press(true);
+    await start(true, '3');
+    expect(getSession().off).toBe(false);
+  });
+
+  it('stays on during a preroll ad, then follows what the button says', async () => {
+    await start(null);
+    expect(getSession().off).toBe(false);
+    expect(loads).toBe(1);
+    await press(false);
+    expect(getSession().off).toBe(true);
+
+    await start(null, '2');
+    await press(true);
+    expect(getSession().off).toBe(false);
+  });
+
+  it('is pressed on when the learner turns Captionary on from its menu', async () => {
+    await start(false);
+    controller.setOff(false);
+    await settled();
+    expect(presses).toBe(1);
+    expect(getSession().status).toBe('ready');
+    controller.syncHostCaptions();
+    expect(presses).toBe(1);
+    expect(getSession().off).toBe(false);
+  });
+
+  it('leaves a menu choice alone until it next changes, a midroll ad included', async () => {
+    await start(true);
+    controller.setOff(true);
+    await press(null);
+    await press(true);
+    expect(getSession().off).toBe(true);
+    await press(false);
+    await press(true);
+    expect(getSession().off).toBe(false);
+  });
+
+  it('loads a track picked while off once Captionary is on', async () => {
+    await start(false);
+    await controller.selectOriginalTrack('ja');
+    expect(loads).toBe(0);
+    await press(true);
+    expect(loads).toBe(1);
+  });
+});
+
+describe('a site without a captions button', () => {
+  it('starts every video on', async () => {
+    fakeBrowser.reset();
+    const controller = new SessionController(adapter);
+    await controller.init();
+    setSession({ off: true });
+    await controller.startMedia(media, [{ id: 'ja', lang: 'ja', label: 'Japanese' }], 'ja');
+    expect(getSession().off).toBe(false);
+    expect(getSession().status).toBe('ready');
+    controller.destroy();
   });
 });
 

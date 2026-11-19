@@ -140,12 +140,18 @@ export default defineContentScript({
     ctx.onInvalidated(stop);
     navigate();
 
+    // Captionary goes with the CC button, as soon as it is pressed (the interval below catches the rest).
+    const captions = new MutationObserver(() => controller.syncHostCaptions());
+    captions.observe(document.documentElement, { subtree: true, attributes: true, attributeFilter: ['aria-pressed'] });
+    ctx.onInvalidated(() => captions.disconnect());
+
     // The player swaps its <video> element and toggles ad mode; keep in sync.
     ctx.setInterval(() => {
       if (!currentId) return;
       controller.attachVideo(adapter.getVideo());
       const ad = adapter.adShowing();
       if (ad !== getSession().adShowing) setSession({ adShowing: ad, menuOpen: ad ? false : getSession().menuOpen });
+      controller.syncHostCaptions();
     }, 1000);
   },
 });
