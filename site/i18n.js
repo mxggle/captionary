@@ -901,7 +901,7 @@
       },
       privacyPage: {
         h1: 'Captionary Privacy Policy',
-        updated: 'Last updated October 18, 2026.',
+        updated: 'Last updated October 25, 2026.',
         intro:
           'Captionary helps you learn languages from video subtitles and reading material. This policy describes how the extension handles that material, your study data, and optional AI requests.',
         storedH2: 'Data stored in your browser',
@@ -1159,7 +1159,7 @@
       },
       privacyPage: {
         h1: 'Captionary 隐私政策',
-        updated: '最后更新于 2026 年 10 月 18 日。',
+        updated: '最后更新于 2026 年 10 月 25 日。',
         intro: 'Captionary 帮助你通过视频字幕与阅读材料学习外语。本政策说明扩展程序如何处理这些学习材料、你的学习数据以及可选的 AI 请求。',
         storedH2: '保存在<wbr>浏览器中的<wbr>数据',
         storedP1:
@@ -1411,7 +1411,7 @@
       },
       privacyPage: {
         h1: 'Captionary 隱私權<wbr>政策',
-        updated: '最後更新日期：2026 年 10 月 18 日。',
+        updated: '最後更新日期：2026 年 10 月 25 日。',
         intro: 'Captionary 協助你透過影片字幕與閱讀材料學習外語。本政策說明擴充功能如何處理這些材料、你的學習資料以及選用的 AI 請求。',
         storedH2: '儲存在<wbr>瀏覽器中的<wbr>資料',
         storedP1:
@@ -1673,7 +1673,7 @@
       },
       privacyPage: {
         h1: 'Captionary プライバシー<wbr>ポリシー',
-        updated: '最終更新日：2026年10月18日',
+        updated: '最終更新日：2026年10月25日',
         intro:
           'Captionary は、動画の字幕や読み物から言語を学ぶための拡張機能です。本ポリシーでは、当拡張機能がそれらの教材、学習データ、および任意の AI リクエストをどのように取り扱うかを説明します。',
         storedH2: 'ブラウザ内に<wbr>保存される<wbr>データ',

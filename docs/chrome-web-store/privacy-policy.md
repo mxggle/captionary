@@ -1,6 +1,6 @@
 # Captionary Privacy Policy
 
-Last updated October 18, 2026.
+Last updated October 25, 2026.
 
 Captionary helps you learn languages from video subtitles and reading material. This policy describes how the extension handles that material, your study data, and optional AI requests.
 
