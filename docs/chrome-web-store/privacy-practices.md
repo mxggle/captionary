@@ -38,7 +38,7 @@ Provides temporary access to the tab the user chooses through the toolbar or con
 
 YouTube and Netflix: read subtitle tracks and playback state and display language-learning controls on the supported video pages. Netflix's nflxvideo.net subtitle hosts: download subtitle data for the video being studied. Wiktionary: request dictionary definitions for words the user looks up. Content scripts also run at tv.apple.com to read subtitle metadata and display the learning interface; current Apple subtitle downloads use the page's CORS-enabled CDN.
 
-To find the subtitle tracks, a small script in each video page's own context watches only the player's subtitle requests: YouTube's /api/timedtext caption requests and Apple TV+'s .m3u8 playlists. On Netflix it reads the subtitle-track list from the player's manifest and asks that manifest to include WebVTT subtitles and all subtitle tracks. These scripts do not record browsing, other network requests, or user activity, and send nothing off the device themselves.
+To find the subtitle tracks, a small script in each video page's own context watches only the player's subtitle requests: YouTube's /api/timedtext caption requests and Apple TV+'s .m3u8 playlists. On YouTube it also notes when the player's /GenerateIT request finishes (its contents are not used or kept), because captions can be fetched only after that point. On Netflix it reads the subtitle-track list from the player's manifest and asks that manifest to include WebVTT subtitles and all subtitle tracks. These scripts do not record browsing, other network requests, or user activity, and send nothing off the device themselves.
 
 ### Optional host access
 
