@@ -83,6 +83,10 @@ export const ja: Messages = {
       name: '字幕の翻訳',
       description: 'お使いの言語の字幕がない場合に字幕トラック全体を翻訳します。長い動画ではリクエスト数が多くなります。',
     },
+    hint: {
+      name: '単語のヒント',
+      description: 'ヒントの取得元が AI チューターのとき、難しい単語の下に短い意味を表示します。視聴した10行ごとに約1回リクエストします。',
+    },
   },
 
   lookup: {
@@ -243,6 +247,17 @@ export const ja: Messages = {
       frequencyColorsHelpBefore: '低頻度の単語に3色の下線を引きます。言語ごとに初回のみ ',
       frequencyColorsLink: 'OpenSubtitles 頻度リスト',
       frequencyColorsHelpAfter: ' からデータを取得します。',
+      definitionHints: '単語のヒント',
+      definitionHintsHelp:
+        '語彙レベルに対して難しい単語の下に、短い意味を表示します。難しさは出現頻度の色分けと同じ単語リストで判断します。',
+      hintLevel: '語彙レベル',
+      hintLevelHelp: (scale: string) => `この ${scale} レベルを超える単語にヒントを表示します。`,
+      hintLevelAutoHelp: '動画ごとにその言語の基準を使います。日本語は JLPT、中国語は HSK、韓国語は TOPIK、その他は CEFR です。',
+      hintSource: 'ヒントの取得元',
+      hintSourceChrome: 'デバイス上',
+      hintSourceAi: 'AI チューター',
+      hintSourceHelp:
+        'デバイス上の翻訳は無料でプライバシーも守られますが、単語を1語ずつ翻訳します。チューターは行全体を読んで正しい意味を選びますが、10行ごとに約1回リクエストし、その行をプロバイダーに送信します。',
       sizePositionCard: 'サイズと位置',
       textSize: '文字サイズ',
       textSizeHelp: '幅1000pxのプレーヤーを基準としたピクセル値です。画面サイズに応じて拡大縮小されます。',
@@ -905,6 +920,11 @@ export const ja: Messages = {
       otherLanguages: 'その他の言語',
       otherSubtitleTracks: 'その他の字幕トラック',
       noSubtitleTracks: '利用可能な字幕がありません',
+      definitionHints: '単語のヒント',
+      hintsUnavailable: (pair: string) =>
+        `単語のヒントには ${pair} の Chrome 内蔵翻訳が必要ですが、この環境では利用できません。設定でヒントの取得元を AI チューターに切り替えられます。`,
+      hintsNeedAi:
+        'チューターによる単語のヒントには AI プロバイダーが必要です。設定するか、ヒントの取得元をデバイス上に切り替えてください。',
     },
     subtitles: {
       metaOfficial: '公式字幕',

@@ -1,6 +1,7 @@
 import { storage } from '#imports';
 import type { AISettings, AITask, TaskRoute } from './ai/types';
 import { normalizeLang } from './languages';
+import type { HintScale } from './text/hints';
 
 export type ShortcutAction =
   | 'prevLine'
@@ -56,6 +57,18 @@ export interface Settings {
     showRomanization: boolean;
     /** Underline words by how rare they are (downloads a frequency list per language). */
     frequencyColors: boolean;
+    /** A short translation under words that are difficult at the learner's vocabulary level. */
+    definitionHints: boolean;
+    /**
+     * Vocabulary level per scale (JLPT for Japanese, HSK for Chinese, TOPIK for Korean, CEFR otherwise);
+     * a scale without one follows `learnerLevel` (see `hintLevelFor`).
+     */
+    hintLevels: Partial<Record<HintScale, string>>;
+    /**
+     * Where hints come from: Chrome's on-device translator (free, private, one word at a time) or the
+     * tutor (reads the line, so it picks the right sense; costs requests and sends the lines).
+     */
+    hintSource: 'chrome' | 'ai';
     blurTranslation: boolean;
     fontSize: number;
     translationScale: number;
@@ -118,6 +131,9 @@ export const DEFAULT_SETTINGS: Settings = {
     showTranslation: true,
     showRomanization: true,
     frequencyColors: false,
+    definitionHints: false,
+    hintLevels: {},
+    hintSource: 'chrome',
     blurTranslation: false,
     fontSize: 26,
     translationScale: 0.8,
@@ -175,6 +191,7 @@ export const DEFAULT_AI_SETTINGS: AISettings = {
     chat: route({ maxOutputTokens: 2000, effort: 'default' }),
     story: route({ maxOutputTokens: 1000 }),
     translate: route({ maxOutputTokens: 4000, temperature: 0, effort: 'minimal' }),
+    hint: route({ maxOutputTokens: 800, temperature: 0, effort: 'minimal' }),
   },
   explanationLanguage: 'native',
   contextScope: 'surrounding',
@@ -198,6 +215,10 @@ export const TASK_LABELS: Record<AITask, { name: string; description: string }> 
   translate: {
     name: 'Subtitle translation',
     description: 'Translates whole subtitle tracks when the site has none in your language. Long videos make many requests.',
+  },
+  hint: {
+    name: 'Definition hints',
+    description: 'Short meanings under difficult words, when hints come from the tutor. About one request per ten lines watched.',
   },
 };
 

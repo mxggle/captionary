@@ -2,7 +2,7 @@ import { browser } from '#imports';
 import { getCurrentUILocale, getMessages, syncUILocaleFromSettings } from '../i18n';
 import { getAISettings, getSettings } from '../settings';
 import { cacheKey, getCached, putCached } from './cache';
-import { buildPrompt, parseTranslations } from './prompts';
+import { buildPrompt, parseGlosses, parseTranslations } from './prompts';
 import { chatGPTCredentials } from './chatgpt-auth';
 import { anthropicAdapter } from './providers/anthropic';
 import { chatgptAdapter } from './providers/chatgpt';
@@ -188,7 +188,16 @@ export async function runJob(job: AIJob, opts: RunOptions = {}): Promise<AIResul
 
   const prompt = buildPrompt(job, { ai, nativeLanguage: settings.nativeLanguage, level: settings.learnerLevel });
   const signal = opts.signal ?? new AbortController().signal;
-  const validate = job.task === 'translate' ? (t: string) => parseTranslations(t, job.lines.length) !== null : () => true;
+  const validate =
+    job.task === 'translate'
+      ? (t: string) => parseTranslations(t, job.lines.length) !== null
+      : job.task === 'hint'
+        ? (t: string) =>
+            parseGlosses(
+              t,
+              job.items.map((it) => it.words.length),
+            ) !== null
+        : () => true;
 
   const attempt = async (conn: ProviderConnection, useRouteModel: boolean): Promise<AIResult> => {
     const model = resolveModel(conn, route, useRouteModel);

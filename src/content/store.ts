@@ -66,6 +66,11 @@ export interface SessionState {
   romanizations: string[];
   /** Normalized word -> frequency rank (1 = most common) for the current language. */
   frequency: Map<string, number> | null;
+  /**
+   * Definition hints by cue index: normalized word -> short gloss ('' = none). A line without an entry
+   * has not been looked at yet; `{}` means nothing in it needs a hint.
+   */
+  hints: Record<number, Record<string, string>>;
   status: 'idle' | 'loading' | 'ready' | 'none' | 'error';
   message?: string;
   translationStatus: 'idle' | 'loading' | 'ready' | 'error';
@@ -110,6 +115,7 @@ export const sessionStore = createStore<SessionState>(() => ({
   translations: [],
   romanizations: [],
   frequency: null,
+  hints: {},
   status: 'idle',
   translationStatus: 'idle',
   activeIndex: -1,
