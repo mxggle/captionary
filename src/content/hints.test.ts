@@ -126,6 +126,17 @@ describe('HintLoader', () => {
     expect(getSession().hints[2]).toEqual(W({}, [{ start: 2, end: 6, gloss: '就是这样' }]));
   });
 
+  it('drops a word hint inside a phrase the tutor glossed', async () => {
+    setSession({ settings: settings((s) => (s.subtitles.hintSource = 'ai')) });
+    ai.runJob.mockResolvedValue({
+      text: '{"g": [["探测器"], ["分发", "小装置"], []], "p": [[], [{"t": "dispenses a gizmo", "g": "发个小玩意"}], []]}',
+    });
+    loader.update();
+    await settled();
+    // Token indexes: it·dispenses·a·gizmo, with spaces between.
+    expect(getSession().hints[1]).toEqual(W({}, [{ start: 2, end: 6, gloss: '发个小玩意' }]));
+  });
+
   it('tells the learner to set up the tutor when it has no provider', async () => {
     setSession({ settings: settings((s) => (s.subtitles.hintSource = 'ai')) });
     ai.runJob.mockRejectedValue(Object.assign(new Error('no provider'), { code: 'not_configured' }));
@@ -173,6 +184,11 @@ describe('HintLoader', () => {
     loader.update();
     await vi.waitFor(() => expect(0 in getSession().hints).toBe(true));
     expect(getSession().hints[0]).toEqual(W({ gizmo: '小玩意' }, [{ start: 0, end: 4, gloss: '就是这个' }]));
+    // Marking the phrase known takes its hint away.
+    const item = getSession().vocab['en|this is it'];
+    setSession({ vocab: { [item.id]: { ...item, status: 'known' } } });
+    loader.update();
+    await vi.waitFor(() => expect(getSession().hints[0]).toEqual(W({ gizmo: '小玩意' })));
   });
 });
 

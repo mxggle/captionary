@@ -40,10 +40,20 @@ export function hintLevelLabel(settings: Settings, lang: string): string {
   return hintLevelName(scale, hintLevelFor(scale, settings.subtitles.hintLevels, settings.learnerLevel));
 }
 
-/** Settings that change which words get hints, or what they say. */
-function hintKey(s: Pick<SessionState, 'settings' | 'lang' | 'cues'>): string {
+/** Saved phrases in this language still being learned, with the translation each shows as its hint. */
+function savedPhrases(s: Pick<SessionState, 'vocab' | 'lang'>) {
+  return Object.values(s.vocab).filter(
+    (item) => item.kind === 'phrase' && item.status === 'learning' && !!item.translation && sameLang(item.lang, s.lang),
+  );
+}
+
+/** Settings and saved phrases that change which words get hints, or what they say. */
+function hintKey(s: Pick<SessionState, 'settings' | 'lang' | 'vocab'>): string {
   const sub = s.settings.subtitles;
   return JSON.stringify([
+    savedPhrases(s)
+      .map((item) => `${item.id}=${item.translation}`)
+      .sort(),
     sub.definitionHints,
     sub.hintLevels,
     sub.hintSource,
@@ -129,9 +139,8 @@ export class HintLoader {
     const known = new Set([...vocab.words].filter(([, st]) => st === 'known').map(([k]) => k));
     // Saved phrases the learner is still learning carry their own translation as the hint.
     const savedGloss = new Map<string, string>();
-    for (const item of Object.values(s.vocab)) {
-      if (item.kind !== 'phrase' || item.status !== 'learning' || !item.translation || !sameLang(item.lang, lang)) continue;
-      for (const key of vocabKeys(item)) savedGloss.set(key, cleanGloss(item.text, item.translation));
+    for (const item of savedPhrases(s)) {
+      for (const key of vocabKeys(item)) savedGloss.set(key, cleanGloss(item.text, item.translation!));
     }
     const lines = indexes.map((i) => {
       const tokens = tokenize(s.cues[i].text, lang);
@@ -151,6 +160,7 @@ export class HintLoader {
         i,
         tokens,
         line: s.cues[i].text,
+        picked,
         words: picked.map((t) => tokens[t].text),
         saved: saved.slice(0, MAX_PHRASES_PER_LINE),
         listed: listed.slice(0, Math.max(0, MAX_PHRASES_PER_LINE - saved.length)),
@@ -228,8 +238,11 @@ export class HintLoader {
             if (!range || !g || range[0] === range[1] || overlaps({ start: range[0], end: range[1] }, phrases)) continue;
             phrases.push({ start: range[0], end: range[1], gloss: g });
           }
+          // A word inside a phrase the tutor glossed goes under the phrase's hint, not its own.
           const words: Record<string, string> = {};
-          l.words.forEach((w, k) => (words[normalizeWord(w, lang)] = cleanGloss(w, parsed?.words[n][k] ?? '')));
+          l.words.forEach((w, k) => {
+            if (outsidePhrases([l.picked[k]], phrases).length) words[normalizeWord(w, lang)] = cleanGloss(w, parsed?.words[n][k] ?? '');
+          });
           out.set(l.i, { words, phrases });
         });
       }
