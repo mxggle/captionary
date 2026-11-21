@@ -26,9 +26,11 @@ using the AI provider of your choice.
 - Optional definition hints: a short meaning under the words in a line that are difficult at your
   vocabulary level, picked on the scale learners of that language know (JLPT N5–N1 for Japanese,
   HSK 1–7–9 for Chinese, TOPIK 1–6 for Korean, CEFR A1–C2 otherwise). Difficulty comes from the
-  same frequency lists; at most three hints a line, never on words saved as known. Glosses come from
+  same frequency lists; at most three hints a line, never on words saved as known. Phrasal verbs,
+  idioms and phrases you're learning get one hint under the whole phrase (on-device from a built-in
+  English list; the tutor finds them in any language). Glosses come from
   Chrome's on-device translator (free, private, word by word) or, if you choose, the AI tutor, which
-  reads the line to pick the right sense (about one request per ten lines). Set from the player menu
+  reads the line to pick the right sense (about one request per fifteen lines). Set from the player menu
   or *Settings → Subtitles*.
 - Playback tools: auto-pause after every line, previous / repeat / next line, speed control,
   pause while hovering the subtitles.

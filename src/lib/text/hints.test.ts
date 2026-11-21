@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { buildPrompt, parseGlosses } from '../ai/prompts';
 import { DEFAULT_AI_SETTINGS } from '../settings';
 import { buildRankMap } from './frequency-map';
-import { cleanGloss, hintLevelFor, hintLevelName, hintScaleFor, pickHintTokens } from './hints';
+import { cleanGloss, findListedPhrases, hintLevelFor, hintLevelName, hintScaleFor, outsidePhrases, pickHintTokens } from './hints';
+import { verbForms } from './phrases-en';
 import { tokenize } from './tokenize';
 
 /** A rank map where each listed word sits at the given rank. */
@@ -101,7 +102,33 @@ describe('definition hints', () => {
     expect(prompt.json).toBe(true);
     expect(prompt.system).toContain('CEFR B1 learner of English');
     expect(prompt.messages[0].content).not.toContain('it </context>');
-    expect(parseGlosses('```json\n{"g": [["分发"], []]}\n```', [1, 0])).toEqual([['分发'], []]);
+    expect(parseGlosses('```json\n{"g": [["分发"], []]}\n```', [1, 0])).toEqual({ words: [['分发'], []], phrases: [[], []] });
+    expect(parseGlosses('{"g": [[]], "p": [[{"t": "give up", "g": "放弃"}, {"t": 3}]]}', [0])).toEqual({
+      words: [[]],
+      phrases: [[{ text: 'give up', gloss: '放弃' }]],
+    });
     expect(parseGlosses('{"g": [["分发", "x"]]}', [1])).toBeNull();
+  });
+
+  it('finds listed English phrases in their other verb forms, by level', () => {
+    const find = (text: string, cefr: string) => findListedPhrases(tokenize(text, 'en'), 'en', cefr).map((p) => p.text);
+    expect(find('She gave up and ran out of time', 'B1')).toEqual(['gave up', 'ran out of']);
+    // The longest listed phrase wins: "come up with", not "come up".
+    expect(find("We're coming up with a plan", 'A2')).toEqual(['coming up with']);
+    expect(find('Let’s call it a day', 'B2')).toEqual(['call it a day']);
+    // A C1 learner isn't shown B1 phrasal verbs, and other languages have no list.
+    expect(find('She gave up', 'C1')).toEqual([]);
+    expect(findListedPhrases(tokenize('Er gab auf', 'de'), 'de', 'A1')).toEqual([]);
+    expect(find('Keep an eye on her', 'B1')).toEqual(['Keep an eye on']);
+  });
+
+  it('drops word hints inside a phrase hint', () => {
+    expect(outsidePhrases([1, 4, 9], [{ start: 3, end: 5 }])).toEqual([1, 9]);
+  });
+
+  it('forms regular verbs', () => {
+    expect(verbForms('carry')).toEqual(['carry', 'carries', 'carried', 'carrying']);
+    expect(verbForms('figure')).toEqual(['figure', 'figures', 'figured', 'figuring']);
+    expect(verbForms('give')).toContain('gave');
   });
 });

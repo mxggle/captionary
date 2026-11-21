@@ -1,6 +1,7 @@
 import { baseLang, isSpaceless } from '../languages';
 import type { Settings } from '../settings';
 import { frequencyRank } from './frequency-map';
+import { englishPhrases, type PhraseLevel } from './phrases-en';
 import { normalizeWord, type Token } from './tokenize';
 
 export type LearnerLevel = Settings['learnerLevel'];
@@ -174,4 +175,67 @@ export function cleanGloss(word: string, translated: string, max = 24): string {
   if (!out || out.toLocaleLowerCase() === word.toLocaleLowerCase()) return '';
   if ([...out].length > max) out = [...out].slice(0, max - 1).join('') + '…';
   return out;
+}
+
+/** Hints for one subtitle line. */
+export interface LineHints {
+  /** Normalized word -> short gloss ('' = none). */
+  words: Record<string, string>;
+  /** Phrases with one gloss under all their words, by first and last token index. */
+  phrases: { start: number; end: number; gloss: string }[];
+}
+
+/** A phrase in a line that gets one hint under all its words. */
+export interface PhraseSpan {
+  /** First and last token index. */
+  start: number;
+  end: number;
+  /** The phrase as written in the line. */
+  text: string;
+}
+
+/** At most this many phrase hints in one line. */
+export const MAX_PHRASES_PER_LINE = 2;
+
+const CEFR_ORDER = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+
+/**
+ * Phrasal verbs and idioms from the built-in English list in a line, longest first, never
+ * overlapping: those at or above the learner's CEFR level (a B1 learner sees B1, B2 and C1 phrases;
+ * C2 sees none).
+ */
+export function findListedPhrases(tokens: Token[], lang: string, cefr: string, max = MAX_PHRASES_PER_LINE): PhraseSpan[] {
+  if (baseLang(lang) !== 'en') return [];
+  const learner = CEFR_ORDER.indexOf(cefr);
+  const list = englishPhrases();
+  const words = tokens.flatMap((t, i) => (t.word ? [{ i, key: normalizeWord(t.text, lang) }] : []));
+  const out: PhraseSpan[] = [];
+  for (let w = 0; w < words.length; w++) {
+    let best: { end: number; size: number } | null = null;
+    for (const entry of list.get(words[w].key) ?? []) {
+      if (CEFR_ORDER.indexOf(entry.level satisfies PhraseLevel) < learner) continue;
+      const n = entry.words.length;
+      if (w + n > words.length || (best && n <= best.size)) continue;
+      if (entry.words.every((forms, k) => forms.includes(words[w + k].key))) best = { end: w + n - 1, size: n };
+    }
+    if (!best) continue;
+    const start = words[w].i;
+    const end = words[best.end].i;
+    out.push({
+      start,
+      end,
+      text: tokens
+        .slice(start, end + 1)
+        .map((t) => t.text)
+        .join(''),
+    });
+    w = best.end;
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+/** Drops word hints inside a phrase that has its own hint. */
+export function outsidePhrases(indexes: number[], phrases: Pick<PhraseSpan, 'start' | 'end'>[]): number[] {
+  return indexes.filter((i) => !phrases.some((p) => i >= p.start && i <= p.end));
 }

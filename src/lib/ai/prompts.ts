@@ -108,13 +108,14 @@ Rules:
 - Keep the subtitle style: short, natural, spoken language. Keep names as they are.
 - If a line is a sound description such as [music], translate the description.`,
 
-  hint: `You write the short glosses a {{level}} learner of {{targetLanguage}} sees under difficult words in subtitles. The learner's native language is {{nativeLanguage}}.
+  hint: `You write the short glosses a {{level}} learner of {{targetLanguage}} sees under difficult words and phrases in subtitles. The learner's native language is {{nativeLanguage}}.
 ${UNTRUSTED_NOTE}
 Rules:
 - For each listed word, give its meaning in this line, in {{nativeLanguage}}: one to three words, no explanation, no punctuation at the end.
 - Gloss the word as used in the line (its sense, tense and form), not its general dictionary meaning.
 - If a listed word is a name, or needs no gloss, give "".
-- Return only JSON of the form {"g": [["…", "…"], ["…"]]}: one array per line, in order, with one gloss per listed word, in order.`,
+- Also find up to two phrases in each line whose meaning a {{level}} learner could not work out from the words: phrasal verbs, idioms, fixed expressions, slang. Quote each exactly as written in the line, as consecutive words, and gloss it the same way. Leave out phrases whose words are plain at this level.
+- Return only JSON of the form {"g": [["…", "…"], ["…"]], "p": [[{"t": "…", "g": "…"}], []]}: in "g" one array per line, in order, with one gloss per listed word, in order; in "p" one array per line with that line's phrases.`,
 };
 
 export const PROMPT_VARIABLES: Record<keyof PromptVars, string> = {
@@ -217,7 +218,7 @@ export function buildPrompt(job: AIJob, opts: PromptOptions): BuiltPrompt {
       messages: [
         {
           role: 'user',
-          content: `Gloss the listed words in these ${job.items.length} lines. Reply with {"g": [...]} holding ${job.items.length} arrays of ${counts} strings.\n<context>\n${payload}\n</context>`,
+          content: `Gloss the listed words in these ${job.items.length} lines, and find their phrases. Reply with {"g": [...], "p": [...]}: "g" holds ${job.items.length} arrays of ${counts} strings, "p" holds ${job.items.length} arrays.\n<context>\n${payload}\n</context>`,
         },
       ],
     };
@@ -308,8 +309,15 @@ export function mergeConsecutive(messages: ChatTurn[]): ChatTurn[] {
   return out;
 }
 
-/** Parse a hint-task response: one array of glosses per line, each as long as that line's word list. */
-export function parseGlosses(raw: string, counts: number[]): string[][] | null {
+export interface ParsedGlosses {
+  /** One array per line, as long as that line's word list. */
+  words: string[][];
+  /** Phrases the tutor found in each line, as written there, with their gloss. */
+  phrases: { text: string; gloss: string }[][];
+}
+
+/** Parse a hint-task response. Word glosses must match the lists sent; phrases are optional. */
+export function parseGlosses(raw: string, counts: number[]): ParsedGlosses | null {
   const text = raw
     .trim()
     .replace(/^```(?:json)?\s*/i, '')
@@ -321,10 +329,20 @@ export function parseGlosses(raw: string, counts: number[]): string[][] | null {
   for (const c of candidates) {
     try {
       const parsed = JSON.parse(c) as unknown;
-      const arr = Array.isArray(parsed) ? parsed : parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>).g : null;
+      const obj = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null;
+      const arr = Array.isArray(parsed) ? parsed : obj?.g;
       if (!Array.isArray(arr) || arr.length !== counts.length) continue;
       if (!arr.every((row, i) => Array.isArray(row) && row.length === counts[i])) continue;
-      return (arr as unknown[][]).map((row) => row.map((x) => String(x ?? '')));
+      const p = Array.isArray(obj?.p) && obj.p.length === counts.length ? (obj.p as unknown[]) : [];
+      return {
+        words: (arr as unknown[][]).map((row) => row.map((x) => String(x ?? ''))),
+        phrases: counts.map((_, i) =>
+          (Array.isArray(p[i]) ? (p[i] as unknown[]) : []).flatMap((x) => {
+            const r = x && typeof x === 'object' ? (x as Record<string, unknown>) : null;
+            return r && typeof r.t === 'string' && typeof r.g === 'string' ? [{ text: r.t, gloss: r.g }] : [];
+          }),
+        ),
+      };
     } catch {
       // try next candidate
     }

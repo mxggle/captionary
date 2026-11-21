@@ -218,7 +218,7 @@ export const TASK_LABELS: Record<AITask, { name: string; description: string }> 
   },
   hint: {
     name: 'Definition hints',
-    description: 'Short meanings under difficult words, when hints come from the tutor. About one request per ten lines watched.',
+    description: 'Short meanings under difficult words, when hints come from the tutor. About one request per fifteen lines watched.',
   },
 };
 

@@ -1800,6 +1800,15 @@ textarea.cap-input {
   white-space: nowrap;
   user-select: none;
 }
+/* A phrase's gloss sits on a thin rule spanning the whole phrase. */
+.cap-hint--phrase > .cap-hint__text {
+  margin-top: 0.12em;
+  padding-top: 0.08em;
+  border-top: 1px solid color-mix(in srgb, currentColor 55%, transparent);
+}
+.cap-cap .cap-hint--phrase {
+  white-space: nowrap;
+}
 .cap-panel .cap-w.is-learn,
 .cap-reader .cap-w.is-learn {
   text-decoration-color: var(--learn-line);

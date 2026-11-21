@@ -3,6 +3,7 @@ import { createStore } from 'zustand/vanilla';
 import type { AIStatus } from '@/lib/messaging';
 import { DEFAULT_SETTINGS, type Settings } from '@/lib/settings';
 import type { Cue, TrackInfo, TranslationSource } from '@/lib/subtitles/types';
+import type { LineHints } from '@/lib/text/hints';
 import type { VocabItem } from '@/lib/vocab';
 
 /** Where a look-up was opened: captions on the video, the subtitle panel, the fullscreen drawer, a page. */
@@ -67,10 +68,10 @@ export interface SessionState {
   /** Normalized word -> frequency rank (1 = most common) for the current language. */
   frequency: Map<string, number> | null;
   /**
-   * Definition hints by cue index: normalized word -> short gloss ('' = none). A line without an entry
-   * has not been looked at yet; `{}` means nothing in it needs a hint.
+   * Definition hints by cue index (words and phrases). A line without an entry has not been looked at
+   * yet; empty `words` and `phrases` mean nothing in it needs a hint.
    */
-  hints: Record<number, Record<string, string>>;
+  hints: Record<number, LineHints>;
   status: 'idle' | 'loading' | 'ready' | 'none' | 'error';
   message?: string;
   translationStatus: 'idle' | 'loading' | 'ready' | 'error';
