@@ -87,7 +87,8 @@ export const en = {
     },
     hint: {
       name: 'Definition hints',
-      description: 'Short meanings under difficult words, when hints come from the tutor. About one request per ten lines watched.',
+      description:
+        'Short meanings under difficult words and idioms, when hints come from the tutor. About one request per fifteen lines watched.',
     },
   } satisfies Record<AITask, { name: string; description: string }>,
 
@@ -248,7 +249,7 @@ export const en = {
       frequencyColorsHelpAfter: '.',
       definitionHints: 'Definition hints',
       definitionHintsHelp:
-        'A short meaning under words that are difficult at your vocabulary level, judged by the same word lists as frequency colours.',
+        'A short meaning under words that are difficult at your vocabulary level (judged by the same word lists as frequency colours), and under phrasal verbs, idioms and phrases you’re learning.',
       hintLevel: 'Vocabulary level',
       hintLevelHelp: (scale: string) => `Words beyond this ${scale} level get a hint.`,
       hintLevelAutoHelp: 'Each video uses its language’s scale: JLPT for Japanese, HSK for Chinese, TOPIK for Korean, CEFR for the rest.',
@@ -256,7 +257,7 @@ export const en = {
       hintSourceChrome: 'On-device',
       hintSourceAi: 'AI tutor',
       hintSourceHelp:
-        'On-device is free and private, but translates each word on its own. The tutor reads the line to pick the right sense; it costs about one request per ten lines and sends those lines to your provider.',
+        'On-device is free and private, but translates each word on its own and knows idioms only in English. The tutor reads the line to pick the right sense and finds idioms in any language; it costs about one request per fifteen lines and sends those lines to your provider.',
       sizePositionCard: 'Size and position',
       textSize: 'Text size',
       textSizeHelp: 'At a 1000-pixel-wide player; scales with the player.',

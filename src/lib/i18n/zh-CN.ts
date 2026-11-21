@@ -85,7 +85,7 @@ export const zhCN: Messages = {
     },
     hint: {
       name: '释义提示',
-      description: '提示来自 AI 导师时，在难词下方显示简短释义。每观看约十行发送一次请求。',
+      description: '提示来自 AI 导师时，在难词下方显示简短释义。每观看约十五行发送一次请求。',
     },
   },
 
@@ -245,7 +245,7 @@ export const zhCN: Messages = {
       frequencyColorsLink: 'OpenSubtitles 词频表',
       frequencyColorsHelpAfter: ' 下载一次词表。',
       definitionHints: '释义提示',
-      definitionHintsHelp: '在超出你词汇水平的难词下方显示简短释义，难度按与词频着色相同的词表判断。',
+      definitionHintsHelp: '在超出你词汇水平的难词（按与词频着色相同的词表判断）以及短语动词、习语和你正在学的短语下方显示简短释义。',
       hintLevel: '词汇水平',
       hintLevelHelp: (scale: string) => `超出此 ${scale} 水平的词会显示提示。`,
       hintLevelAutoHelp: '每个视频按其语言的标准：日语用 JLPT，中文用 HSK，韩语用 TOPIK，其他语言用 CEFR。',
@@ -253,7 +253,7 @@ export const zhCN: Messages = {
       hintSourceChrome: '设备端',
       hintSourceAi: 'AI 导师',
       hintSourceHelp:
-        '设备端翻译免费且保护隐私，但逐词翻译。导师会读整行以选出正确词义；每十行约一次请求，并会把这些台词发送给你的服务商。',
+        '设备端翻译免费且保护隐私，但逐词翻译，习语只支持英语。导师会读整行以选出正确词义，并能找出任何语言的习语；每十五行约一次请求，并会把这些台词发送给你的服务商。',
       sizePositionCard: '大小与位置',
       textSize: '字号大小',
       textSizeHelp: '基于 1000 像素宽播放器的字号，会随播放器等比缩放。',

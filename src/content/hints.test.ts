@@ -1,12 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_SETTINGS, type Settings } from '@/lib/settings';
 import { buildRankMap } from '@/lib/text/frequency-map';
+import type { LineHints } from '@/lib/text/hints';
 import { HintLoader, hintsApply } from './hints';
 import { getSession, setSession } from './store';
 
+const GLOSSES: Record<string, string> = {
+  detector: '探测器',
+  dispenses: '分发',
+  gizmo: '小玩意',
+  'gave up': '放弃了',
+  'called it a day': '收工了',
+};
+
 const translate = vi.hoisted(() => ({
   state: vi.fn(async () => 'available'),
-  run: vi.fn(async (word: string) => ({ detector: '探测器', dispenses: '分发', gizmo: '小玩意' })[word] ?? word),
+  run: vi.fn(async (text: string) => GLOSSES[text] ?? text),
 }));
 const ai = vi.hoisted(() => ({ runJob: vi.fn() }));
 
@@ -16,6 +25,8 @@ vi.mock('@/lib/translate', () => ({
   translateWithChrome: (word: string) => translate.run(word),
 }));
 vi.mock('@/lib/messaging', () => ({ runJob: ai.runJob }));
+
+const W = (words: Record<string, string> = {}, phrases: LineHints['phrases'] = []): LineHints => ({ words, phrases });
 
 const settled = () => new Promise((r) => setTimeout(r, 0));
 
@@ -69,14 +80,14 @@ describe('HintLoader', () => {
     loader.update();
     await vi.waitFor(() => expect(2 in getSession().hints).toBe(true));
     expect(getSession().hints).toEqual({
-      0: { detector: '探测器' },
-      1: { dispenses: '分发', gizmo: '小玩意' },
-      2: {},
+      0: W({ detector: '探测器' }),
+      1: W({ dispenses: '分发', gizmo: '小玩意' }),
+      2: W(),
     });
     // A higher level leaves out what it knows: "detector" sits at rank 6,006, under C1's cutoff.
     setSession({ settings: settings((s) => (s.subtitles.hintLevels = { cefr: 'C1' })) });
     loader.update();
-    await vi.waitFor(() => expect(getSession().hints[0]).toEqual({}));
+    await vi.waitFor(() => expect(getSession().hints[0]).toEqual(W()));
     // Each word is translated once.
     expect(translate.run).toHaveBeenCalledTimes(3);
   });
@@ -89,13 +100,15 @@ describe('HintLoader', () => {
     loader.update();
     await settled();
     expect(toast).toHaveBeenCalledTimes(1);
-    expect(getSession().hints[0]).toEqual({});
+    expect(getSession().hints[0]).toEqual(W());
     translate.state.mockResolvedValue('available');
   });
 
   it('asks the tutor for a batch of lines at the learner’s level', async () => {
     setSession({ settings: settings((s) => (s.subtitles.hintSource = 'ai')) });
-    ai.runJob.mockResolvedValue({ text: '{"g": [["探测器"], ["分发", "小装置"]]}' });
+    ai.runJob.mockResolvedValue({
+      text: '{"g": [["探测器"], ["分发", "小装置"], []], "p": [[], [], [{"t": "this is it", "g": "就是这样"}]]}',
+    });
     loader.update();
     await settled();
     expect(ai.runJob).toHaveBeenCalledTimes(1);
@@ -105,9 +118,23 @@ describe('HintLoader', () => {
       items: [
         { line: 'So this is a detector', words: ['detector'] },
         { line: 'it dispenses a gizmo', words: ['dispenses', 'gizmo'] },
+        // The tutor also looks for phrases, so lines without difficult words go too.
+        { line: 'so this is it', words: [] },
       ],
     });
-    expect(getSession().hints[1]).toEqual({ dispenses: '分发', gizmo: '小装置' });
+    expect(getSession().hints[1]).toEqual(W({ dispenses: '分发', gizmo: '小装置' }));
+    expect(getSession().hints[2]).toEqual(W({}, [{ start: 2, end: 6, gloss: '就是这样' }]));
+  });
+
+  it('drops a word hint inside a phrase the tutor glossed', async () => {
+    setSession({ settings: settings((s) => (s.subtitles.hintSource = 'ai')) });
+    ai.runJob.mockResolvedValue({
+      text: '{"g": [["探测器"], ["分发", "小装置"], []], "p": [[], [{"t": "dispenses a gizmo", "g": "发个小玩意"}], []]}',
+    });
+    loader.update();
+    await settled();
+    // Token indexes: it·dispenses·a·gizmo, with spaces between.
+    expect(getSession().hints[1]).toEqual(W({}, [{ start: 2, end: 6, gloss: '发个小玩意' }]));
   });
 
   it('tells the learner to set up the tutor when it has no provider', async () => {
@@ -116,7 +143,52 @@ describe('HintLoader', () => {
     loader.update();
     await settled();
     expect(toast).toHaveBeenCalledTimes(1);
-    expect(getSession().hints[0]).toEqual({});
+    expect(getSession().hints[0]).toEqual(W());
+  });
+
+  it('hints English phrasal verbs and idioms on-device, under the whole phrase', async () => {
+    setSession({
+      cues: [{ start: 0, end: 1, text: 'So it gave up and called it a day' }],
+      hints: {},
+      frequency: buildRankMap(['so', 'it', 'and', 'a', 'gave', 'up', 'called', 'day'], 'en'),
+    });
+    loader.update();
+    await vi.waitFor(() => expect(0 in getSession().hints).toBe(true));
+    // Token indexes: So·it·gave·up·and·called·it·a·day, with spaces between.
+    expect(getSession().hints[0]).toEqual(
+      W({}, [
+        { start: 4, end: 6, gloss: '放弃了' },
+        { start: 10, end: 16, gloss: '收工了' },
+      ]),
+    );
+  });
+
+  it('shows a saved phrase’s own translation while it is being learned', async () => {
+    setSession({
+      cues: [{ start: 0, end: 1, text: 'this is it, a gizmo' }],
+      hints: {},
+      vocab: {
+        'en|this is it': {
+          id: 'en|this is it',
+          lang: 'en',
+          text: 'this is it',
+          key: 'this is it',
+          kind: 'phrase',
+          status: 'learning',
+          translation: '就是这个；终于',
+          createdAt: 0,
+          updatedAt: 0,
+        },
+      },
+    });
+    loader.update();
+    await vi.waitFor(() => expect(0 in getSession().hints).toBe(true));
+    expect(getSession().hints[0]).toEqual(W({ gizmo: '小玩意' }, [{ start: 0, end: 4, gloss: '就是这个' }]));
+    // Marking the phrase known takes its hint away.
+    const item = getSession().vocab['en|this is it'];
+    setSession({ vocab: { [item.id]: { ...item, status: 'known' } } });
+    loader.update();
+    await vi.waitFor(() => expect(getSession().hints[0]).toEqual(W({ gizmo: '小玩意' })));
   });
 });
 
@@ -167,9 +239,9 @@ describe('HintLoader batching and invalidation', () => {
     const loader = new HintLoader(() => undefined);
     loader.update();
     await vi.waitFor(() => expect(2 in getSession().hints).toBe(true));
-    expect(getSession().hints[0]).toEqual({});
+    expect(getSession().hints[0]).toEqual(W());
     setSession({ frequency: buildRankMap(['so', 'this', 'is', 'a', 'it'], 'en') });
     loader.update();
-    await vi.waitFor(() => expect(getSession().hints[0]).toEqual({ detector: '探测器' }));
+    await vi.waitFor(() => expect(getSession().hints[0]).toEqual(W({ detector: '探测器' })));
   });
 });

@@ -3,6 +3,7 @@ import { useI18n } from '@/lib/i18n';
 import { isRtl } from '@/lib/languages';
 import type { WordStatusHighlight } from '@/lib/settings';
 import { frequencyClass, frequencyRank } from '@/lib/text/frequency-map';
+import type { LineHints } from '@/lib/text/hints';
 import { findPhrases, normalizeWord, tokenize } from '@/lib/text/tokenize';
 import type { VocabStatus } from '@/lib/vocab';
 import type { AnchorRect } from '@/content/store';
@@ -32,8 +33,11 @@ interface Props {
   selected?: [number, number] | null;
   /** Over a video Space plays and pauses, so only Enter looks a word up. */
   spaceIsPlayback?: boolean;
-  /** Definition hints: normalized word -> short gloss, shown under the word (never on a word saved as known). */
-  glosses?: Record<string, string>;
+  /**
+   * Definition hints: a short gloss under a difficult word (never one saved as known), and one under the
+   * whole of a phrase.
+   */
+  hints?: LineHints;
 }
 
 function unionRect(a: DOMRect, b: DOMRect): AnchorRect {
@@ -61,7 +65,7 @@ export const TokenizedText = memo(function TokenizedText({
   freq,
   selected,
   spaceIsPlayback,
-  glosses,
+  hints,
 }: Props) {
   const { m } = useI18n();
   const tokens = useMemo(() => tokenize(text, lang), [text, lang]);
@@ -153,69 +157,89 @@ export const TokenizedText = memo(function TokenizedText({
   const lo = drag ? Math.min(drag.start, drag.end) : (selected?.[0] ?? -1);
   const hi = drag ? Math.max(drag.start, drag.end) : (selected?.[1] ?? -1);
 
+  const nodes = tokens.map((t, i) => {
+    const inPhrase = phraseOf.get(i);
+    if (!t.word) {
+      const between = inPhrase && phraseOf.get(i - 1) && phraseOf.get(i + 1);
+      const gapCls = [between ? `cap-gap ${STATUS_CLASS[inPhrase]}` : '', i > lo && i < hi ? 'cap-gap is-selected' : '']
+        .filter(Boolean)
+        .join(' ');
+      return (
+        <span key={i} className={gapCls || undefined}>
+          {t.text}
+        </span>
+      );
+    }
+    const key = normalizeWord(t.text, lang);
+    const wordStatus = index.words.get(key);
+    const status =
+      inPhrase ?? (highlight === 'none' ? undefined : highlight === 'learning' && wordStatus !== 'learning' ? undefined : wordStatus);
+    // Rarity underline, unless the learner already tracks this word.
+    const flaggable = !!freq && !wordStatus && !inPhrase && !/^\p{N}+$/u.test(key);
+    const rank = flaggable ? frequencyRank(freq, key) : undefined;
+    const freqCls = flaggable ? frequencyClass(rank) : '';
+    const gloss = wordStatus === 'known' ? undefined : hints?.words[key];
+    const cls = ['cap-w', status ? STATUS_CLASS[status] : freqCls, i >= lo && i <= hi ? 'is-selected' : '', gloss ? 'has-hint' : '']
+      .filter(Boolean)
+      .join(' ');
+    return (
+      <span
+        key={i}
+        ref={(el) => {
+          if (el) spans.current.set(i, el);
+          else spans.current.delete(i);
+        }}
+        className={cls}
+        title={freqCls ? (rank ? m.lookup.freqRankTitle(rank.toLocaleString()) : m.lookup.rareWordTitle) : undefined}
+        role={onSelect ? 'button' : undefined}
+        tabIndex={onSelect ? (i === tabStop ? 0 : -1) : undefined}
+        onFocus={onSelect ? () => setCursor(i) : undefined}
+        onKeyDown={onSelect ? (e) => onWordKey(e, i) : undefined}
+        onPointerDown={(e) => {
+          if (e.button !== 0) return;
+          e.preventDefault();
+          e.stopPropagation();
+          // Shift+click grows the last selection in this line to take in this word (a word inside it trims it back).
+          setDrag({ start: anchorFor(i, e.shiftKey), end: i });
+        }}
+        onPointerEnter={() => {
+          if (dragRef.current) setDrag({ ...dragRef.current, end: i });
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {gloss ? (
+          <ruby className="cap-hint">
+            {t.text}
+            <rt className="cap-hint__text">{gloss}</rt>
+          </ruby>
+        ) : (
+          t.text
+        )}
+      </span>
+    );
+  });
+
+  // A phrase hint sits under the phrase's words together (their own word hints are left out upstream).
+  const phrases = (hints?.phrases ?? []).filter((p) => p.end < tokens.length).sort((a, b) => a.start - b.start);
+  const out: React.ReactNode[] = [];
+  for (let i = 0; i < nodes.length; i++) {
+    const p = phrases.find((x) => x.start === i);
+    if (!p) {
+      out.push(nodes[i]);
+      continue;
+    }
+    out.push(
+      <ruby key={`p${i}`} className="cap-hint cap-hint--phrase">
+        {nodes.slice(p.start, p.end + 1)}
+        <rt className="cap-hint__text">{p.gloss}</rt>
+      </ruby>,
+    );
+    i = p.end;
+  }
+
   return (
     <span className={className} dir={rtl ? 'rtl' : undefined} lang={lang}>
-      {tokens.map((t, i) => {
-        const inPhrase = phraseOf.get(i);
-        if (!t.word) {
-          const between = inPhrase && phraseOf.get(i - 1) && phraseOf.get(i + 1);
-          const gapCls = [between ? `cap-gap ${STATUS_CLASS[inPhrase]}` : '', i > lo && i < hi ? 'cap-gap is-selected' : '']
-            .filter(Boolean)
-            .join(' ');
-          return (
-            <span key={i} className={gapCls || undefined}>
-              {t.text}
-            </span>
-          );
-        }
-        const key = normalizeWord(t.text, lang);
-        const wordStatus = index.words.get(key);
-        const status =
-          inPhrase ?? (highlight === 'none' ? undefined : highlight === 'learning' && wordStatus !== 'learning' ? undefined : wordStatus);
-        // Rarity underline, unless the learner already tracks this word.
-        const flaggable = !!freq && !wordStatus && !inPhrase && !/^\p{N}+$/u.test(key);
-        const rank = flaggable ? frequencyRank(freq, key) : undefined;
-        const freqCls = flaggable ? frequencyClass(rank) : '';
-        const gloss = wordStatus === 'known' ? undefined : glosses?.[key];
-        const cls = ['cap-w', status ? STATUS_CLASS[status] : freqCls, i >= lo && i <= hi ? 'is-selected' : '', gloss ? 'has-hint' : '']
-          .filter(Boolean)
-          .join(' ');
-        return (
-          <span
-            key={i}
-            ref={(el) => {
-              if (el) spans.current.set(i, el);
-              else spans.current.delete(i);
-            }}
-            className={cls}
-            title={freqCls ? (rank ? m.lookup.freqRankTitle(rank.toLocaleString()) : m.lookup.rareWordTitle) : undefined}
-            role={onSelect ? 'button' : undefined}
-            tabIndex={onSelect ? (i === tabStop ? 0 : -1) : undefined}
-            onFocus={onSelect ? () => setCursor(i) : undefined}
-            onKeyDown={onSelect ? (e) => onWordKey(e, i) : undefined}
-            onPointerDown={(e) => {
-              if (e.button !== 0) return;
-              e.preventDefault();
-              e.stopPropagation();
-              // Shift+click grows the last selection in this line to take in this word (a word inside it trims it back).
-              setDrag({ start: anchorFor(i, e.shiftKey), end: i });
-            }}
-            onPointerEnter={() => {
-              if (dragRef.current) setDrag({ ...dragRef.current, end: i });
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {gloss ? (
-              <ruby className="cap-hint">
-                {t.text}
-                <rt className="cap-hint__text">{gloss}</rt>
-              </ruby>
-            ) : (
-              t.text
-            )}
-          </span>
-        );
-      })}
+      {out}
     </span>
   );
 });

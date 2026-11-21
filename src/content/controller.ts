@@ -156,6 +156,7 @@ export class SessionController {
           next.activeIndex !== prev.activeIndex ||
           next.lastIndex !== prev.lastIndex ||
           next.frequency !== prev.frequency ||
+          next.vocab !== prev.vocab ||
           next.status !== prev.status ||
           next.off !== prev.off
         ) {

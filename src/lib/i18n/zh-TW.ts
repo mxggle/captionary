@@ -85,7 +85,7 @@ export const zhTW: Messages = {
     },
     hint: {
       name: '釋義提示',
-      description: '提示來自 AI 導師時，在難詞下方顯示簡短釋義。每觀看約十行發送一次請求。',
+      description: '提示來自 AI 導師時，在難詞下方顯示簡短釋義。每觀看約十五行發送一次請求。',
     },
   },
 
@@ -245,7 +245,7 @@ export const zhTW: Messages = {
       frequencyColorsLink: 'OpenSubtitles 詞頻表',
       frequencyColorsHelpAfter: ' 下載一次字表。',
       definitionHints: '釋義提示',
-      definitionHintsHelp: '在超出你詞彙程度的難詞下方顯示簡短釋義，難度依與詞頻著色相同的字表判斷。',
+      definitionHintsHelp: '在超出你詞彙程度的難詞（依與詞頻著色相同的字表判斷）以及片語動詞、慣用語和你正在學的片語下方顯示簡短釋義。',
       hintLevel: '詞彙程度',
       hintLevelHelp: (scale: string) => `超出此 ${scale} 程度的詞會顯示提示。`,
       hintLevelAutoHelp: '每部影片依其語言的標準：日語用 JLPT，中文用 HSK，韓語用 TOPIK，其他語言用 CEFR。',
@@ -253,7 +253,7 @@ export const zhTW: Messages = {
       hintSourceChrome: '裝置端',
       hintSourceAi: 'AI 導師',
       hintSourceHelp:
-        '裝置端翻譯免費且保護隱私，但逐詞翻譯。導師會讀整行以選出正確詞義；每十行約一次請求，並會把這些台詞傳送給你的服務商。',
+        '裝置端翻譯免費且保護隱私，但逐詞翻譯，慣用語只支援英語。導師會讀整行以選出正確詞義，並能找出任何語言的慣用語；每十五行約一次請求，並會把這些台詞傳送給你的服務商。',
       sizePositionCard: '大小與位置',
       textSize: '字體大小',
       textSizeHelp: '基於 1000 像素寬播放器的字級，會隨播放器等比縮放。',
