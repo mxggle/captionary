@@ -184,7 +184,6 @@ export const en = {
     finishSetupTitle: 'Finish setting up Captionary',
     continueSetup: 'Continue setup',
     imLearning: 'I’m learning',
-    andISpeak: 'and I speak',
     iSpeakLabel: 'I speak',
     pagesNavAria: 'Captionary pages',
     savedWordsSub: (learning: number, known: number) => `${learning} learning · ${known} known`,

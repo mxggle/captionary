@@ -1217,25 +1217,38 @@ textarea.cap-input {
 .cap-lookup--native .cap-lookup__word {
   flex: 0 1 auto;
   font-family: inherit;
-  font-size: 18px;
-  line-height: 24px;
-  font-weight: 500;
-  letter-spacing: 0;
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 .cap-lookup--native .cap-lookup__pos-native {
   margin-left: auto;
-  padding-right: 8px;
-  font-size: 12px;
+  margin-right: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--player-hover);
+  font-size: 11.5px;
+  line-height: 16px;
   color: var(--player-ink-muted);
+  white-space: nowrap;
 }
 .cap-lookup--native .cap-lookup__tr {
-  padding: 2px 16px 0;
+  padding: 4px 16px 0;
   font-size: 15px;
+  line-height: 1.4;
+  font-weight: 500;
 }
 .cap-lookup__sep {
   height: 1px;
   margin: 12px 0 6px;
   background: var(--player-line);
+}
+/* The tutor's answer follows the actions with room of its own, and no second rule above its tabs. */
+.cap-lookup--native .cap-lookup__actions ~ .cap-lookup__sep:has(+ .cap-lookup__ai),
+.cap-lookup--native .cap-lookup__actions ~ .cap-lookup__sep:has(+ .cap-lookup__note) {
+  height: 0;
+  margin: 4px 0 0;
 }
 .cap-lookup__actions {
   display: flex;
@@ -1252,19 +1265,29 @@ textarea.cap-input {
   margin: 0;
 }
 .cap-lookup__ai-meta {
-  margin-top: 8px;
-  font-size: 12px;
+  margin-top: 10px;
+  margin-right: -8px;
+  font-size: 11.5px;
   color: var(--player-ink-muted);
 }
 .cap-lookup__ask {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin: 10px 16px 0;
-  padding: 0 4px 0 12px;
+  margin: 12px 16px 0;
+  padding: 0 2px 0 14px;
   height: 36px;
+  border: 1px solid var(--player-line);
   border-radius: var(--radius-pill);
   background: var(--player-hover);
+  transition: border-color 120ms ease;
+}
+.cap-lookup__ask:focus-within {
+  border-color: var(--player-ink-muted);
+}
+.cap-lookup__ask .cap-picon {
+  width: 30px;
+  height: 30px;
 }
 .cap-lookup__ask input {
   flex: 1;
@@ -1359,9 +1382,9 @@ textarea.cap-input {
   --x-mark: var(--player-ink);
 }
 .cap-explain__def {
-  margin-top: 3px;
-  font-size: 13.5px;
-  line-height: 1.45;
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.5;
   color: var(--x-muted);
 }
 .cap-lookup--native .cap-explain__def {
@@ -1471,7 +1494,14 @@ textarea.cap-input {
   background: var(--x-chip);
   font-family: inherit;
   font-size: 1em;
-  font-weight: 500;
+  font-weight: 600;
+}
+.cap-explain__base {
+  color: var(--x-muted);
+}
+.cap-explain__arrow {
+  margin: 0 6px;
+  color: var(--x-muted);
 }
 .cap-explain__warn {
   font-size: 13px;
@@ -1632,6 +1662,15 @@ textarea.cap-input {
 .cap-pbtn:hover,
 .cap-pbtn[aria-pressed='true'] {
   background: var(--player-hover);
+}
+.cap-pbtn,
+.cap-picon,
+.cap-chunk,
+.cap-explain__tab {
+  transition:
+    background-color 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease;
 }
 .cap-pbtn .is-learn {
   color: var(--learn);
@@ -2615,11 +2654,46 @@ textarea.cap-input {
 .cap-lookup--native:focus-visible {
   box-shadow: var(--shadow-float);
 }
-.cap-lookup--native > .cap-lookup__scroll {
-  padding: 12px 0 6px;
+.cap-lookup--native .cap-lookup__content {
+  padding: 14px 0 8px;
 }
-.cap-lookup--native.is-expanded > .cap-lookup__scroll {
-  padding-bottom: 14px;
+.cap-lookup--native.is-expanded .cap-lookup__content {
+  padding-bottom: 16px;
+}
+/* Height changes (room reserved while an answer streams, settling once it is done) glide. */
+.cap-lookup--native > .cap-lookup__scroll {
+  transition: height 220ms cubic-bezier(0.2, 0, 0, 1);
+  scrollbar-color: var(--player-line) transparent;
+}
+/* The card opens from the word: a short fade and lift toward it. */
+.cap-lookup--native {
+  transform-origin: 50% 0;
+  animation: cap-pop 160ms cubic-bezier(0.2, 0, 0, 1);
+}
+.cap-lookup--native.is-above {
+  transform-origin: 50% 100%;
+}
+@keyframes cap-pop {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+}
+.cap-lookup--native.is-above {
+  animation-name: cap-pop-up;
+}
+@keyframes cap-pop-up {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cap-lookup--native,
+  .cap-lookup--native > .cap-lookup__scroll {
+    animation: none;
+    transition: none;
+  }
 }
 .cap-lookup--native .cap-lookup__word.is-sentence {
   flex: 1 1 auto;
@@ -2683,6 +2757,9 @@ textarea.cap-input {
 }
 [data-theme='netflix'] .cap-lookup--native .cap-lookup__arrow {
   border-radius: 0;
+}
+[data-theme='netflix'] .cap-lookup--native .cap-lookup__pos-native {
+  border-radius: var(--radius-xs);
 }
 [data-theme='netflix'] .cap-lookup--native .cap-lookup__word:not(.is-sentence) {
   font-size: 22px;
@@ -3740,7 +3817,32 @@ a.cap-btn:hover {
   background: var(--line);
 }
 
+/* Hover and press states ease in rather than snap, on every control. */
+.cap-btn,
+.cap-iconbtn,
+.cap-chip,
+.cap-nav__item,
+.cap-root button.cap-go,
+.cap-sentence-pick,
+.cap-select {
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease,
+    box-shadow 120ms ease;
+}
 @media (prefers-reduced-motion: reduce) {
+  .cap-btn,
+  .cap-iconbtn,
+  .cap-chip,
+  .cap-nav__item,
+  .cap-root button.cap-go,
+  .cap-sentence-pick,
+  .cap-select,
+  .cap-pbtn,
+  .cap-picon,
+  .cap-chunk,
+  .cap-explain__tab,
   .cap-switch::after,
   .cap-pswitch::after,
   .cap-overlay__fab,
