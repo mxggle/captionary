@@ -35,8 +35,12 @@ import {
   useRowHelp,
   type Choice,
 } from '@/ui/controls';
+import { HINT_SCALES, hintLevelFor, hintScaleFor, type HintScale } from '@/lib/text/hints';
+import { getChromeTranslator } from '@/lib/translate';
 import { LanguageSelect, useSettings } from '@/ui/form';
 import { IconExternal, IconUpload } from '@/ui/icons';
+
+const HINT_SCALE_ORDER: HintScale[] = ['cefr', 'jlpt', 'hsk', 'topik'];
 
 type Update = (fn: (s: Settings) => void) => void;
 
@@ -336,6 +340,58 @@ export function SubtitlesSection() {
             <Switch labelledBy={id} checked={sub.frequencyColors} onChange={(v) => set((st) => void (st.subtitles.frequencyColors = v))} />
           )}
         </SettingRow>
+        <SettingRow title={t.definitionHints} help={t.definitionHintsHelp}>
+          {(id) => (
+            <Switch
+              labelledBy={id}
+              checked={sub.definitionHints}
+              onChange={(v) => {
+                // The click may start the language pack download, which Chrome allows only from a gesture.
+                if (v && sub.hintSource === 'chrome' && s.targetLanguage !== 'auto') {
+                  getChromeTranslator(s.targetLanguage, s.nativeLanguage).catch(() => undefined);
+                }
+                set((st) => void (st.subtitles.definitionHints = v));
+              }}
+            />
+          )}
+        </SettingRow>
+        {sub.definitionHints && (
+          <>
+            {(s.targetLanguage === 'auto' ? HINT_SCALE_ORDER : [hintScaleFor(s.targetLanguage)]).map((scale, n) => {
+              const { name, levels } = HINT_SCALES[scale];
+              const auto = s.targetLanguage === 'auto';
+              return (
+                <SettingRow
+                  key={scale}
+                  title={auto ? `${t.hintLevel} · ${name}` : t.hintLevel}
+                  help={auto ? (n === 0 ? t.hintLevelAutoHelp : undefined) : t.hintLevelHelp(name)}
+                >
+                  {(id) => (
+                    <Segment
+                      labelledBy={id}
+                      value={hintLevelFor(scale, sub.hintLevels, s.learnerLevel).id}
+                      options={levels.map((l) => ({ value: l.id, label: l.label.replace(`${name} `, '') }))}
+                      onChange={(v) => set((st) => void (st.subtitles.hintLevels = { ...st.subtitles.hintLevels, [scale]: v }))}
+                    />
+                  )}
+                </SettingRow>
+              );
+            })}
+            <SettingRow title={t.hintSource} help={t.hintSourceHelp}>
+              {(id) => (
+                <Segment
+                  labelledBy={id}
+                  value={sub.hintSource}
+                  options={[
+                    { value: 'chrome' as const, label: t.hintSourceChrome },
+                    { value: 'ai' as const, label: t.hintSourceAi },
+                  ]}
+                  onChange={(v) => set((st) => void (st.subtitles.hintSource = v))}
+                />
+              )}
+            </SettingRow>
+          </>
+        )}
       </SettingsCard>
 
       <SettingsCard title={t.sizePositionCard}>

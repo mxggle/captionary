@@ -88,6 +88,20 @@ export class YouTubeAdapter implements SiteAdapter {
     this.getVideo()?.pause();
   }
 
+  /** The CC button as the learner sees it. Without a button to read, Captionary stays on as it always was. */
+  hostCaptionsOn(): boolean | null {
+    if (this.adShowing()) return null;
+    return this.captionsButton()?.getAttribute('aria-pressed') !== 'false';
+  }
+
+  showHostCaptions() {
+    this.captionsButton()?.click();
+  }
+
+  private captionsButton() {
+    return document.querySelector<HTMLElement>('#movie_player .ytp-subtitles-button');
+  }
+
   setNativeSubtitlesHidden(hidden: boolean) {
     let style = document.getElementById(HIDE_STYLE_ID);
     if (hidden && !style) {
@@ -179,14 +193,17 @@ export class YouTubeAdapter implements SiteAdapter {
       const res = await fetch(this.buildUrl(track, tlang), { credentials: 'include' });
       return res.ok ? res.text() : '';
     };
-    let body = await get();
     const videoId = this.videoId;
-    if (!body.trim() && videoId && !this.tokens.has(videoId)) {
+    // Whether this request carries the token: the player's own request may bring one while it is under way.
+    const hadToken = !!videoId && this.tokens.has(videoId);
+    let body = await get();
+    if (!body.trim() && videoId && !hadToken) {
       // Captions need the player's token: have the player load captions once. It fetches the
-      // video's captions only after a preroll ad, so wait that out first.
+      // video's captions only after a preroll ad, so wait that out first. That switches CC on, so never
+      // when the learner has it off: their pressing it brings the token.
       const deadline = Date.now() + AD_WAIT_MS;
       while (this.adShowing() && Date.now() < deadline) await new Promise((r) => setTimeout(r, 500));
-      postToMain({ type: 'yt.enableCaptions', lang: track.lang });
+      if (!this.tokens.has(videoId) && this.hostCaptionsOn() !== false) postToMain({ type: 'yt.enableCaptions', lang: track.lang });
       if (await this.waitForToken(videoId, 8000)) body = await get();
     }
     if (!body.trim()) {

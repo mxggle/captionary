@@ -13,6 +13,7 @@ import { PlayerMenu } from './PlayerMenu';
 import { SubtitleDrawer } from './SubtitleDrawer';
 import { TranslationErrorAction } from './TranslationError';
 import { sourceKey, translationLang } from './subtitles';
+import { hintsApply } from '../hints';
 
 export function useToast(): ToastMessage | null {
   const [message, setMessage] = useState<ToastMessage | null>(null);
@@ -115,6 +116,7 @@ export function Overlay({ controller }: { controller: SessionController }) {
       translations: st.translations,
       romanizations: st.romanizations,
       frequency: st.frequency,
+      hints: st.hints,
       activeIndex: st.activeIndex,
       lang: st.lang,
       vocab: st.vocab,
@@ -297,7 +299,8 @@ export function Overlay({ controller }: { controller: SessionController }) {
                 lang={s.lang}
                 index={index}
                 highlight={subtitles.highlight}
-                freq={s.frequency}
+                freq={subtitles.frequencyColors ? s.frequency : null}
+                glosses={hintsApply(s) ? s.hints[s.activeIndex] : undefined}
                 selected={selected}
                 spaceIsPlayback
                 onSelect={(sel) =>

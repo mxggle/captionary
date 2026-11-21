@@ -461,6 +461,7 @@ function DoneStep({ s, go }: StepProps) {
           <IconGlyph className="cap-ico cap-wizard__glyph" aria-label="Captionary" />
           {m.welcome.done.playerButtonTextAfter}
         </p>
+        <Note tone="plain">{m.welcome.done.followsCcNote}</Note>
         <Note tone="plain">{m.welcome.done.reloadOpenVideoNote}</Note>
       </section>
 

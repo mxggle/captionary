@@ -1,13 +1,23 @@
 import { getMessages, resolveUILocale, syncUILocaleFromSettings } from '@/lib/i18n';
 import { normalizeLang, sameLang } from '@/lib/languages';
 import { bg } from '@/lib/messaging';
-import { getSettings, updateSettings, watchAISettings, watchSettings, type Settings, type ShortcutAction } from '@/lib/settings';
+import {
+  getSettings,
+  setTranslationEngine,
+  translationEngineToRestore,
+  updateSettings,
+  watchAISettings,
+  watchSettings,
+  type Settings,
+  type ShortcutAction,
+} from '@/lib/settings';
 import { alignTracks, cueIndexAt, cueIndexBefore } from '@/lib/subtitles/parse';
 import { buildRankMap } from '@/lib/text/frequency-map';
 import { canRomanize } from '@/lib/text/romanize';
 import { SubtitleLoadError, type Cue, type TrackInfo, type TranslationSource } from '@/lib/subtitles/types';
 import { chromeTranslatorState, translateLines } from '@/lib/translate';
 import { listVocab, saveVocab, watchVocab, type SaveInput, type VocabItem } from '@/lib/vocab';
+import { HintLoader } from './hints';
 import { getSession, sessionStore, setSession, type AnchorRect, type MediaInfo, type PopupTarget, type SessionState } from './store';
 
 export interface SiteAdapter {
@@ -20,6 +30,13 @@ export interface SiteAdapter {
   /** Platform machine translation (YouTube's auto-translate). */
   loadPlatformTranslation?(trackId: string, lang: string): Promise<Cue[]>;
   setNativeSubtitlesHidden(hidden: boolean): void;
+  /**
+   * Whether the host's own captions button is on; null while it can't say (an ad is playing). Where a
+   * site has this, Captionary starts each video the way the button stands, and follows it from there.
+   */
+  hostCaptionsOn?(): boolean | null;
+  /** Press the host's captions button on. */
+  showHostCaptions?(): void;
   /**
    * The host's bottom controls (progress bar, control bar), looked up inside the player while they
    * are on screen; the captions sit above the highest of them.
@@ -42,6 +59,11 @@ export interface SiteAdapter {
    * over the video.
    */
   reserveRight?(px: number): void;
+}
+
+/** Frequency ranks are needed for frequency colours and for picking the words that get definition hints. */
+function wantsFrequency(s: Settings): boolean {
+  return s.subtitles.frequencyColors || s.subtitles.definitionHints;
 }
 
 /** Seconds before a cue's end at which auto-pause triggers (one animation frame of slack). */
@@ -102,6 +124,10 @@ export class SessionController {
   private cleanups: (() => void)[] = [];
   /** The learner's last input was a key, not the pointer: what it opens takes focus. */
   private keyboardInput = false;
+  /** What the host's captions button last said for this video (see {@link syncHostCaptions}). */
+  private hostCaptions: boolean | null = null;
+
+  private hints = new HintLoader((text) => toast(text, { tone: 'warn' }));
 
   constructor(public adapter: SiteAdapter) {}
 
@@ -118,9 +144,22 @@ export class SessionController {
           next.media !== prev.media ||
           next.status !== prev.status ||
           next.off !== prev.off ||
-          next.adShowing !== prev.adShowing
+          next.adShowing !== prev.adShowing ||
+          next.translationSource !== prev.translationSource
         ) {
           this.applyNativeHidden();
+        }
+        if (
+          next.settings !== prev.settings ||
+          next.cues !== prev.cues ||
+          next.lang !== prev.lang ||
+          next.activeIndex !== prev.activeIndex ||
+          next.lastIndex !== prev.lastIndex ||
+          next.frequency !== prev.frequency ||
+          next.status !== prev.status ||
+          next.off !== prev.off
+        ) {
+          this.hints.update();
         }
       }),
     );
@@ -139,7 +178,7 @@ export class SessionController {
           void this.reloadForSettings(prev);
         }
         if (!prev.subtitles.showRomanization && next.subtitles.showRomanization) void this.loadRomanizations(this.generation);
-        if (!prev.subtitles.frequencyColors && next.subtitles.frequencyColors) void this.loadFrequency();
+        if (wantsFrequency(next) && !wantsFrequency(prev)) void this.loadFrequency();
       }),
     );
     const items = await listVocab();
@@ -379,9 +418,28 @@ export class SessionController {
     this.adapter.setNativeSubtitlesHidden(nativeHidden(getSession(), this.siteEnabled()));
   }
 
-  /** Turn Captionary off (or back on) for the video being watched; off restores the host's captions. */
+  /**
+   * Turn Captionary off (or back on) for the video being watched; off restores the host's captions.
+   * On presses the host's captions button if it is off, since the player only fetches captions (and the
+   * token they need) with it on, and loads what was held back while off.
+   */
   setOff(off: boolean) {
-    setSession({ off, popup: null, drawerOpen: off ? false : getSession().drawerOpen });
+    const { drawerOpen, originalTrackId, status } = getSession();
+    setSession({ off, popup: null, drawerOpen: off ? false : drawerOpen });
+    if (off) return;
+    if (this.adapter.hostCaptionsOn?.() === false) this.adapter.showHostCaptions?.();
+    if (originalTrackId && (status === 'idle' || status === 'error')) void this.selectOriginalTrack(originalTrackId);
+  }
+
+  /**
+   * Captionary goes with the host's captions button: each change of it turns Captionary on or off for
+   * this video. A choice in Captionary's own menu lasts until the button next changes.
+   */
+  syncHostCaptions() {
+    const on = this.adapter.hostCaptionsOn?.() ?? null;
+    if (on === null || on === this.hostCaptions) return;
+    this.hostCaptions = on;
+    if (getSession().media) this.setOff(!on);
   }
 
   openMenu(anchor: AnchorRect | null) {
@@ -570,6 +628,14 @@ export class SessionController {
         return patchSettings((s) => void (s.playback.autoPause = on));
       }
       case 'toggleTranslation':
+        // Translation is off altogether, so there is nothing to hide: the key brings back the engine last used.
+        if (settings.subtitles.translationEngine === 'none') {
+          toast(m.content.toast.translationShown, { key });
+          return patchSettings((s) => {
+            setTranslationEngine(s.subtitles, translationEngineToRestore(s.subtitles));
+            s.subtitles.showTranslation = true;
+          });
+        }
         toast(settings.subtitles.showTranslation ? m.content.toast.translationHidden : m.content.toast.translationShown, { key });
         return patchSettings((s) => void (s.subtitles.showTranslation = !s.subtitles.showTranslation));
       case 'toggleOriginal':
@@ -613,6 +679,9 @@ export class SessionController {
     this.translationAbort?.abort();
     const { settings } = getSession();
     const m = getMessages(resolveUILocale(settings));
+    // Undefined where the site has no button to follow; unknown (during an ad) counts as on until the button says otherwise.
+    const hostCaptions = this.adapter.hostCaptionsOn?.();
+    this.hostCaptions = hostCaptions ?? null;
     setSession({
       media,
       tracks,
@@ -622,7 +691,7 @@ export class SessionController {
       activeIndex: -1,
       lastIndex: -1,
       popup: null,
-      off: false,
+      off: hostCaptions === false,
       translationStatus: 'idle',
       translationMessage: undefined,
       translationSource: { type: 'none' },
@@ -640,16 +709,26 @@ export class SessionController {
     if (!track) return;
     this.translationAbort?.abort();
     const m = getMessages(resolveUILocale(getSession().settings));
+    const { off, lang: prevLang } = getSession();
+    const lang = normalizeLang(track.lang);
     setSession({
-      status: 'loading',
+      status: off ? 'idle' : 'loading',
       message: undefined,
       originalTrackId: trackId,
-      lang: normalizeLang(track.lang),
+      lang,
+      // Another language's ranks would mark the wrong words until this language's list arrives.
+      ...(lang !== prevLang ? { frequency: null } : {}),
       cues: [],
       translations: [],
       romanizations: [],
       activeIndex: -1,
     });
+    // Nothing is fetched while Captionary is off; turning it on loads this track.
+    if (off) {
+      const source = await this.defaultTranslationSource();
+      if (gen === this.generation) setSession({ translationSource: source });
+      return;
+    }
     try {
       const cues = await this.adapter.loadTrack(trackId);
       if (gen !== this.generation) return;
@@ -678,10 +757,15 @@ export class SessionController {
 
   private frequencyCache = new Map<string, Map<string, number> | null>();
 
-  /** Frequency ranks for the current language (downloaded once per language). */
+  /** From a click that turns definition hints on: gets the on-device translator ready (see {@link HintLoader.prime}). */
+  primeHints() {
+    this.hints.prime();
+  }
+
+  /** Frequency ranks for the current language (downloaded once per language), for colours and hints. */
   async loadFrequency() {
     const { lang, settings } = getSession();
-    if (!settings.subtitles.frequencyColors || !lang) return setSession({ frequency: null });
+    if (!wantsFrequency(settings) || !lang) return setSession({ frequency: null });
     if (!this.frequencyCache.has(lang)) {
       try {
         const words = await bg({ type: 'freq.list', lang });
@@ -729,15 +813,42 @@ export class SessionController {
   }
 
   /**
-   * The learner picks a translation in a menu: show it, and keep a machine translation's engine as
-   * the default for later videos (the "when the video has no subtitles in your language" setting).
-   * A subtitle track and "off" stay with this video; a human track in the learner's language still
-   * comes first elsewhere.
+   * The original line picked in a menu: a track shows it (and loads that track), `null` turns it off.
+   * Picking a track is asking to see it, so it also turns the original line back on.
+   */
+  async chooseOriginal(trackId: string | null) {
+    const { settings, originalTrackId } = getSession();
+    const shown = trackId !== null;
+    if (settings.subtitles.showOriginal !== shown) {
+      // In the session before the write comes back, so the menu shows the choice at once.
+      setSession({ settings: { ...settings, subtitles: { ...settings.subtitles, showOriginal: shown } } });
+      void updateSettings((s) => void (s.subtitles.showOriginal = shown));
+    }
+    if (trackId !== null && trackId !== originalTrackId) await this.selectOriginalTrack(trackId);
+  }
+
+  /**
+   * The learner picks a translation in a menu: show it (turning the translation line on if it was off), and keep a machine translation's engine or
+   * "off" as the default for later videos (the "when the video has no subtitles in your language"
+   * setting). A subtitle track stays with this video, and ends "off" for later videos too; a human track
+   * in the learner's language still comes first elsewhere.
    */
   async chooseTranslation(source: TranslationSource) {
-    const engine = engineOf(source);
-    if (engine && engine !== 'none' && engine !== getSession().settings.subtitles.translationEngine) {
-      void updateSettings((s) => void (s.subtitles.translationEngine = engine));
+    const { settings } = getSession();
+    const current = settings.subtitles.translationEngine;
+    // A subtitle track has no engine of its own: after "off" it brings back the engine last used.
+    const engine = engineOf(source) ?? translationEngineToRestore(settings.subtitles);
+    // Picking a translation to read is asking to see it, so it also turns the translation line back on.
+    const reveal = source.type !== 'none' && !settings.subtitles.showTranslation;
+    if (engine !== current || reveal) {
+      // In the session before the write comes back, so the settings watcher leaves this choice showing.
+      const subtitles = { ...settings.subtitles, showTranslation: settings.subtitles.showTranslation || reveal };
+      setTranslationEngine(subtitles, engine);
+      setSession({ settings: { ...settings, subtitles } });
+      void updateSettings((s) => {
+        setTranslationEngine(s.subtitles, engine);
+        if (reveal) s.subtitles.showTranslation = true;
+      });
     }
     await this.selectTranslation(source);
   }
@@ -815,10 +926,10 @@ export class SessionController {
 /**
  * Whether the host's own captions are hidden: only while Captionary draws its own, that is on for
  * the site, with a video whose subtitles are loaded, not turned off for it, not during an ad, and
- * with at least one of its lines shown.
+ * with at least one of its lines shown (a translation line counts only with a translation to show).
  */
 export function nativeHidden(
-  state: Pick<SessionState, 'settings' | 'media' | 'status' | 'off' | 'adShowing'>,
+  state: Pick<SessionState, 'settings' | 'media' | 'status' | 'off' | 'adShowing' | 'translationSource'>,
   siteEnabled: boolean,
 ): boolean {
   const { subtitles } = state.settings;
@@ -828,7 +939,7 @@ export function nativeHidden(
     state.status === 'ready' &&
     !state.off &&
     !state.adShowing &&
-    (subtitles.showOriginal || subtitles.showTranslation) &&
+    (subtitles.showOriginal || (subtitles.showTranslation && state.translationSource.type !== 'none')) &&
     subtitles.hideNativeSubtitles
   );
 }
