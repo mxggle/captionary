@@ -257,6 +257,15 @@ describe('parseWordExplanation', () => {
     });
   });
 
+  it('reads a chunk whose backticks the model doubled', () => {
+    expect(parseWordExplanation('@@context\n``uh` → 呃')!.chunk).toEqual({ text: 'uh', meaning: '呃' });
+    expect(parseWordExplanation('@@context\n``gave up`` (give up) → 放弃')!.chunk).toEqual({
+      text: 'gave up',
+      base: 'give up',
+      meaning: '放弃',
+    });
+  });
+
   it('names the chunk only once its arrow has arrived', () => {
     expect(parseWordExplanation('@@context\n`holds up` (hold', true)!.chunk).toBeUndefined();
     expect(parseWordExplanation('@@context\n`holds up` (hold up) → 维', true)!.chunk).toMatchObject({ base: 'hold up', meaning: '维' });

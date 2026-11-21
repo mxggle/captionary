@@ -186,7 +186,6 @@ export const zhCN: Messages = {
     finishSetupTitle: '完成 Captionary 初始设置',
     continueSetup: '继续设置',
     imLearning: '我正在学',
-    andISpeak: '，母语是',
     iSpeakLabel: '母语',
     pagesNavAria: 'Captionary 页面',
     savedWordsSub: (learning: number, known: number) => `${learning} 个学习中 · ${known} 个已掌握`,

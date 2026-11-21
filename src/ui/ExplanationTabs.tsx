@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
-import type { StorySection, WordExplanation, WordSection } from '@/lib/ai/prompts';
+import { parseChunk, type StorySection, type WordExplanation, type WordSection } from '@/lib/ai/prompts';
 import { formatAIError, useI18n } from '@/lib/i18n';
 import { formatTime } from '@/lib/subtitles/parse';
 import { canSpeak, speak } from '@/lib/tts';
@@ -161,12 +161,27 @@ function ContextPanel({ lines, chunkShown, cursor }: { lines: string[]; chunkSho
       {lines.map((line, i) => {
         if (i === 0 && chunkShown) return null;
         const warning = line.startsWith('⚠');
-        // The first line names the chunk to learn, in backticks, and what it means.
-        const chunk = i === 0 && line.startsWith('`');
+        // The first line names the chunk to learn, in backticks, and what it means: drawn from its parts,
+        // so a stray backtick from the model never shows.
+        const parsed = i === 0 ? parseChunk(line) : undefined;
+        const chunk = i === 0 && (!!parsed || line.startsWith('`'));
         const cls = warning ? 'cap-explain__warn' : chunk ? 'cap-explain__chunk' : 'cap-explain__line';
         return (
           <div key={i} className={cursor && i === lines.length - 1 ? `${cls} cap-cursor` : cls}>
-            <Markdown text={line} />
+            {parsed ? (
+              <div className="cap-md">
+                <p>
+                  <code>{parsed.text}</code>
+                  {parsed.base && <span className="cap-explain__base"> ({parsed.base})</span>}
+                  <span className="cap-explain__arrow" aria-hidden="true">
+                    →
+                  </span>
+                  {plain(parsed.meaning)}
+                </p>
+              </div>
+            ) : (
+              <Markdown text={line} />
+            )}
           </div>
         );
       })}

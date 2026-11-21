@@ -188,7 +188,6 @@ export const ja: Messages = {
     finishSetupTitle: 'Captionary の初期設定を完了する',
     continueSetup: '設定を続ける',
     imLearning: '学習中の言語',
-    andISpeak: '・母語',
     iSpeakLabel: '母語',
     pagesNavAria: 'Captionary ページ',
     savedWordsSub: (learning: number, known: number) => `学習中 ${learning} · 習得済み ${known}`,

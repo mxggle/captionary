@@ -512,9 +512,10 @@ export function parseWordExplanation(text: string, partial = false): WordExplana
 }
 
 /** "`gave up` (give up) → 放弃": the chunk in backticks (or bold), an optional dictionary form, an arrow and the meaning. */
-const CHUNK_LINE = /^(?:`([^`]+)`|\*\*([^*]+)\*\*)\s*(?:[(（]([^)）]*)[)）])?\s*(?:→|->|⟶|=>)\s*(.*)$/;
+// Models sometimes double a backtick ("``uh`"), so any run of them counts as one.
+const CHUNK_LINE = /^(?:`+([^`]+)`+|\*\*([^*]+)\*\*)\s*(?:[(（]([^)）]*)[)）])?\s*(?:→|->|⟶|=>)\s*(.*)$/;
 
-function parseChunk(line: string): WordChunk | undefined {
+export function parseChunk(line: string): WordChunk | undefined {
   const m = line.match(CHUNK_LINE);
   const text = (m?.[1] ?? m?.[2])?.trim();
   if (!m || !text) return undefined;
