@@ -709,12 +709,15 @@ export class SessionController {
     if (!track) return;
     this.translationAbort?.abort();
     const m = getMessages(resolveUILocale(getSession().settings));
-    const { off } = getSession();
+    const { off, lang: prevLang } = getSession();
+    const lang = normalizeLang(track.lang);
     setSession({
       status: off ? 'idle' : 'loading',
       message: undefined,
       originalTrackId: trackId,
-      lang: normalizeLang(track.lang),
+      lang,
+      // Another language's ranks would mark the wrong words until this language's list arrives.
+      ...(lang !== prevLang ? { frequency: null } : {}),
       cues: [],
       translations: [],
       romanizations: [],

@@ -47,6 +47,7 @@ export class HintLoader {
   private generation = 0;
   private key = '';
   private cues: SessionState['cues'] | null = null;
+  private frequency: SessionState['frequency'] = null;
   private pending = new Set<number>();
   /** On-device glosses by language pair and word, kept across videos. */
   private words = new Map<string, string>();
@@ -60,9 +61,11 @@ export class HintLoader {
   update() {
     let s = getSession();
     const key = hintKey(s);
-    if (key !== this.key || s.cues !== this.cues) {
+    // A new frequency map (another language's, or the first one) changes which words are difficult.
+    if (key !== this.key || s.cues !== this.cues || s.frequency !== this.frequency) {
       this.key = key;
       this.cues = s.cues;
+      this.frequency = s.frequency;
       this.generation++;
       this.pending.clear();
       this.busy = false;
@@ -74,11 +77,17 @@ export class HintLoader {
     if (!hintsApply(s) || s.status !== 'ready' || s.off || !s.frequency || !s.cues.length || this.busy) return;
     const source = s.settings.subtitles.hintSource;
     const from = Math.max(0, s.activeIndex >= 0 ? s.activeIndex : s.lastIndex);
+    const ahead = AHEAD[source];
+    // The tutor is asked in batches: once fewer than half the lines ahead are ready, for up to twice
+    // as many lines, so a request covers about `ahead` new lines rather than one line per cue.
+    const end = Math.min(s.cues.length, from + (source === 'ai' ? 2 * ahead : ahead + 1));
     const todo: number[] = [];
-    for (let i = from; i < Math.min(s.cues.length, from + AHEAD[source] + 1); i++) {
+    for (let i = from; i < end; i++) {
       if (!(i in s.hints) && !this.pending.has(i)) todo.push(i);
     }
-    if (todo.length) void this.load(todo, source);
+    if (!todo.length) return;
+    if (source === 'ai' && todo[0] - from > ahead / 2 && end < s.cues.length) return;
+    void this.load(todo, source);
   }
 
   /**

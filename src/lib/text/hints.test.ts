@@ -50,6 +50,17 @@ describe('definition hints', () => {
     ]);
   });
 
+  it('hints capitalised nouns inside a German line, but not unlisted names', () => {
+    const de = buildRankMap(
+      ['das', 'ist', 'ein', 'und', ...Array.from({ length: 9000 }, (_, i) => `w${i}`), 'beschleunigungsmesser'],
+      'de',
+    );
+    const text = 'Das ist ein Beschleunigungsmesser und Jürgen';
+    expect(words(text, 'de', pickHintTokens(tokenize(text, 'de'), { lang: 'de', ranks: de, cutoff: 4000 }))).toEqual([
+      'Beschleunigungsmesser',
+    ]);
+  });
+
   it('hints a capitalised word at the start of a line when it is listed', () => {
     const text = 'Detector here.';
     expect(words(text, 'en', pickHintTokens(tokenize(text, 'en'), { lang: 'en', ranks, cutoff: 1000 }))).toEqual(['Detector']);

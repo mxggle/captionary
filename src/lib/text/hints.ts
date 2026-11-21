@@ -114,14 +114,16 @@ export interface HintOptions {
   max?: number;
 }
 
+/** Languages that capitalise common nouns. */
+const NOUNS_CAPITALISED = new Set(['de', 'lb']);
 const NUMERIC = /^[\p{N}\p{P}\p{S}]+$/u;
 /** Scripts with upper and lower case, where a capital inside a line usually marks a name. */
 const CASED = /[\p{Lu}\p{Ll}]/u;
 
 /**
  * Token indexes of the words in a line that are difficult for the learner's level: rarer than the
- * level's cutoff in the frequency list. Names are left out (a capitalised word inside the line, or an
- * unlisted capitalised word at its start), and so are numbers, single letters, and unlisted words in
+ * level's cutoff in the frequency list. Names are left out (a capitalised word inside the line, except in
+ * German, or an unlisted capitalised word anywhere), and so are numbers, single letters, and unlisted words in
  * languages written without spaces.
  */
 export function pickHintTokens(tokens: Token[], opts: HintOptions): number[] {
@@ -142,7 +144,8 @@ export function pickHintTokens(tokens: Token[], opts: HintOptions): number[] {
     if (!key || seen.has(key) || NUMERIC.test(key) || [...key].length < (CASED.test(key) ? 2 : 1)) continue;
     if (opts.known?.has(key)) continue;
     const capitalised = CASED.test(t.text) && t.text[0] !== t.text[0].toLocaleLowerCase() && t.text.length > 1;
-    if (capitalised && !atStart) continue;
+    // German capitalises every noun, so there a capital says nothing; unlisted names are still left out below.
+    if (capitalised && !atStart && !NOUNS_CAPITALISED.has(baseLang(opts.lang))) continue;
     const rank = frequencyRank(opts.ranks, key);
     // Unlisted: a name, or (without spaces) a chunk the segmenter cut differently from the list.
     if (rank === undefined && (capitalised || isSpaceless(opts.lang))) continue;

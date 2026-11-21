@@ -119,3 +119,57 @@ describe('HintLoader', () => {
     expect(getSession().hints[0]).toEqual({});
   });
 });
+
+describe('HintLoader batching and invalidation', () => {
+  it('asks the tutor in batches, not once per new line', async () => {
+    vi.clearAllMocks();
+    const many = Array.from({ length: 60 }, (_, i) => ({ start: i, end: i + 1, text: `this is gizmo${i}` }));
+    setSession({
+      settings: settings((s) => (s.subtitles.hintSource = 'ai')),
+      lang: 'en',
+      cues: many,
+      status: 'ready',
+      off: false,
+      activeIndex: 0,
+      lastIndex: 0,
+      vocab: {},
+      hints: {},
+      frequency: buildRankMap(['this', 'is'], 'en'),
+    });
+    ai.runJob.mockImplementation(async (job: { items: unknown[] }) => ({
+      text: JSON.stringify({ g: job.items.map(() => ['x']) }),
+    }));
+    const loader = new HintLoader(() => undefined);
+    for (let i = 0; i < 30; i++) {
+      setSession({ activeIndex: i });
+      loader.update();
+      await settled();
+    }
+    const sizes = ai.runJob.mock.calls.map((c) => (c[0] as { items: unknown[] }).items.length);
+    expect(sizes.length).toBeLessThanOrEqual(3);
+    expect(Math.min(...sizes)).toBeGreaterThanOrEqual(10);
+  });
+
+  it('looks again when the frequency map changes', async () => {
+    vi.clearAllMocks();
+    setSession({
+      settings: settings(),
+      lang: 'en',
+      cues,
+      status: 'ready',
+      off: false,
+      activeIndex: 0,
+      lastIndex: 0,
+      vocab: {},
+      hints: {},
+      frequency: buildRankMap(['so', 'this', 'is', 'a', 'detector', 'it', 'dispenses', 'gizmo'], 'en'),
+    });
+    const loader = new HintLoader(() => undefined);
+    loader.update();
+    await vi.waitFor(() => expect(2 in getSession().hints).toBe(true));
+    expect(getSession().hints[0]).toEqual({});
+    setSession({ frequency: buildRankMap(['so', 'this', 'is', 'a', 'it'], 'en') });
+    loader.update();
+    await vi.waitFor(() => expect(getSession().hints[0]).toEqual({ detector: '探测器' }));
+  });
+});
