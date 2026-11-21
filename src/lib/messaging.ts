@@ -1,5 +1,5 @@
 import { browser } from '#imports';
-import type { AIErrorInfo, AIJob, AIResult, AIStreamEvent, ProviderKind } from './ai/types';
+import type { AIErrorInfo, AIJob, AIResult, AIStreamEvent, ProviderKind, StorySpoilers } from './ai/types';
 import { AIError } from './ai/types';
 import type { DictionaryResult } from './dictionary';
 import { getCurrentUILocale, getMessages } from './i18n';
@@ -8,6 +8,8 @@ export interface AIStatus {
   enabled: boolean;
   configured: boolean;
   autoExplain: boolean;
+  /** The "In the show" tab is on, and what it may draw on; absent when it is off. */
+  story?: StorySpoilers;
   provider?: ProviderKind;
   providerName?: string;
   model?: string;

@@ -24,13 +24,15 @@ const FETCH_ALLOWLIST = [/\.nflxvideo\.net$/, /^www\.netflix\.com$/, /^vod-[a-z0
 async function aiStatus(): Promise<AIStatus> {
   const ai = await getAISettings();
   const conn = resolveConnection(ai, ai.routes.word.connectionId);
-  if (!conn) return { enabled: ai.enabled, configured: false, autoExplain: ai.autoExplain };
+  const story = ai.story.enabled ? ai.story.spoilers : undefined;
+  if (!conn) return { enabled: ai.enabled, configured: false, autoExplain: ai.autoExplain, story };
   const info = PROVIDERS[conn.kind];
   const configured = info.signIn ? (await getChatGPTAccount(conn.id)) !== null : !info.requiresKey || (await hasApiKey(conn.id));
   return {
     enabled: ai.enabled,
     configured,
     autoExplain: ai.autoExplain,
+    story,
     provider: conn.kind,
     providerName: conn.label || info.name,
     model: resolveModel(conn, ai.routes.word),

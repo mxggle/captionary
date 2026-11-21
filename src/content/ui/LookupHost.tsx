@@ -1,4 +1,4 @@
-import { useCallback, type RefObject } from 'react';
+import { useCallback, useMemo, type RefObject } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { bg } from '@/lib/messaging';
 import { frequencyRank } from '@/lib/text/frequency-map';
@@ -17,7 +17,7 @@ interface Props {
 
 /** Connects the native look-up card to the session store for the surfaces drawn in one shadow root. */
 export function LookupHost({ controller, surfaces, hostRef }: Props) {
-  const { popup, settings, aiStatus, vocab, media, frequency } = useSession(
+  const { popup, settings, aiStatus, vocab, media, frequency, cues } = useSession(
     useShallow((s) => ({
       popup: s.popup,
       settings: s.settings,
@@ -25,9 +25,16 @@ export function LookupHost({ controller, surfaces, hostRef }: Props) {
       vocab: s.vocab,
       media: s.media,
       frequency: s.frequency,
+      cues: s.cues,
     })),
   );
   const close = useCallback(() => controller.closePopup(), [controller]);
+  // Heard so far: up to where the video is, or the line the word was picked from when that is later
+  // (a line read ahead in the subtitle list has been seen).
+  const episode = useMemo(
+    () => (aiStatus?.story && popup ? { cues, heard: Math.max(controller.currentCueIndex(), popup.cueIndex) } : undefined),
+    [aiStatus?.story, cues, popup, controller],
+  );
   if (!popup || !surfaces.includes(popup.surface)) return null;
 
   const host = hostRef?.current?.getBoundingClientRect();
@@ -56,6 +63,8 @@ export function LookupHost({ controller, surfaces, hostRef }: Props) {
         status ? controller.saveWord(entry, status, popup.cueIndex) : removeVocab(vocabKey(entry.text, popup.lang).id)
       }
       onPlayLine={popup.cueIndex >= 0 ? () => controller.playCue(popup.cueIndex) : undefined}
+      episode={episode}
+      onPlayCue={(index) => controller.playCue(index)}
       onSelectWord={(sel) =>
         controller.openPopup({
           kind: 'word',

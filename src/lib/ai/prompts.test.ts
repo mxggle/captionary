@@ -4,6 +4,7 @@ import {
   DEFAULT_PROMPTS,
   extractTranslation,
   mergeConsecutive,
+  parseStoryExplanation,
   parseTranslations,
   parseWordExplanation,
   renderTemplate,
@@ -103,6 +104,40 @@ describe('buildPrompt', () => {
 
     const english = buildPrompt({ task: 'sentence', sentence: 'El gato duerme.', targetLang: 'es' }, opts());
     expect(english.messages[0].content).toContain('Write your whole answer in English, including');
+  });
+
+  it('asks what the word is only for the "In the show" tab', () => {
+    const plain = buildPrompt(wordJob, opts());
+    expect(plain.system).not.toContain('@@kind');
+    const asked = buildPrompt({ ...wordJob, askKind: true }, opts());
+    expect(asked.system).toContain('one more marker line, @@kind');
+    expect(asked.messages[0].content).toContain('copy the @@ marker lines and the word under @@kind exactly');
+    // Asked even of a custom prompt, which knows nothing of the tab.
+    expect(buildPrompt({ ...wordJob, askKind: true }, opts({ prompts: { word: 'Be brief.' } })).system).toContain('@@kind');
+  });
+
+  const storyJob = {
+    task: 'story' as const,
+    text: 'Mike',
+    kind: 'person' as const,
+    sentence: 'Where is Mike?',
+    excerpts: ['[0:10] Hi Mike', '…', '[3:20] Mike, your mom called.'],
+    spoilers: 'avoid' as const,
+    targetLang: 'en',
+    mediaTitle: 'Stranger Things · E1',
+  };
+
+  it('sends the mentions with the title, and the spoiler rule beside the request', () => {
+    const user = buildPrompt(storyJob, { ...opts(), nativeLanguage: 'zh-CN' }).messages[0].content;
+    expect(user).toContain('Explain "Mike", a person.');
+    expect(user).toContain('Source title: Stranger Things · E1');
+    expect(user).toContain('[0:10] Hi Mike\n…\n[3:20] Mike, your mom called.');
+    expect(user).toContain('never use [K]');
+    expect(user).toMatch(/copy the @@ marker lines and the \[S\] and \[K\] tags exactly\.$/);
+    expect(buildPrompt({ ...storyJob, spoilers: 'allow' }, opts()).messages[0].content).toContain('allows spoilers');
+    // A custom prompt keeps the rule: it is part of the request, not of the prompt.
+    expect(buildPrompt(storyJob, opts({ prompts: { story: 'Be brief.' } })).messages[0].content).toContain('never use [K]');
+    expect(buildPrompt(storyJob, opts({ shareMediaTitle: false })).messages[0].content).not.toContain('Stranger Things');
   });
 
   it('asks for JSON when translating', () => {
@@ -236,6 +271,66 @@ describe('parseWordExplanation', () => {
     expect(w.definition).toEqual(['a small pet']);
     expect(w.collocations).toEqual(['big', 'small']);
     expect(w.examples).toEqual([{ text: 'A **cat** sleeps.', translation: '一只猫在睡觉。' }]);
+  });
+});
+
+describe('parseWordExplanation @@kind', () => {
+  it('reads what the word is, once its line is complete', () => {
+    const w = parseWordExplanation('@@kind\nperson\n@@meaning\n迈克\n')!;
+    expect(w.kind).toBe('person');
+    expect(w.gloss).toBe('迈克');
+    expect(w.started).toEqual(['meaning']);
+    expect(parseWordExplanation('@@kind\npers', true)!.kind).toBeUndefined();
+    expect(parseWordExplanation('@@kind\nPerson\n', true)!.kind).toBe('person');
+  });
+
+  it('accepts the kind on the marker line, and ignores words it does not know', () => {
+    expect(parseWordExplanation('@@kind: place\n@@meaning\n霍金斯')!.kind).toBe('place');
+    expect(parseWordExplanation('@@kind\n人名\n@@meaning\n迈克')!.kind).toBeUndefined();
+  });
+});
+
+describe('parseStoryExplanation', () => {
+  const MIKE = `@@name
+迈克是 Michael 的昵称，源自希伯来语。
+"Mikey" · "Mr. Wheeler"
+@@role
+小镇上的中学生，正在寻找失踪的朋友。
+@@relations
+- **Will** — 失踪的好朋友 [S]
+- Nancy — 姐姐 [K]
+- Eleven: 被他藏在地下室的女孩（S）
+`;
+
+  it('splits an answer at its markers, with each relation and its source', () => {
+    expect(parseStoryExplanation(MIKE)).toEqual({
+      meaning: ['迈克是 Michael 的昵称，源自希伯来语。'],
+      forms: ['Mikey', 'Mr. Wheeler'],
+      role: ['小镇上的中学生，正在寻找失踪的朋友。'],
+      relations: [
+        { who: 'Will', relation: '失踪的好朋友', source: 'S' },
+        { who: 'Nancy', relation: '姐姐', source: 'K' },
+        { who: 'Eleven', relation: '被他藏在地下室的女孩', source: 'S' },
+      ],
+      started: ['name', 'role', 'relations'],
+    });
+  });
+
+  it('takes a single short line after the meaning as a form, and a long one as more meaning', () => {
+    expect(parseStoryExplanation('@@name\nA nickname for Michael.\n"Mr. Wheeler"')).toMatchObject({
+      meaning: ['A nickname for Michael.'],
+      forms: ['Mr. Wheeler'],
+    });
+    const long = parseStoryExplanation('@@name\nA nickname.\nIt was among the most common names for boys in the 1970s.')!;
+    expect(long.meaning).toHaveLength(2);
+    expect(long.forms).toEqual([]);
+  });
+
+  it('hides a source tag still arriving, and waits for a marker cut short', () => {
+    const s = parseStoryExplanation('@@name\n昵称\n@@relations\n- Will — 好朋友 [', true)!;
+    expect(s.relations).toEqual([{ who: 'Will', relation: '好朋友', source: undefined }]);
+    expect(parseStoryExplanation('@@na', true)).toMatchObject({ started: [], relations: [] });
+    expect(parseStoryExplanation('Mike is a boy.')).toBeNull();
   });
 });
 

@@ -180,6 +180,8 @@ export async function runJob(job: AIJob, opts: RunOptions = {}): Promise<AIResul
   syncUILocaleFromSettings(settings);
   const m = getMessages(getCurrentUILocale()).runtime.ai;
   if (!ai.enabled) throw new AIError('disabled', m.aiDisabled);
+  // The tab asks only while it is on; this keeps a page that missed the change from sending the episode's lines.
+  if (job.task === 'story' && !ai.story.enabled) throw new AIError('disabled', m.storyDisabled);
   const route = ai.routes[job.task];
   const primary = resolveConnection(ai, route.connectionId);
   if (!primary) throw new AIError('not_configured', m.noProviderConfigured);

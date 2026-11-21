@@ -365,6 +365,25 @@ export function AIPrivacySection() {
             />
           )}
         </SettingRow>
+        <SettingRow title={p.story} help={p.storyHelp} disabled={off}>
+          {(id) => (
+            <Switch labelledBy={id} disabled={off} checked={ai.story.enabled} onChange={(v) => set((s) => void (s.story.enabled = v))} />
+          )}
+        </SettingRow>
+        <SettingRow title={p.storySpoilers} help={p.storySpoilersHelp} disabled={off || !ai.story.enabled}>
+          {(id) => (
+            <Segment
+              labelledBy={id}
+              disabled={off || !ai.story.enabled}
+              value={ai.story.spoilers}
+              options={[
+                { value: 'avoid', label: p.spoilersAvoid },
+                { value: 'allow', label: p.spoilersAllow },
+              ]}
+              onChange={(v) => set((s) => void (s.story.spoilers = v))}
+            />
+          )}
+        </SettingRow>
         <SettingRow title={p.explanationsIn} disabled={off}>
           {(id) => (
             <Segment
