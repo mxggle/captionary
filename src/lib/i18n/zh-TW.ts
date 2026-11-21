@@ -83,6 +83,10 @@ export const zhTW: Messages = {
       name: '字幕翻譯',
       description: '當平台沒有你的語言字幕時翻譯整條字幕軌。較長影片會產生較多請求。',
     },
+    hint: {
+      name: '釋義提示',
+      description: '提示來自 AI 導師時，在難詞下方顯示簡短釋義。每觀看約十行發送一次請求。',
+    },
   },
 
   lookup: {
@@ -241,6 +245,16 @@ export const zhTW: Messages = {
       frequencyColorsHelpBefore: '用三種顏色底線標出低頻字。每種語言首次使用時從 ',
       frequencyColorsLink: 'OpenSubtitles 詞頻表',
       frequencyColorsHelpAfter: ' 下載一次字表。',
+      definitionHints: '釋義提示',
+      definitionHintsHelp: '在超出你詞彙程度的難詞下方顯示簡短釋義，難度依與詞頻著色相同的字表判斷。',
+      hintLevel: '詞彙程度',
+      hintLevelHelp: (scale: string) => `超出此 ${scale} 程度的詞會顯示提示。`,
+      hintLevelAutoHelp: '每部影片依其語言的標準：日語用 JLPT，中文用 HSK，韓語用 TOPIK，其他語言用 CEFR。',
+      hintSource: '提示來源',
+      hintSourceChrome: '裝置端',
+      hintSourceAi: 'AI 導師',
+      hintSourceHelp:
+        '裝置端翻譯免費且保護隱私，但逐詞翻譯。導師會讀整行以選出正確詞義；每十行約一次請求，並會把這些台詞傳送給你的服務商。',
       sizePositionCard: '大小與位置',
       textSize: '字體大小',
       textSizeHelp: '基於 1000 像素寬播放器的字級，會隨播放器等比縮放。',
@@ -884,6 +898,9 @@ export const zhTW: Messages = {
       otherLanguages: '其他語言',
       otherSubtitleTracks: '其他字幕軌道',
       noSubtitleTracks: '無可用字幕軌',
+      definitionHints: '釋義提示',
+      hintsUnavailable: (pair: string) => `釋義提示需要 Chrome 裝置端翻譯（${pair}），但此處無法使用。可以在設定中把提示來源改為 AI 導師。`,
+      hintsNeedAi: '來自導師的釋義提示需要 AI 服務商。請先設定，或把提示來源改為裝置端。',
     },
     subtitles: {
       metaOfficial: '官方字幕',

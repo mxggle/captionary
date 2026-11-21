@@ -17,6 +17,7 @@ import { canRomanize } from '@/lib/text/romanize';
 import { SubtitleLoadError, type Cue, type TrackInfo, type TranslationSource } from '@/lib/subtitles/types';
 import { chromeTranslatorState, translateLines } from '@/lib/translate';
 import { listVocab, saveVocab, watchVocab, type SaveInput, type VocabItem } from '@/lib/vocab';
+import { HintLoader } from './hints';
 import { getSession, sessionStore, setSession, type AnchorRect, type MediaInfo, type PopupTarget, type SessionState } from './store';
 
 export interface SiteAdapter {
@@ -58,6 +59,11 @@ export interface SiteAdapter {
    * over the video.
    */
   reserveRight?(px: number): void;
+}
+
+/** Frequency ranks are needed for frequency colours and for picking the words that get definition hints. */
+function wantsFrequency(s: Settings): boolean {
+  return s.subtitles.frequencyColors || s.subtitles.definitionHints;
 }
 
 /** Seconds before a cue's end at which auto-pause triggers (one animation frame of slack). */
@@ -121,6 +127,8 @@ export class SessionController {
   /** What the host's captions button last said for this video (see {@link syncHostCaptions}). */
   private hostCaptions: boolean | null = null;
 
+  private hints = new HintLoader((text) => toast(text, { tone: 'warn' }));
+
   constructor(public adapter: SiteAdapter) {}
 
   async init(): Promise<void> {
@@ -141,6 +149,18 @@ export class SessionController {
         ) {
           this.applyNativeHidden();
         }
+        if (
+          next.settings !== prev.settings ||
+          next.cues !== prev.cues ||
+          next.lang !== prev.lang ||
+          next.activeIndex !== prev.activeIndex ||
+          next.lastIndex !== prev.lastIndex ||
+          next.frequency !== prev.frequency ||
+          next.status !== prev.status ||
+          next.off !== prev.off
+        ) {
+          this.hints.update();
+        }
       }),
     );
     this.cleanups.push(
@@ -158,7 +178,7 @@ export class SessionController {
           void this.reloadForSettings(prev);
         }
         if (!prev.subtitles.showRomanization && next.subtitles.showRomanization) void this.loadRomanizations(this.generation);
-        if (!prev.subtitles.frequencyColors && next.subtitles.frequencyColors) void this.loadFrequency();
+        if (wantsFrequency(next) && !wantsFrequency(prev)) void this.loadFrequency();
       }),
     );
     const items = await listVocab();
@@ -734,10 +754,15 @@ export class SessionController {
 
   private frequencyCache = new Map<string, Map<string, number> | null>();
 
-  /** Frequency ranks for the current language (downloaded once per language). */
+  /** From a click that turns definition hints on: gets the on-device translator ready (see {@link HintLoader.prime}). */
+  primeHints() {
+    this.hints.prime();
+  }
+
+  /** Frequency ranks for the current language (downloaded once per language), for colours and hints. */
   async loadFrequency() {
     const { lang, settings } = getSession();
-    if (!settings.subtitles.frequencyColors || !lang) return setSession({ frequency: null });
+    if (!wantsFrequency(settings) || !lang) return setSession({ frequency: null });
     if (!this.frequencyCache.has(lang)) {
       try {
         const words = await bg({ type: 'freq.list', lang });

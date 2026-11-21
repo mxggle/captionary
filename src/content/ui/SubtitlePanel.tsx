@@ -290,7 +290,7 @@ export function SubtitlePanel({
           </button>
         </div>
       )}
-      {s.frequency && tab === 'subs' && <FrequencyLegend className="cap-panel__legend" />}
+      {s.frequency && settings.subtitles.frequencyColors && tab === 'subs' && <FrequencyLegend className="cap-panel__legend" />}
       {s.translationStatus === 'error' && tab === 'subs' && (
         <div className="cap-panel__status is-error" role="alert">
           <span className="cap-spacer">{m.content.panel.translationFailed(s.translationMessage)}</span>
@@ -324,7 +324,7 @@ export function SubtitlePanel({
                         lang={s.lang}
                         index={index}
                         highlight={settings.subtitles.highlight}
-                        freq={s.frequency}
+                        freq={settings.subtitles.frequencyColors ? s.frequency : null}
                         selected={selected}
                         onSelect={(sel) =>
                           controller.openPopup({

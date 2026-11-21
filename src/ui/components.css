@@ -1746,6 +1746,21 @@ textarea.cap-input {
 .cap-lyric__text .cap-w {
   white-space: nowrap;
 }
+/* Definition hints: a short gloss under a difficult word, set as ruby under the word. */
+.cap-hint {
+  ruby-position: under;
+  ruby-align: center;
+}
+.cap-hint__text {
+  padding-top: 0.22em;
+  color: var(--caption-translation);
+  font-size: max(11px, 0.46em);
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: 0;
+  white-space: nowrap;
+  user-select: none;
+}
 .cap-panel .cap-w.is-learn,
 .cap-reader .cap-w.is-learn {
   text-decoration-color: var(--learn-line);

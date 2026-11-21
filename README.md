@@ -23,6 +23,13 @@ using the AI provider of your choice.
 - Optional word-frequency colors: words are underlined by how common they are in film and TV
   subtitles (2k–8k, 8k–20k, rarer), using OpenSubtitles frequency lists downloaded once per
   language. The pop-up shows the word's rank.
+- Optional definition hints: a short meaning under the words in a line that are difficult at your
+  vocabulary level, picked on the scale learners of that language know (JLPT N5–N1 for Japanese,
+  HSK 1–7–9 for Chinese, TOPIK 1–6 for Korean, CEFR A1–C2 otherwise). Difficulty comes from the
+  same frequency lists; at most three hints a line, never on words saved as known. Glosses come from
+  Chrome's on-device translator (free, private, word by word) or, if you choose, the AI tutor, which
+  reads the line to pick the right sense (about one request per ten lines). Set from the player menu
+  or *Settings → Subtitles*.
 - Playback tools: auto-pause after every line, previous / repeat / next line, speed control,
   pause while hovering the subtitles.
 - Keyboard shortcuts (all remappable): `A` previous, `S` repeat, `D` next, `Q` auto-pause,

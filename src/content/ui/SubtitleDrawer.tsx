@@ -118,7 +118,7 @@ export function SubtitleDrawer({ controller, width, bottom = 0 }: { controller: 
                     lang={s.lang}
                     index={index}
                     highlight={settings.subtitles.highlight}
-                    freq={s.frequency}
+                    freq={settings.subtitles.frequencyColors ? s.frequency : null}
                     selected={selected}
                     spaceIsPlayback
                     onSelect={(sel) =>

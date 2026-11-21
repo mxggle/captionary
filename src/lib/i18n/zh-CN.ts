@@ -83,6 +83,10 @@ export const zhCN: Messages = {
       name: '字幕翻译',
       description: '当平台没有你的语言字幕时翻译整条字幕轨。较长视频会产生较多请求。',
     },
+    hint: {
+      name: '释义提示',
+      description: '提示来自 AI 导师时，在难词下方显示简短释义。每观看约十行发送一次请求。',
+    },
   },
 
   lookup: {
@@ -241,6 +245,16 @@ export const zhCN: Messages = {
       frequencyColorsHelpBefore: '用三种颜色下划线标出低频词。每种语言首次使用时从 ',
       frequencyColorsLink: 'OpenSubtitles 词频表',
       frequencyColorsHelpAfter: ' 下载一次词表。',
+      definitionHints: '释义提示',
+      definitionHintsHelp: '在超出你词汇水平的难词下方显示简短释义，难度按与词频着色相同的词表判断。',
+      hintLevel: '词汇水平',
+      hintLevelHelp: (scale: string) => `超出此 ${scale} 水平的词会显示提示。`,
+      hintLevelAutoHelp: '每个视频按其语言的标准：日语用 JLPT，中文用 HSK，韩语用 TOPIK，其他语言用 CEFR。',
+      hintSource: '提示来源',
+      hintSourceChrome: '设备端',
+      hintSourceAi: 'AI 导师',
+      hintSourceHelp:
+        '设备端翻译免费且保护隐私，但逐词翻译。导师会读整行以选出正确词义；每十行约一次请求，并会把这些台词发送给你的服务商。',
       sizePositionCard: '大小与位置',
       textSize: '字号大小',
       textSizeHelp: '基于 1000 像素宽播放器的字号，会随播放器等比缩放。',
@@ -884,6 +898,9 @@ export const zhCN: Messages = {
       otherLanguages: '其他语言',
       otherSubtitleTracks: '其他字幕轨道',
       noSubtitleTracks: '无可用字幕轨',
+      definitionHints: '释义提示',
+      hintsUnavailable: (pair: string) => `释义提示需要 Chrome 设备端翻译（${pair}），但此处不可用。可以在设置中把提示来源改为 AI 导师。`,
+      hintsNeedAi: '来自导师的释义提示需要 AI 服务商。请先设置，或把提示来源改为设备端。',
     },
     subtitles: {
       metaOfficial: '官方字幕',
