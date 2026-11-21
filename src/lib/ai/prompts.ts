@@ -107,6 +107,14 @@ Rules:
 - Lines can be fragments of a sentence that continues on the next line; translate each so the sequence reads naturally, but never merge, split, drop or reorder lines.
 - Keep the subtitle style: short, natural, spoken language. Keep names as they are.
 - If a line is a sound description such as [music], translate the description.`,
+
+  hint: `You write the short glosses a {{level}} learner of {{targetLanguage}} sees under difficult words in subtitles. The learner's native language is {{nativeLanguage}}.
+${UNTRUSTED_NOTE}
+Rules:
+- For each listed word, give its meaning in this line, in {{nativeLanguage}}: one to three words, no explanation, no punctuation at the end.
+- Gloss the word as used in the line (its sense, tense and form), not its general dictionary meaning.
+- If a listed word is a name, or needs no gloss, give "".
+- Return only JSON of the form {"g": [["…", "…"], ["…"]]}: one array per line, in order, with one gloss per listed word, in order.`,
 };
 
 export const PROMPT_VARIABLES: Record<keyof PromptVars, string> = {
@@ -196,6 +204,25 @@ export function buildPrompt(job: AIJob, opts: PromptOptions): BuiltPrompt {
     level: opts.level,
   };
 
+  if (job.task === 'hint') {
+    vars.level = job.level;
+    const system = renderTemplate(opts.ai.prompts.hint || DEFAULT_PROMPTS.hint, vars);
+    const payload = JSON.stringify({
+      lines: job.items.map((it) => ({ line: sanitizeContext(it.line), words: it.words.map(sanitizeContext) })),
+    });
+    const counts = job.items.map((it) => it.words.length).join(', ');
+    return {
+      system,
+      json: true,
+      messages: [
+        {
+          role: 'user',
+          content: `Gloss the listed words in these ${job.items.length} lines. Reply with {"g": [...]} holding ${job.items.length} arrays of ${counts} strings.\n<context>\n${payload}\n</context>`,
+        },
+      ],
+    };
+  }
+
   if (job.task === 'translate') {
     vars.sourceLanguage = languageName(job.sourceLang);
     vars.targetLanguage = languageName(job.targetLang);
@@ -279,6 +306,30 @@ export function mergeConsecutive(messages: ChatTurn[]): ChatTurn[] {
     else out.push({ ...m });
   }
   return out;
+}
+
+/** Parse a hint-task response: one array of glosses per line, each as long as that line's word list. */
+export function parseGlosses(raw: string, counts: number[]): string[][] | null {
+  const text = raw
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/```\s*$/, '');
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  const candidates = [text];
+  if (start >= 0 && end > start) candidates.push(text.slice(start, end + 1));
+  for (const c of candidates) {
+    try {
+      const parsed = JSON.parse(c) as unknown;
+      const arr = Array.isArray(parsed) ? parsed : parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>).g : null;
+      if (!Array.isArray(arr) || arr.length !== counts.length) continue;
+      if (!arr.every((row, i) => Array.isArray(row) && row.length === counts[i])) continue;
+      return (arr as unknown[][]).map((row) => row.map((x) => String(x ?? '')));
+    } catch {
+      // try next candidate
+    }
+  }
+  return null;
 }
 
 /** Parse a translate-task response; tolerant of code fences and minor format drift. */
@@ -461,9 +512,10 @@ export function parseWordExplanation(text: string, partial = false): WordExplana
 }
 
 /** "`gave up` (give up) → 放弃": the chunk in backticks (or bold), an optional dictionary form, an arrow and the meaning. */
-const CHUNK_LINE = /^(?:`([^`]+)`|\*\*([^*]+)\*\*)\s*(?:[(（]([^)）]*)[)）])?\s*(?:→|->|⟶|=>)\s*(.*)$/;
+// Models sometimes double a backtick ("``uh`"), so any run of them counts as one.
+const CHUNK_LINE = /^(?:`+([^`]+)`+|\*\*([^*]+)\*\*)\s*(?:[(（]([^)）]*)[)）])?\s*(?:→|->|⟶|=>)\s*(.*)$/;
 
-function parseChunk(line: string): WordChunk | undefined {
+export function parseChunk(line: string): WordChunk | undefined {
   const m = line.match(CHUNK_LINE);
   const text = (m?.[1] ?? m?.[2])?.trim();
   if (!m || !text) return undefined;

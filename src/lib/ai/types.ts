@@ -18,9 +18,9 @@ export type ProviderKind =
 export type ProviderProtocol = 'openai' | 'chatgpt' | 'anthropic' | 'gemini' | 'chrome';
 
 /** The jobs the extension asks an AI model to do. Each can be routed to a different model. */
-export type AITask = 'word' | 'sentence' | 'chat' | 'story' | 'translate';
+export type AITask = 'word' | 'sentence' | 'chat' | 'story' | 'translate' | 'hint';
 
-export const AI_TASKS: AITask[] = ['word', 'sentence', 'chat', 'story', 'translate'];
+export const AI_TASKS: AITask[] = ['word', 'sentence', 'chat', 'story', 'translate', 'hint'];
 
 /** "default" leaves reasoning effort to the provider. */
 export type ReasoningEffort = 'default' | 'minimal' | 'low' | 'medium' | 'high';
@@ -150,6 +150,14 @@ export type AIJob =
       lines: string[];
       sourceLang: string;
       targetLang: string;
+    }
+  | {
+      task: 'hint';
+      /** Subtitle lines, each with the words in it to gloss. */
+      items: { line: string; words: string[] }[];
+      targetLang: string;
+      /** The learner's vocabulary level as they picked it ("JLPT N3", "B1"). */
+      level: string;
     };
 
 export interface AIUsage {

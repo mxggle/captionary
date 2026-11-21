@@ -41,6 +41,14 @@ const playerRequest = (url = TOKEN_URL) => bridge.listeners.forEach((l) => l({ t
 /** The player's token minter is ready to sign requests, as relayed by the MAIN-world script. */
 const minterReady = () => bridge.listeners.forEach((l) => l({ type: 'yt.potReady' }));
 
+function captionsButton(pressed: string) {
+  const button = document.createElement('button');
+  button.className = 'ytp-subtitles-button';
+  button.setAttribute('aria-pressed', pressed);
+  document.getElementById('movie_player')!.append(button);
+  return button;
+}
+
 async function setup(extra?: Partial<YtPlayerData>) {
   bridge.playerData = playerData(extra);
   const adapter = new YouTubeAdapter();
@@ -84,6 +92,29 @@ describe('YouTubeAdapter caption token', () => {
 
     playerRequest();
     await expect(load).resolves.toHaveLength(1);
+  });
+
+  it('never switches CC on while the learner has it off: their pressing it brings the token', async () => {
+    vi.useFakeTimers();
+    const adapter = await setup();
+    captionsButton('false');
+    const load = adapter.loadTrack('.en');
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(bridge.posted).toEqual([]);
+
+    playerRequest();
+    await expect(load).resolves.toHaveLength(1);
+  });
+
+  it('asks again when the token arrives while its first request is under way', async () => {
+    const adapter = await setup();
+    fetchMock.mockImplementationOnce(async () => {
+      playerRequest();
+      return new Response('');
+    });
+    await expect(adapter.loadTrack('.en')).resolves.toHaveLength(1);
+    expect(bridge.posted).toEqual([]);
+    expect(String(fetchMock.mock.calls[1][0])).toContain('pot=TOKEN');
   });
 
   it('reports a token that arrives after a failed load', async () => {
@@ -153,5 +184,39 @@ describe('YouTubeAdapter caption token', () => {
     // Nothing is awaited any more.
     minterReady();
     expect(bridge.posted).toHaveLength(2);
+  });
+});
+
+describe('YouTubeAdapter CC button', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '<div id="movie_player"></div>';
+  });
+
+  it('says what the button says', () => {
+    const adapter = new YouTubeAdapter();
+    const button = captionsButton('false');
+    expect(adapter.hostCaptionsOn()).toBe(false);
+    button.setAttribute('aria-pressed', 'true');
+    expect(adapter.hostCaptionsOn()).toBe(true);
+  });
+
+  it("cannot say during an ad, whose captions are not the video's", () => {
+    const adapter = new YouTubeAdapter();
+    captionsButton('false');
+    document.getElementById('movie_player')!.classList.add('ad-showing');
+    expect(adapter.hostCaptionsOn()).toBe(null);
+  });
+
+  it('counts as on without a button, so a changed player does not turn Captionary off for good', () => {
+    expect(new YouTubeAdapter().hostCaptionsOn()).toBe(true);
+  });
+
+  it('presses the button', () => {
+    const adapter = new YouTubeAdapter();
+    const button = captionsButton('false');
+    const click = vi.fn();
+    button.addEventListener('click', click);
+    adapter.showHostCaptions();
+    expect(click).toHaveBeenCalledOnce();
   });
 });

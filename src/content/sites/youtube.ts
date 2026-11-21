@@ -74,7 +74,7 @@ export class YouTubeAdapter implements SiteAdapter {
   /** The player can sign caption requests now: ask again for captions it loaded before it could. */
   private onPotReady() {
     const awaiting = this.awaiting;
-    if (awaiting && awaiting.videoId === this.videoId) this.askPlayer(awaiting.videoId, awaiting.lang);
+    if (awaiting && awaiting.videoId === this.videoId && this.hostCaptionsOn() !== false) this.askPlayer(awaiting.videoId, awaiting.lang);
   }
 
   /** Have the player load captions, to reuse the token its request carries. */
@@ -107,6 +107,20 @@ export class YouTubeAdapter implements SiteAdapter {
 
   pause() {
     this.getVideo()?.pause();
+  }
+
+  /** The CC button as the learner sees it. Without a button to read, Captionary stays on as it always was. */
+  hostCaptionsOn(): boolean | null {
+    if (this.adShowing()) return null;
+    return this.captionsButton()?.getAttribute('aria-pressed') !== 'false';
+  }
+
+  showHostCaptions() {
+    this.captionsButton()?.click();
+  }
+
+  private captionsButton() {
+    return document.querySelector<HTMLElement>('#movie_player .ytp-subtitles-button');
   }
 
   setNativeSubtitlesHidden(hidden: boolean) {
@@ -215,10 +229,11 @@ export class YouTubeAdapter implements SiteAdapter {
       if (askedPlayer) break;
       askedPlayer = true;
       // Otherwise have the player load captions once and reuse the token its request carries. It
-      // fetches the video's captions only after a preroll ad, so wait that out first.
+      // fetches the video's captions only after a preroll ad, so wait that out first. That switches CC
+      // on, so never when the learner has it off: their pressing it brings the token.
       const deadline = Date.now() + AD_WAIT_MS;
       while (this.adShowing() && Date.now() < deadline) await new Promise((r) => setTimeout(r, 500));
-      if (this.tokens.get(videoId) === token) this.askPlayer(videoId, track.lang);
+      if (this.tokens.get(videoId) === token && this.hostCaptionsOn() !== false) this.askPlayer(videoId, track.lang);
       if (!(await this.waitForToken(videoId, token, 8000))) break;
     }
     throw new SubtitleLoadError(getMessages(getCurrentUILocale()).content.errors.youtubeNoSubtitlesReturned);

@@ -32,6 +32,8 @@ interface Props {
   selected?: [number, number] | null;
   /** Over a video Space plays and pauses, so only Enter looks a word up. */
   spaceIsPlayback?: boolean;
+  /** Definition hints: normalized word -> short gloss, shown under the word (never on a word saved as known). */
+  glosses?: Record<string, string>;
 }
 
 function unionRect(a: DOMRect, b: DOMRect): AnchorRect {
@@ -59,6 +61,7 @@ export const TokenizedText = memo(function TokenizedText({
   freq,
   selected,
   spaceIsPlayback,
+  glosses,
 }: Props) {
   const { m } = useI18n();
   const tokens = useMemo(() => tokenize(text, lang), [text, lang]);
@@ -173,7 +176,10 @@ export const TokenizedText = memo(function TokenizedText({
         const flaggable = !!freq && !wordStatus && !inPhrase && !/^\p{N}+$/u.test(key);
         const rank = flaggable ? frequencyRank(freq, key) : undefined;
         const freqCls = flaggable ? frequencyClass(rank) : '';
-        const cls = ['cap-w', status ? STATUS_CLASS[status] : freqCls, i >= lo && i <= hi ? 'is-selected' : ''].filter(Boolean).join(' ');
+        const gloss = wordStatus === 'known' ? undefined : glosses?.[key];
+        const cls = ['cap-w', status ? STATUS_CLASS[status] : freqCls, i >= lo && i <= hi ? 'is-selected' : '', gloss ? 'has-hint' : '']
+          .filter(Boolean)
+          .join(' ');
         return (
           <span
             key={i}
@@ -199,7 +205,14 @@ export const TokenizedText = memo(function TokenizedText({
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            {t.text}
+            {gloss ? (
+              <ruby className="cap-hint">
+                {t.text}
+                <rt className="cap-hint__text">{gloss}</rt>
+              </ruby>
+            ) : (
+              t.text
+            )}
           </span>
         );
       })}

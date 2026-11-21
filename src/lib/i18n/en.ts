@@ -85,6 +85,10 @@ export const en = {
       name: 'Subtitle translation',
       description: 'Translates whole subtitle tracks when the site has none in your language. Long videos make many requests.',
     },
+    hint: {
+      name: 'Definition hints',
+      description: 'Short meanings under difficult words, when hints come from the tutor. About one request per ten lines watched.',
+    },
   } satisfies Record<AITask, { name: string; description: string }>,
 
   lookup: {
@@ -184,7 +188,6 @@ export const en = {
     finishSetupTitle: 'Finish setting up Captionary',
     continueSetup: 'Continue setup',
     imLearning: 'I’m learning',
-    andISpeak: 'and I speak',
     iSpeakLabel: 'I speak',
     pagesNavAria: 'Captionary pages',
     savedWordsSub: (learning: number, known: number) => `${learning} learning · ${known} known`,
@@ -243,6 +246,17 @@ export const en = {
       frequencyColorsHelpBefore: 'Underlines rarer words in three colours. Downloads a word list once per language from the ',
       frequencyColorsLink: 'OpenSubtitles frequency lists',
       frequencyColorsHelpAfter: '.',
+      definitionHints: 'Definition hints',
+      definitionHintsHelp:
+        'A short meaning under words that are difficult at your vocabulary level, judged by the same word lists as frequency colours.',
+      hintLevel: 'Vocabulary level',
+      hintLevelHelp: (scale: string) => `Words beyond this ${scale} level get a hint.`,
+      hintLevelAutoHelp: 'Each video uses its language’s scale: JLPT for Japanese, HSK for Chinese, TOPIK for Korean, CEFR for the rest.',
+      hintSource: 'Hints come from',
+      hintSourceChrome: 'On-device',
+      hintSourceAi: 'AI tutor',
+      hintSourceHelp:
+        'On-device is free and private, but translates each word on its own. The tutor reads the line to pick the right sense; it costs about one request per ten lines and sends those lines to your provider.',
       sizePositionCard: 'Size and position',
       textSize: 'Text size',
       textSizeHelp: 'At a 1000-pixel-wide player; scales with the player.',
@@ -251,7 +265,7 @@ export const en = {
       hideNativeSubtitles: 'Hide the site’s own subtitles',
       translationCard: 'Translation',
       whenNoSubtitles: 'When the video has no subtitles in your language',
-      whenNoSubtitlesHelp: 'A human subtitle track is always used first when there is one.',
+      whenNoSubtitlesHelp: 'A human subtitle track is always used first when there is one. “No translation” shows none at all.',
       enginePlatformLabel: 'The site’s auto-translate',
       enginePlatformMeta: 'then on-device',
       enginePlatformText: 'The site’s auto-translate, then on-device, then the tutor',
@@ -834,6 +848,7 @@ export const en = {
       playerButtonTextBefore: 'On a video, look for the Captionary button ',
       playerButtonTextAfter: ' in the player’s controls. It turns the translation on or off and changes languages.',
       reloadOpenVideoNote: 'Had a video open before you installed Captionary? Reload that tab so Captionary can start there.',
+      followsCcNote: 'On YouTube, Captionary follows the player’s CC button: with CC off it stays out of the way, so turn CC on to use it.',
       handyKeys: 'Handy keys while you watch',
       prevRepeatNext: 'Previous line, repeat, next line',
       pauseEveryLine: 'Pause after every line',
@@ -895,6 +910,10 @@ export const en = {
       otherLanguages: 'Other languages',
       otherSubtitleTracks: 'Other subtitle tracks',
       noSubtitleTracks: 'No subtitle tracks',
+      definitionHints: 'Definition hints',
+      hintsUnavailable: (pair: string) =>
+        `Definition hints need Chrome’s on-device translator for ${pair}, which isn’t available here. You can switch hints to the AI tutor in settings.`,
+      hintsNeedAi: 'Definition hints from the tutor need an AI provider. Set one up, or switch hints to on-device.',
     },
     subtitles: {
       metaOfficial: 'official subtitles',

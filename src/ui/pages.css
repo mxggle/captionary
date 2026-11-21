@@ -132,13 +132,21 @@ body.cap-popup-page {
   font-weight: 600;
   letter-spacing: -0.015em;
 }
-.cap-popup__sentence {
-  font-size: 15px;
-  line-height: 2.1;
+/* The two languages, one per row: label on the left, picker on the right, so no locale wraps mid-phrase. */
+.cap-popup__langs {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px 12px;
+  font-size: 14px;
   color: var(--ink-muted);
 }
-/* Each connecting phrase stays whole, so "and I speak" or 「・母語」 never splits across lines. */
-.cap-popup__phrase {
+.cap-popup__langs .cap-sentence-pick {
+  justify-self: end;
+  max-width: 100%;
+  margin: 0;
+}
+.cap-popup__lang-label {
   white-space: nowrap;
 }
 .cap-golist {

@@ -4,7 +4,18 @@ import { useI18n } from '@/lib/i18n';
 import { sameLang } from '@/lib/languages';
 import { bg } from '@/lib/messaging';
 import { updateSettings, type Settings } from '@/lib/settings';
-import { IconBookmark, IconCaptions, IconCheck, IconEye, IconGlyph, IconList, IconPause, IconSettings, IconTranslate } from '@/ui/icons';
+import {
+  IconBook,
+  IconBookmark,
+  IconCaptions,
+  IconCheck,
+  IconEye,
+  IconGlyph,
+  IconList,
+  IconPause,
+  IconSettings,
+  IconTranslate,
+} from '@/ui/icons';
 import { keyName, type SessionController } from '../controller';
 import { useSession, type AnchorRect } from '../store';
 import {
@@ -19,11 +30,13 @@ import {
   TranslationChoices,
 } from './menus';
 import { measureClearance, playerOf } from './clearance';
+import { hintLevelLabel } from '../hints';
+import { HINT_SCALES, hintLevelFor, hintLevelName, hintScaleFor } from '@/lib/text/hints';
 import { useMenuKeys } from './focus';
 import { pickTranslation, sourceKey, trackLabel, translationChoices, translationValue } from './subtitles';
 import { useContainWheel } from './wheel';
 
-type Page = 'main' | 'original' | 'translation';
+type Page = 'main' | 'original' | 'translation' | 'hints';
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
@@ -184,6 +197,19 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
       }}
     />
   );
+  // Definition hints: off, or the level words are judged against, on the scale of this video's language.
+  const hintScale = hintScaleFor(s.lang || settings.targetLanguage);
+  const hintsValue = settings.subtitles.definitionHints ? hintLevelLabel(settings, s.lang || settings.targetLanguage) : m.common.off;
+  const setHints = (on: boolean, level?: string) => {
+    if (on) controller.primeHints();
+    set((st) => {
+      st.subtitles.definitionHints = on;
+      if (level) st.subtitles.hintLevels = { ...st.subtitles.hintLevels, [hintScale]: level };
+    });
+  };
+  const hintsRow = (
+    <MenuRow icon={icon(IconBook)} label={m.content.playerMenu.definitionHints} value={hintsValue} onClick={() => setPage('hints')} />
+  );
   const links = (
     <>
       <MenuRow
@@ -197,7 +223,26 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
   );
 
   let body;
-  if (page === 'original') {
+  if (page === 'hints') {
+    const current = hintLevelFor(hintScale, settings.subtitles.hintLevels, settings.learnerLevel).id;
+    body = (
+      <>
+        <MenuBack title={m.content.playerMenu.definitionHints} onBack={() => setPage('main')} />
+        <MenuRadio label={m.common.off} checked={!settings.subtitles.definitionHints} onClick={() => setHints(false)} />
+        {HINT_SCALES[hintScale].levels.map((l) => (
+          <MenuRadio
+            key={l.id}
+            label={hintLevelName(hintScale, l)}
+            checked={settings.subtitles.definitionHints && l.id === current}
+            onClick={() => {
+              setHints(true, l.id);
+              setPage('main');
+            }}
+          />
+        ))}
+      </>
+    );
+  } else if (page === 'original') {
     body = (
       <>
         <MenuBack title={m.content.playerMenu.originalSubtitles} onBack={() => setPage('main')} />
@@ -205,6 +250,7 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
           controller={controller}
           tracks={originalTracks(s.tracks)}
           originalTrackId={s.originalTrackId}
+          shown={settings.subtitles.showOriginal}
           onDone={() => setPage('main')}
         />
       </>
@@ -241,14 +287,24 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
             <div className="cap-menu__colhead" aria-hidden="true">
               {m.content.playerMenu.originalShort}
             </div>
-            {originalTracks(s.tracks).map((t) => (
+            {originalTracks(s.tracks).length > 0 && (
               <NetflixOption
-                key={t.id}
-                label={trackLabel(t)}
-                checked={t.id === s.originalTrackId}
-                onClick={() => t.id !== s.originalTrackId && void controller.selectOriginalTrack(t.id)}
+                label={m.common.off}
+                checked={!settings.subtitles.showOriginal}
+                onClick={() => settings.subtitles.showOriginal && void controller.chooseOriginal(null)}
               />
-            ))}
+            )}
+            {originalTracks(s.tracks).map((t) => {
+              const checked = settings.subtitles.showOriginal && t.id === s.originalTrackId;
+              return (
+                <NetflixOption
+                  key={t.id}
+                  label={trackLabel(t)}
+                  checked={checked}
+                  onClick={() => !checked && void controller.chooseOriginal(t.id)}
+                />
+              );
+            })}
           </div>
           <div className="cap-menu__col" role="group" aria-label={m.content.playerMenu.translation}>
             <div className="cap-menu__colhead" aria-hidden="true">
@@ -296,6 +352,13 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
             onClick={() => set((st) => void (st.subtitles.blurTranslation = !st.subtitles.blurTranslation))}
           />
           <NetflixOption
+            role="menuitemcheckbox"
+            label={m.content.playerMenu.definitionHints}
+            meta={settings.subtitles.definitionHints ? hintsValue : undefined}
+            checked={settings.subtitles.definitionHints}
+            onClick={() => setHints(!settings.subtitles.definitionHints)}
+          />
+          <NetflixOption
             role="menuitem"
             label={m.content.playerMenu.savedWords}
             meta={`${m.content.playerMenu.learningCount(learning)} ›`}
@@ -316,7 +379,7 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
           {check(s.off ? m.content.playerMenu.offForTitle : m.content.playerMenu.onForTitle, !s.off, () => controller.setOff(!s.off))}
           <MenuRow
             label={m.content.playerMenu.originalSubtitles}
-            value={originalValue(s.tracks, s.originalTrackId)}
+            value={originalValue(s.tracks, s.originalTrackId, settings.subtitles.showOriginal)}
             onClick={() => setPage('original')}
           />
           <MenuRow
@@ -324,6 +387,7 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
             value={translationValue(choices, s.translationSource)}
             onClick={() => setPage('translation')}
           />
+          {hintsRow}
         </MenuGroup>
         <MenuGroup label={m.content.playerMenu.options} titled={false}>
           {check(m.content.playerMenu.pauseAfterEachLine, settings.playback.autoPause, () =>
@@ -350,7 +414,7 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
         <MenuRow
           icon={icon(IconCaptions)}
           label={m.content.playerMenu.originalSubtitles}
-          value={originalValue(s.tracks, s.originalTrackId)}
+          value={originalValue(s.tracks, s.originalTrackId, settings.subtitles.showOriginal)}
           onClick={() => setPage('original')}
         />
         <MenuRow
@@ -359,6 +423,7 @@ export function PlayerMenu({ controller, boundsRef }: { controller: SessionContr
           value={translationValue(choices, s.translationSource)}
           onClick={() => setPage('translation')}
         />
+        {hintsRow}
         {pause}
         {blur}
         {list}

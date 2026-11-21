@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent, type RefObject } from 'react';
 import { formatAIError, useI18n } from '@/lib/i18n';
 import { bg, type AIStatus } from '@/lib/messaging';
 import type { Settings } from '@/lib/settings';
@@ -206,14 +206,16 @@ export function LookupCard(props: LookupCardProps) {
   const posLabel = view === 'more' ? 'Wiktionary' : [lookup.pos, band].filter(Boolean).join(' · ');
   const learning = saved?.status === 'learning';
   const known = saved?.status === 'known';
-  // A card above the caption line would grow upward line by line as the answer streams in, moving
-  // the text being read; it takes its full height at once instead and fills from the top.
-  const holdHeight = placement.growsUp && view === 'explain' && lookup.answerShown;
+  // A card above the caption line grows upward as the answer streams in. It reserves room in steps
+  // instead of line by line, so the text being read moves rarely, and fits its content once done.
+  const streaming = view === 'explain' && (ai.status === 'loading' || ai.status === 'streaming' || lookup.chatting);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const height = useCardHeight(contentRef, placement.maxHeight, !!placement.growsUp && streaming);
 
   return (
     <section
       ref={ref}
-      className={`cap-lookup cap-lookup--native${expanded ? ' is-expanded' : ''}${fixed ? ' is-fixed' : ''}`}
+      className={`cap-lookup cap-lookup--native${expanded ? ' is-expanded' : ''}${fixed ? ' is-fixed' : ''}${placement.growsUp ? ' is-above' : ''}`}
       style={zoom === 1 ? placement.style : { ...placement.style, zoom }}
       role="dialog"
       tabIndex={-1}
@@ -222,166 +224,173 @@ export function LookupCard(props: LookupCardProps) {
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => e.stopPropagation()}
     >
-      <div className="cap-lookup__scroll" style={holdHeight ? { height: placement.maxHeight } : { maxHeight: placement.maxHeight }}>
-        <div className="cap-lookup__head">
-          {isWord ? (
-            <span className="cap-lookup__word" lang={target.lang}>
-              {target.text}
-            </span>
-          ) : (
-            <span className="cap-lookup__word is-sentence" lang={target.lang}>
-              <TokenizedText
-                text={target.text}
+      <div className="cap-lookup__scroll" style={{ maxHeight: placement.maxHeight, height }}>
+        <div className="cap-lookup__content" ref={contentRef}>
+          <div className="cap-lookup__head">
+            {isWord ? (
+              <span className="cap-lookup__word" lang={target.lang}>
+                {target.text}
+              </span>
+            ) : (
+              <span className="cap-lookup__word is-sentence" lang={target.lang}>
+                <TokenizedText
+                  text={target.text}
+                  lang={target.lang}
+                  index={index}
+                  highlight={settings.subtitles.highlight}
+                  onSelect={props.onSelectWord}
+                />
+              </span>
+            )}
+            {!isWord && props.onPlayLine && (
+              <button className="cap-picon" aria-label={m.lookup.playThisLine} title={m.lookup.playThisLine} onClick={props.onPlayLine}>
+                <IconPlay className="cap-ico-lg" />
+              </button>
+            )}
+            {canSpeak() && (
+              <button
+                className="cap-picon"
+                aria-label={m.common.listen}
+                title={m.common.listen}
+                onClick={() => void speak(target.text, target.lang, settings.dictionary.speechRate)}
+              >
+                <IconSpeaker className="cap-ico-lg" />
+              </button>
+            )}
+            {isWord && posLabel && <span className="cap-lookup__pos-native">{posLabel}</span>}
+            {expanded && (
+              <button className="cap-picon" aria-label={m.common.closeEsc} title={m.common.closeEsc} onClick={onClose}>
+                <IconClose className="cap-ico-lg" />
+              </button>
+            )}
+          </div>
+          {lookup.romanized && view !== 'more' && <div className="cap-lookup__roman">{lookup.romanized}</div>}
+          {isWord && view !== 'more' && lookup.translation && (
+            <div className="cap-lookup__tr" lang={settings.nativeLanguage}>
+              {lookup.translation}
+            </div>
+          )}
+          {isWord && view !== 'more' && <ExplanationDefinition explanation={lookup.explanation} />}
+          {isWord && view !== 'more' && suggestion && (
+            <ChunkButton suggestion={suggestion} lang={target.lang} onPick={() => onSelectWord?.({ ...suggestion, rect: target.rect })} />
+          )}
+          <div className="cap-lookup__sep" />
+
+          {isWord && view !== 'more' && (
+            <div className="cap-lookup__actions">
+              <button className="cap-pbtn" aria-pressed={learning} onClick={() => lookup.setStatus('learning')}>
+                {learning ? <IconBookmarkFilled className="cap-ico-lg is-learn" /> : <IconBookmark className="cap-ico-lg" />}
+                {learning ? m.common.learning : m.common.save}
+              </button>
+              <button className="cap-pbtn" aria-pressed={known} onClick={() => lookup.setStatus('known')}>
+                <IconCheck className="cap-ico-lg" strokeWidth={2} />
+                {m.common.known}
+              </button>
+              <button className="cap-pbtn" aria-pressed={view === 'explain'} onClick={explain}>
+                <IconSpark className="cap-ico-lg" />
+                {m.common.explain}
+              </button>
+              <span className="cap-spacer" />
+              <button className="cap-picon" aria-label={m.lookup.moreAria} title={m.common.more} onClick={() => setView('more')}>
+                <IconMore className="cap-ico-lg" />
+              </button>
+            </div>
+          )}
+          {/* Un-pressing Learning or Known removes the entry, notes and all; one press brings it back. */}
+          {isWord && view !== 'more' && lookup.removed && !saved && (
+            <p className="cap-lookup__note" role="status">
+              {m.lookup.removedFromWords}{' '}
+              <button className="cap-lookup__link" onClick={() => void lookup.undoRemove().then(() => toast(m.lookup.restored))}>
+                {m.lookup.undo}
+              </button>
+            </p>
+          )}
+
+          {view === 'explain' && (
+            <>
+              {isWord && <div className="cap-lookup__sep" />}
+              <TutorNative
+                lookup={lookup}
+                openSettings={openSettings}
+                openSetup={openSetup}
                 lang={target.lang}
-                index={index}
-                highlight={settings.subtitles.highlight}
-                onSelect={props.onSelectWord}
+                speechRate={settings.dictionary.speechRate}
+                chunkShown={!!suggestion}
+                onPlayCue={props.onPlayCue}
               />
-            </span>
+              {lookup.aiReady && (ai.status === 'done' || lookup.turns.length > 0) && (
+                <form className="cap-lookup__ask" onSubmit={ask}>
+                  <input
+                    aria-label={m.lookup.askFollowUpLabel}
+                    placeholder={m.lookup.askFollowUpPlaceholder}
+                    value={question}
+                    maxLength={500}
+                    onChange={(e) => setQuestion(e.target.value)}
+                  />
+                  <button
+                    className="cap-picon"
+                    type="submit"
+                    aria-label={m.lookup.askButton}
+                    disabled={!question.trim() || lookup.chatting}
+                  >
+                    <IconArrowRight className="cap-ico" />
+                  </button>
+                </form>
+              )}
+            </>
           )}
-          {!isWord && props.onPlayLine && (
-            <button className="cap-picon" aria-label={m.lookup.playThisLine} title={m.lookup.playThisLine} onClick={props.onPlayLine}>
-              <IconPlay className="cap-ico-lg" />
-            </button>
-          )}
-          {canSpeak() && (
-            <button
-              className="cap-picon"
-              aria-label={m.common.listen}
-              title={m.common.listen}
-              onClick={() => void speak(target.text, target.lang, settings.dictionary.speechRate)}
-            >
-              <IconSpeaker className="cap-ico-lg" />
-            </button>
-          )}
-          {isWord && posLabel && <span className="cap-lookup__pos-native">{posLabel}</span>}
-          {expanded && (
-            <button className="cap-picon" aria-label={m.common.closeEsc} title={m.common.closeEsc} onClick={onClose}>
-              <IconClose className="cap-ico-lg" />
-            </button>
+
+          {view === 'more' && (
+            <>
+              <div className="cap-lookup__ai cap-lookup__dict">
+                {!settings.dictionary.wiktionary && <p className="cap-lookup__dim">{m.lookup.wiktionaryOffNote}</p>}
+                {lookup.dictState === 'loading' && <span className="cap-spinner" />}
+                {lookup.dictState === 'error' && <p className="cap-lookup__dim">{m.lookup.dictError}</p>}
+                {lookup.dictState === 'done' && lookup.dict?.entries.length === 0 && (
+                  <p className="cap-lookup__dim">{m.lookup.dictEmptyNative(target.text)}</p>
+                )}
+                {lookup.dict?.entries.slice(0, 3).map((entry, i) => (
+                  <div key={i} style={i ? { marginTop: 8 } : undefined}>
+                    <p className="cap-lookup__dim" style={{ fontStyle: 'italic' }}>
+                      {entry.partOfSpeech}
+                    </p>
+                    <ol>
+                      {entry.senses.slice(0, 4).map((s, j) => (
+                        <li key={j}>
+                          {s.definition}
+                          {s.examples[0] && <div className="cap-lookup__ex">{s.examples[0]}</div>}
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                ))}
+                <p className="cap-lookup__links">
+                  {lookup.links.map((l) => (
+                    <a key={l.name} href={l.url} target="_blank" rel="noopener noreferrer">
+                      {l.name}
+                    </a>
+                  ))}
+                  {props.onOpenSidePanel && (
+                    <button className="cap-link" onClick={props.onOpenSidePanel}>
+                      {m.lookup.openInSidePanel}
+                    </button>
+                  )}
+                </p>
+              </div>
+              <div className="cap-lookup__sep" />
+              <div className="cap-lookup__actions">
+                <button className="cap-pbtn" onClick={() => copyWithToast(lookup, target.text, m)}>
+                  <IconCopy className="cap-ico-lg" />
+                  {m.common.copy}
+                </button>
+                <button className="cap-pbtn" onClick={() => setView(ai.status === 'idle' ? 'compact' : 'explain')}>
+                  <IconChevronLeft className="cap-ico-lg" />
+                  {m.common.back}
+                </button>
+              </div>
+            </>
           )}
         </div>
-        {lookup.romanized && view !== 'more' && <div className="cap-lookup__roman">{lookup.romanized}</div>}
-        {isWord && view !== 'more' && lookup.translation && (
-          <div className="cap-lookup__tr" lang={settings.nativeLanguage}>
-            {lookup.translation}
-          </div>
-        )}
-        {isWord && view !== 'more' && <ExplanationDefinition explanation={lookup.explanation} />}
-        {isWord && view !== 'more' && suggestion && (
-          <ChunkButton suggestion={suggestion} lang={target.lang} onPick={() => onSelectWord?.({ ...suggestion, rect: target.rect })} />
-        )}
-        <div className="cap-lookup__sep" />
-
-        {isWord && view !== 'more' && (
-          <div className="cap-lookup__actions">
-            <button className="cap-pbtn" aria-pressed={learning} onClick={() => lookup.setStatus('learning')}>
-              {learning ? <IconBookmarkFilled className="cap-ico-lg is-learn" /> : <IconBookmark className="cap-ico-lg" />}
-              {learning ? m.common.learning : m.common.save}
-            </button>
-            <button className="cap-pbtn" aria-pressed={known} onClick={() => lookup.setStatus('known')}>
-              <IconCheck className="cap-ico-lg" strokeWidth={2} />
-              {m.common.known}
-            </button>
-            <button className="cap-pbtn" aria-pressed={view === 'explain'} onClick={explain}>
-              <IconSpark className="cap-ico-lg" />
-              {m.common.explain}
-            </button>
-            <span className="cap-spacer" />
-            <button className="cap-picon" aria-label={m.lookup.moreAria} title={m.common.more} onClick={() => setView('more')}>
-              <IconMore className="cap-ico-lg" />
-            </button>
-          </div>
-        )}
-        {/* Un-pressing Learning or Known removes the entry, notes and all; one press brings it back. */}
-        {isWord && view !== 'more' && lookup.removed && !saved && (
-          <p className="cap-lookup__note" role="status">
-            {m.lookup.removedFromWords}{' '}
-            <button className="cap-lookup__link" onClick={() => void lookup.undoRemove().then(() => toast(m.lookup.restored))}>
-              {m.lookup.undo}
-            </button>
-          </p>
-        )}
-
-        {view === 'explain' && (
-          <>
-            {isWord && <div className="cap-lookup__sep" />}
-            <TutorNative
-              lookup={lookup}
-              openSettings={openSettings}
-              openSetup={openSetup}
-              lang={target.lang}
-              speechRate={settings.dictionary.speechRate}
-              chunkShown={!!suggestion}
-              onPlayCue={props.onPlayCue}
-            />
-            {lookup.aiReady && (ai.status === 'done' || lookup.turns.length > 0) && (
-              <form className="cap-lookup__ask" onSubmit={ask}>
-                <input
-                  aria-label={m.lookup.askFollowUpLabel}
-                  placeholder={m.lookup.askFollowUpPlaceholder}
-                  value={question}
-                  maxLength={500}
-                  onChange={(e) => setQuestion(e.target.value)}
-                />
-                <button className="cap-picon" type="submit" aria-label={m.lookup.askButton} disabled={!question.trim() || lookup.chatting}>
-                  <IconArrowRight className="cap-ico" />
-                </button>
-              </form>
-            )}
-          </>
-        )}
-
-        {view === 'more' && (
-          <>
-            <div className="cap-lookup__ai cap-lookup__dict">
-              {!settings.dictionary.wiktionary && <p className="cap-lookup__dim">{m.lookup.wiktionaryOffNote}</p>}
-              {lookup.dictState === 'loading' && <span className="cap-spinner" />}
-              {lookup.dictState === 'error' && <p className="cap-lookup__dim">{m.lookup.dictError}</p>}
-              {lookup.dictState === 'done' && lookup.dict?.entries.length === 0 && (
-                <p className="cap-lookup__dim">{m.lookup.dictEmptyNative(target.text)}</p>
-              )}
-              {lookup.dict?.entries.slice(0, 3).map((entry, i) => (
-                <div key={i} style={i ? { marginTop: 8 } : undefined}>
-                  <p className="cap-lookup__dim" style={{ fontStyle: 'italic' }}>
-                    {entry.partOfSpeech}
-                  </p>
-                  <ol>
-                    {entry.senses.slice(0, 4).map((s, j) => (
-                      <li key={j}>
-                        {s.definition}
-                        {s.examples[0] && <div className="cap-lookup__ex">{s.examples[0]}</div>}
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-              ))}
-              <p className="cap-lookup__links">
-                {lookup.links.map((l) => (
-                  <a key={l.name} href={l.url} target="_blank" rel="noopener noreferrer">
-                    {l.name}
-                  </a>
-                ))}
-                {props.onOpenSidePanel && (
-                  <button className="cap-link" onClick={props.onOpenSidePanel}>
-                    {m.lookup.openInSidePanel}
-                  </button>
-                )}
-              </p>
-            </div>
-            <div className="cap-lookup__sep" />
-            <div className="cap-lookup__actions">
-              <button className="cap-pbtn" onClick={() => copyWithToast(lookup, target.text, m)}>
-                <IconCopy className="cap-ico-lg" />
-                {m.common.copy}
-              </button>
-              <button className="cap-pbtn" onClick={() => setView(ai.status === 'idle' ? 'compact' : 'explain')}>
-                <IconChevronLeft className="cap-ico-lg" />
-                {m.common.back}
-              </button>
-            </div>
-          </>
-        )}
       </div>
       {placement.arrow && (
         <div
@@ -535,6 +544,50 @@ function TutorNative({
 }
 
 const SMALL: CSSProperties = { width: 28, height: 28 };
+
+/** Extra room taken at a time while an answer streams into a card that grows upward. */
+const RESERVE_STEP = 96;
+
+/**
+ * The card's height in pixels while it needs one set, else undefined (it fits its content up to
+ * `max`). While `holding`, the height only grows, a step at a time; afterwards it settles on the
+ * content, and the CSS transition makes both moves smooth.
+ */
+function useCardHeight(content: RefObject<HTMLElement | null>, max: number, holding: boolean): number | undefined {
+  const [height, setHeight] = useState<number | undefined>(undefined);
+  const held = useRef<number | undefined>(undefined);
+  useLayoutEffect(() => {
+    const el = content.current;
+    if (!el) return;
+    const measure = () => {
+      const natural = Math.min(max, el.offsetHeight);
+      if (holding) {
+        const prev = Math.min(max, held.current ?? natural);
+        const next = natural > prev ? Math.min(max, natural + RESERVE_STEP) : prev;
+        held.current = next;
+        setHeight(next);
+      } else if (held.current !== undefined) {
+        // Settle from the held height onto the content, then let go so later changes size freely.
+        held.current = undefined;
+        setHeight(natural);
+      } else {
+        setHeight(undefined);
+      }
+    };
+    measure();
+    if (!holding) return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [content, max, holding]);
+  // A settled height is let go once its transition has had time to run.
+  useEffect(() => {
+    if (holding || height === undefined) return;
+    const t = setTimeout(() => setHeight(undefined), 260);
+    return () => clearTimeout(t);
+  }, [holding, height]);
+  return height;
+}
 
 /** Copies and confirms over the video, the way the player's own actions do. */
 function copyWithToast(lookup: ReturnType<typeof useLookup>, text: string, m: ReturnType<typeof useI18n>['m']) {

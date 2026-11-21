@@ -324,16 +324,16 @@ export function Popup() {
 
       <ThisTab s={s} update={update} />
 
-      <div className="cap-popup__sentence">
-        <span className="cap-popup__phrase">{m.popup.imLearning}</span>{' '}
+      <div className="cap-popup__langs">
+        <span className="cap-popup__lang-label">{m.popup.imLearning}</span>
         <LanguageSelect
           variant="sentence"
           label={m.popup.imLearning}
           allowAuto
           value={s.targetLanguage}
           onChange={(v) => void update((st) => void (st.targetLanguage = v))}
-        />{' '}
-        <span className="cap-popup__phrase">{m.popup.andISpeak}</span>{' '}
+        />
+        <span className="cap-popup__lang-label">{m.popup.iSpeakLabel}</span>
         <LanguageSelect
           variant="sentence"
           label={m.popup.iSpeakLabel}
