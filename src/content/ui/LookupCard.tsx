@@ -224,7 +224,7 @@ export function LookupCard(props: LookupCardProps) {
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => e.stopPropagation()}
     >
-      <div className="cap-lookup__scroll" style={height === undefined ? { maxHeight: placement.maxHeight } : { height }}>
+      <div className="cap-lookup__scroll" style={{ maxHeight: placement.maxHeight, height }}>
         <div className="cap-lookup__content" ref={contentRef}>
           <div className="cap-lookup__head">
             {isWord ? (
@@ -562,7 +562,7 @@ function useCardHeight(content: RefObject<HTMLElement | null>, max: number, hold
     const measure = () => {
       const natural = Math.min(max, el.offsetHeight);
       if (holding) {
-        const prev = held.current ?? natural;
+        const prev = Math.min(max, held.current ?? natural);
         const next = natural > prev ? Math.min(max, natural + RESERVE_STEP) : prev;
         held.current = next;
         setHeight(next);
