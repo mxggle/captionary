@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useId, useRef, useState, type KeyboardEvent } from 'react';
 import type { WordExplanation, WordSection } from '@/lib/ai/prompts';
 import { useI18n } from '@/lib/i18n';
 import { canSpeak, speak } from '@/lib/tts';
@@ -35,7 +35,11 @@ export function ChunkButton({ suggestion, lang, onPick }: { suggestion: ChunkSug
       <span className="cap-chunk__text" lang={lang}>
         {suggestion.base}
       </span>
-      {suggestion.meaning && <span className="cap-chunk__meaning">{plain(suggestion.meaning)}</span>}
+      {suggestion.meaning && (
+        <span className="cap-chunk__meaning" title={plain(suggestion.meaning)}>
+          {plain(suggestion.meaning)}
+        </span>
+      )}
       <IconChevronRight className="cap-ico" />
     </button>
   );
@@ -64,24 +68,49 @@ export function ExplanationTabs({
   const { m } = useI18n();
   const [tab, setTab] = useState<Tab>('context');
   const id = useId();
+  const tabRefs = useRef<Partial<Record<Tab, HTMLButtonElement | null>>>({});
   const writing = streaming ? explanation.started[explanation.started.length - 1] : undefined;
   const pending = (t: Tab) => streaming && !explanation.started.includes(t);
   const tabs: { id: Tab; label: string }[] = [
     { id: 'context', label: m.lookup.inContextTab },
     { id: 'examples', label: m.lookup.examplesTab },
   ];
+  // Arrows, Home and End move between the tabs and open the one they land on.
+  const onKeyDown = (e: KeyboardEvent) => {
+    const at = tabs.findIndex((t) => t.id === tab);
+    const next =
+      e.key === 'ArrowRight'
+        ? (at + 1) % tabs.length
+        : e.key === 'ArrowLeft'
+          ? (at - 1 + tabs.length) % tabs.length
+          : e.key === 'Home'
+            ? 0
+            : e.key === 'End'
+              ? tabs.length - 1
+              : -1;
+    if (next < 0) return;
+    // Kept from the page too: arrow keys seek the video on the sites the native card sits on.
+    e.preventDefault();
+    e.stopPropagation();
+    setTab(tabs[next].id);
+    tabRefs.current[tabs[next].id]?.focus();
+  };
 
   return (
     <div className="cap-explain">
-      <div className="cap-explain__tabs" role="tablist">
+      <div className="cap-explain__tabs" role="tablist" aria-label={m.lookup.explanationTabsAria} onKeyDown={onKeyDown}>
         {tabs.map((t) => (
           <button
             key={t.id}
+            ref={(el) => {
+              tabRefs.current[t.id] = el;
+            }}
             id={`${id}-${t.id}`}
             className="cap-explain__tab"
             role="tab"
             aria-selected={tab === t.id}
-            aria-controls={tab === t.id ? `${id}-${t.id}-panel` : undefined}
+            aria-controls={`${id}-panel`}
+            tabIndex={tab === t.id ? 0 : -1}
             onClick={() => setTab(t.id)}
           >
             {t.label}
@@ -89,16 +118,11 @@ export function ExplanationTabs({
           </button>
         ))}
       </div>
-      <div
-        id={`${id}-${tab}-panel`}
-        className={`cap-explain__panel${writing === tab ? ' cap-cursor' : ''}`}
-        role="tabpanel"
-        aria-labelledby={`${id}-${tab}`}
-      >
+      <div id={`${id}-panel`} className="cap-explain__panel" role="tabpanel" aria-labelledby={`${id}-${tab}`}>
         {tab === 'context' ? (
-          <ContextPanel lines={explanation.context} chunkShown={chunkShown} />
+          <ContextPanel lines={explanation.context} chunkShown={chunkShown} cursor={writing === 'context'} />
         ) : (
-          <ExamplesPanel explanation={explanation} lang={lang} native={native} speechRate={speechRate} />
+          <ExamplesPanel explanation={explanation} lang={lang} native={native} speechRate={speechRate} cursor={writing === 'examples'} />
         )}
         {pending(tab) && <span className="cap-spinner" />}
       </div>
@@ -106,7 +130,8 @@ export function ExplanationTabs({
   );
 }
 
-function ContextPanel({ lines, chunkShown }: { lines: string[]; chunkShown?: boolean }) {
+/** `cursor`: the section is being written, so its last line carries the streaming cursor. */
+function ContextPanel({ lines, chunkShown, cursor }: { lines: string[]; chunkShown?: boolean; cursor: boolean }) {
   return (
     <>
       {lines.map((line, i) => {
@@ -114,8 +139,9 @@ function ContextPanel({ lines, chunkShown }: { lines: string[]; chunkShown?: boo
         const warning = line.startsWith('⚠');
         // The first line names the chunk to learn, in backticks, and what it means.
         const chunk = i === 0 && line.startsWith('`');
+        const cls = warning ? 'cap-explain__warn' : chunk ? 'cap-explain__chunk' : 'cap-explain__line';
         return (
-          <div key={i} className={warning ? 'cap-explain__warn' : chunk ? 'cap-explain__chunk' : 'cap-explain__line'}>
+          <div key={i} className={cursor && i === lines.length - 1 ? `${cls} cap-cursor` : cls}>
             <Markdown text={line} />
           </div>
         );
@@ -129,18 +155,24 @@ function ExamplesPanel({
   lang,
   native,
   speechRate,
+  cursor,
 }: {
   explanation: WordExplanation;
   lang: string;
   native: string;
   speechRate: number;
+  cursor: boolean;
 }) {
   const { m } = useI18n();
   const { collocations, examples } = explanation;
+  // The streaming cursor follows the last thing written: an example's translation, the example, or the collocations.
+  const last = examples.length - 1;
+  const at = (i: number, part: 'ex' | 'tr') =>
+    cursor && i === last && (part === 'tr' ? !!examples[i].translation : !examples[i].translation) ? ' cap-cursor' : '';
   return (
     <>
       {collocations.length > 0 && (
-        <p className="cap-explain__colloc" lang={lang}>
+        <p className={`cap-explain__colloc${cursor && last < 0 ? ' cap-cursor' : ''}`} lang={lang}>
           {collocations.map(plain).join(' · ')}
         </p>
       )}
@@ -148,7 +180,7 @@ function ExamplesPanel({
         <ul className="cap-explain__examples">
           {examples.map((e, i) => (
             <li key={i}>
-              <div className="cap-explain__ex" lang={lang}>
+              <div className={`cap-explain__ex${at(i, 'ex')}`} lang={lang}>
                 <Markdown text={e.text} />
                 {canSpeak() && (
                   <button
@@ -162,7 +194,7 @@ function ExamplesPanel({
                 )}
               </div>
               {e.translation && (
-                <div className="cap-explain__ex-tr" lang={native}>
+                <div className={`cap-explain__ex-tr${at(i, 'tr')}`} lang={native}>
                   {plain(e.translation)}
                 </div>
               )}

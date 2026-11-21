@@ -52,10 +52,9 @@ export function LookupHost({ controller, surfaces, hostRef }: Props) {
       rankKnown={!!frequency}
       rank={popup.kind === 'word' && frequency ? frequencyRank(frequency, normalizeWord(popup.text, popup.lang)) : undefined}
       onClose={close}
-      onSave={(status, entry) => {
-        if (status) void controller.saveWord(entry, status, popup.cueIndex);
-        else void removeVocab(vocabKey(entry.text, popup.lang).id);
-      }}
+      onSave={(status, entry) =>
+        status ? controller.saveWord(entry, status, popup.cueIndex) : removeVocab(vocabKey(entry.text, popup.lang).id)
+      }
       onPlayLine={popup.cueIndex >= 0 ? () => controller.playCue(popup.cueIndex) : undefined}
       onSelectWord={(sel) =>
         controller.openPopup({

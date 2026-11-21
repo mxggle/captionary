@@ -3,7 +3,11 @@
   'use strict';
 
   const SUPPORTED = ['en', 'zh-CN', 'zh-TW', 'ja'];
+  const OG_LOCALES = { en: 'en_US', 'zh-CN': 'zh_CN', 'zh-TW': 'zh_TW', ja: 'ja_JP' };
   const STORAGE_KEY = 'captionary-site-lang';
+
+  // The inline script in each page's <head> runs this same detection before the first paint;
+  // change both together.
 
   function normalizeLang(raw) {
     if (!raw || typeof raw !== 'string') return null;
@@ -108,7 +112,7 @@
           ' ',
           W('que', 'conjunction', 'that', '*Que* is “that”. It introduces what he realized.'),
           ' ',
-          W('yo', 'pronoun', 'I', '*Yo* is “I”. Spanish usually leaves it out; here it adds stress: *I* was the one who was right.'),
+          W('yo', 'pronoun', 'I', '*Yo* is “I”. Spanish usually leaves it out; here it adds stress: _I_ was the one who was right.'),
           ' ',
           W('tenía', 'verb', 'had', '*Tenía* is the imperfect of *tener*, “to have”. With *razón* it means “was right”.', {
             chunk: 'razon',
@@ -787,6 +791,7 @@
         compareP:
           'Language Reactor is the best-known tool for learning from Netflix and YouTube, with two million Chrome users, and it does a lot well. This is where the two differ. We checked every Language Reactor detail against its own pages on October 18, 2026.',
         compareFeatureSr: 'Feature',
+        compareTableAria: 'Comparison table',
         compareR1Th: 'Look up several words at once',
         compareR1Us: '<span class="mark yes">Yes</span>Drag across them, or Shift+click',
         compareR1Lr:
@@ -949,11 +954,11 @@
         retentionP1:
           'Saved vocabulary and settings remain in local storage until you remove them, reset extension data, or remove the browser profile or extension. Cached AI answers have a configurable retention period and can be cleared in settings. Downloaded word-frequency data may remain cached locally. Local usage counters can be reset.',
         retentionP2:
-          '“Delete everything” under Settings → Data &amp; backup removes settings, saved vocabulary, AI provider connections, API keys, ChatGPT sign-in tokens, the reader’s last document, cached AI answers, and downloaded word-frequency lists, and gives back the site access granted for AI services.',
+          '“Delete everything” under Settings → Data & backup removes settings, saved vocabulary, AI provider connections, API keys, ChatGPT sign-in tokens, the reader’s last document, cached AI answers, and downloaded word-frequency lists, and gives back the site access granted for AI services.',
         retentionP3:
           'You can delete saved vocabulary entries, remove AI provider connections and their stored keys, clear cached AI answers, and use the extension’s data-reset controls. Export any study data you want to keep before resetting or uninstalling. Exported files are under your control and are not automatically deleted by the extension. Removing local data does not remove data already received by third-party services.',
         contactH2: 'Changes and contact',
-        contactP1: 'Update this policy when Captionary’s data practices change, and revise the date when publishing a new version.',
+        contactP1: 'We’ll update this policy when Captionary’s data practices change and revise the date above.',
         contactP2: 'Public support contact: <a href="https://github.com/mxggle/captionary/issues">github.com/mxggle/captionary/issues</a>.',
       },
     },
@@ -981,7 +986,7 @@
           'Captionary 是独立开发的扩展，与 YouTube、Netflix、Apple 或 Dioco（Language Reactor）无隶属或合作关系。相关产品名称均为各自所有者的商标。',
       },
       index: {
-        heroH1: '看剧遇到生词，直接查<mark class="hl">整个词组</mark>。',
+        heroH1: '看剧<wbr>遇到生词，直接查<wbr><mark class="hl">整个词组</mark>。',
         heroLead:
           'Captionary 是一款适用于 YouTube、Netflix 和 Apple TV+ 的免费 Chrome 扩展。它会在原文字幕下方显示译文；点击单个词或拖选整个词组，AI 助教就会结合上下文为你讲解——可以直接用你的 ChatGPT 订阅、你自己的 API 密钥，或者在你电脑上运行的本地模型。',
         ctaHero: '免费添加到 Chrome',
@@ -992,7 +997,7 @@
         demoEs: '西班牙语',
         demoJa: '日语',
         demoFigcaption: '上方是可直接交互的查词卡片与示例回答。在扩展中，这些解析由你接入的 AI 实时生成。',
-        phrasesH2: '有些意思，连成词组才存在',
+        phrasesH2: '有些意思，连成词组<wbr>才存在',
         phrasesP:
           '单查西语的 <i lang="es">cuenta</i>，词典会写“账单”。但在 <i lang="es">se dio cuenta</i> 里，它的意思是“意识到”，拆开看哪一个词都看不出这层含义。各门语言里的动词短语、习语和固定搭配都是如此。',
         phrasesLi1: '直接用鼠标拖选多个词，或先点一个词再按住 Shift 点击另一个词。',
@@ -1004,7 +1009,7 @@
         glossDd1: '他自己 · 给了 · 账单',
         glossDt2: '作为词组',
         glossDd2: '<b lang="es">darse cuenta</b> · 意识到',
-        aiH2: '直接用你已经在付费的 AI',
+        aiH2: '直接用<wbr>你已经在付费的&nbsp;AI',
         aiP: 'Captionary 不售卖 AI 额度，也不会把你绑定在某一个模型上。手头有什么服务就直接连上，随时可以切换。',
         aiDt1: '使用 ChatGPT 账号登录',
         aiDd1:
@@ -1028,7 +1033,7 @@
         aiRouteDt5: '主服务失败时',
         aiRouteDd5: '改用 ChatGPT',
         aiFigcaption: '设置示例：同时接入三个服务，按任务分配最合适的模型。',
-        wordsH2: '生词本完全免费，数据归你所有',
+        wordsH2: '生词本<wbr>完全免费，数据<wbr>归你所有',
         wordsP:
           '把单词或词组标记为“学习中”或“已掌握”。Captionary 会一并存下原句、译文、视频来源和对应的时间戳。标记为“学习中”的词再次出现在字幕、字幕列表或阅读器里时，下方会标有虚线提示。',
         wordsLi1: '内置抽认卡复习。',
@@ -1048,6 +1053,7 @@
         compareP:
           'Language Reactor 是目前最知名的 Netflix 与 YouTube 外语学习工具，拥有两百万 Chrome 用户，很多功能做得非常成熟。下面是两者的主要差异。我们在 2026 年 10 月 18 日逐一核对了 Language Reactor 官方页面上的每项细节。',
         compareFeatureSr: '功能项',
+        compareTableAria: '对比表',
         compareR1Th: '一次查多个词（词组）',
         compareR1Us: '<span class="mark yes">支持</span>鼠标拖选，或按住 Shift 点击',
         compareR1Lr:
@@ -1084,7 +1090,7 @@
         fairLi3: '开通 Pro 后支持语音识别生成字幕，包括为 Netflix 配音音轨生成字幕。',
         fairLi4: '内置视频、书籍和播客目录，提供名为 Aria 的对话练习伙伴，以及测试版英语课程。',
         fairLi5: '它的 Anki 导出包含画面截图与音频；Captionary 导出纯文本（词条、释义和原句）。',
-        fairH3Both: '两者都具备的功能',
+        fairH3Both: '两者都具备的<wbr>功能',
         fairPBoth:
           '双语字幕、字幕列表、每句自动暂停与单句循环、键盘快捷键、注音/罗马音转写、词频颜色标记、文本阅读器、本地视频挂接字幕播放，以及 Anki 导出。',
         fairH3Pick: '怎么选',
@@ -1097,7 +1103,7 @@
         src5: '<a href="https://chromewebstore.google.com/detail/language-reactor/hoombieeljmmljlkjmnheibnpciblicm">Chrome 应用商店中的 Language Reactor 页面</a>',
         compareFine:
           'Language Reactor 由 Dioco 开发。Captionary 是独立项目，与其无任何关联。如果此处信息有出入或已过时，欢迎<a href="https://github.com/mxggle/captionary/issues">提交 Issue</a>，我们会及时更正。',
-        toolkitH2: '其他实用功能',
+        toolkitH2: '其他<wbr>实用功能',
         tkDt1: '融入原生播放器',
         tkDd1: '开关按钮直接嵌入各视频网站自带的控制栏，菜单和查词卡片也会匹配当前网站的配色与字体。',
         tkDt2: '优先选用最佳翻译来源',
@@ -1118,7 +1124,7 @@
         tkDd8: '粘贴文章、打开 .txt / .srt / .vtt 文件，或在任意网页上右键调用阅读器，像点按字幕一样随时查词。',
         tkDt9: '播放本地视频',
         tkDd9: '直接打开电脑硬盘里的视频和字幕文件，同样可以使用双语字幕、字幕列表和划词查询。',
-        privacyH2: '你的密钥和生词，都留在你自己的浏览器里',
+        privacyH2: '你的密钥和生词，都留在<wbr>你自己的<wbr>浏览器里',
         privacyP:
           'Captionary 没有账号系统、不收集分析数据，也没有广告。全部源码公开在 <a href="https://github.com/mxggle/captionary">GitHub</a> 上，你可以随时查验。',
         privacyLi1:
@@ -1147,7 +1153,7 @@
         faqA6: '桌面端 Chrome 浏览器。暂不支持手机和平板电脑。',
         faqQ7: 'Captionary 和 YouTube、Netflix、Apple 或 Language Reactor 有关系吗？',
         faqA7: '没有。Captionary 是独立开发的浏览器扩展。观看 Netflix 和 Apple TV+ 仍需自备相应平台的订阅，字幕内容取决于视频本身。',
-        finalH2: '下次看视频时，直接试试看',
+        finalH2: '下次看视频时，直接<wbr>试试看',
         finalP: '安装后只需几步简短引导：选好你想学的语言，按需连上 AI 助教（也可以先跳过）。',
         ctaFooter: '免费添加到 Chrome',
       },
@@ -1155,19 +1161,19 @@
         h1: 'Captionary 隐私政策',
         updated: '最后更新于 2026 年 10 月 18 日。',
         intro: 'Captionary 帮助你通过视频字幕与阅读材料学习外语。本政策说明扩展程序如何处理这些学习材料、你的学习数据以及可选的 AI 请求。',
-        storedH2: '保存在浏览器中的数据',
+        storedH2: '保存在<wbr>浏览器中的<wbr>数据',
         storedP1:
           'Captionary 会将设置项、语言偏好、保存的单词与词组、笔记、例句上下文、来源标题与网址、视频时间戳、已配置的 AI 服务以及本地用量计数保存在浏览器的扩展本地存储中。扩展还可能在本地缓存 AI 回答与已下载的词频列表。导入的阅读材料与侧边栏上下文通过浏览器的会话存储（session storage）在扩展页面之间传递。阅读器还会在扩展本地存储中保留你最后打开的一篇文档（标题、网址、语言和正文）以便随时继续阅读；打开新文档时会覆盖旧记录。',
         storedP2:
           '各服务商的 API 密钥单独保存在扩展本地存储中，不会包含在导出的设置文件里，仅在需要验证请求时发送给你所配置的服务商。普通网页无法读取扩展存储，但浏览器本地存储并非加密凭据保险箱，请妥善保护你的浏览器配置文件与设备安全。',
         storedP3:
           'Captionary 不使用 Chrome 同步（Chrome Sync）传输上述数据。当前版本的扩展不包含由开发者运营的账号服务、分析统计 SDK 或广告组件。',
-        contentH2: '视频与阅读内容',
+        contentH2: '视频<wbr>与阅读内容',
         contentP1:
           '在受支持的视频网站上，Captionary 会读取字幕轨道与播放状态，用于显示双语字幕、查询词义及提供学习播放控制。当你主动在阅读器中打开某个网页时，扩展会读取你所选定或页面可提取的正文文本、标题、网址与语言信息。扩展不会读取 Chrome 的浏览历史数据库。来源信息可能会随你收藏的生词或导入的阅读材料保存在本地。',
         contentP2:
           '使用阅读器或本地视频播放功能时，扩展会在本地打开你选择的视频和文本文件。Captionary 在播放过程中不会上传你的本地视频文件。如果你对本地文件的文本或字幕调用了云端 AI 功能，相关文本会发送给你所配置的 AI 服务。',
-        requestsH2: '向其他服务发起的请求',
+        requestsH2: '向其他服务<wbr>发起的请求',
         requestsLi1: '视频平台及其字幕服务器会收到获取当前学习字幕所需的正常网络请求。',
         requestsLi2: '维基词典（Wiktionary）查询默认开启。开启期间，你查询的单词或词组会发送至 Wiktionary 以获取词典释义。',
         requestsLi3: '启用词频颜色标记时，Captionary 会从托管在 GitHub 上的数据集中下载对应语言的词频表。',
@@ -1193,18 +1199,18 @@
           '该渠道的 AI 请求与模型列表请求仅发送至 chatgpt.com/backend-api/codex，并在请求头中附带访问令牌与账号标识符，同时通过 “originator: captionary” 请求头向 OpenAI 标明来源（若账号被 OpenAI 标记为 FedRAMP 账号，还会附带相应标识头）。这些请求不携带浏览器 Cookie。当你连接 ChatGPT 或点击测试连接时，Captionary 会发送一条简短的测试请求（“Reply with the single word OK”），该请求与普通请求一样计入你的订阅用量。响应请求中会将 store 参数设为 false，但该请求参数并不构成对 OpenAI 整体数据保留策略的保证。使用过程适用 OpenAI 的账号条款、服务可用性、用量限制与隐私政策。',
         chatgptP5:
           '点击退出登录会删除本地保存的令牌与账号元数据，但会保留该服务商条目及其对 chatgpt.com 和 auth.openai.com 的站点权限，方便你再次登录；移除该服务商则会同时删除令牌并交还站点访问权限。这两种操作都不会调用服务端令牌吊销接口，也不会清除 OpenAI 服务器端的记录；如需同时在 OpenAI 端终止会话，请前往 ChatGPT 安全设置中选择退出所有设备。你也可以随时在 Chrome 的扩展程序管理页中管理站点权限。',
-        purposeH2: '数据用途与共享',
+        purposeH2: '数据用途<wbr>与共享',
         purposeP1:
           'Captionary 仅将上述数据用于提供语言学习功能。当前扩展不包含任何数据售卖、广告投放或信用评估功能，也不会将你的学习数据发送到开发者运营的后端服务器。只有在发生上述外部服务请求，或你主动使用导出功能与外部链接时，相关数据才会离开你的设备。',
         purposeP2: '对于从 Google API 获取的信息，其使用将严格遵守《Chrome 应用商店用户数据政策》（包括其中的“有限使用”要求）。',
-        retentionH2: '数据保留与你的控制权',
+        retentionH2: '数据保留<wbr>与你的控制权',
         retentionP1:
           '保存的生词与设置会一直保留在浏览器本地存储中，直到你主动删除它们、重置扩展数据，或删除浏览器配置文件及卸载扩展。缓存的 AI 回答设有可配置的保留期限，并可在设置中随时清空；已下载的词频数据可能保留在本地缓存中；本地用量计数器也可随时重置。',
         retentionP2:
           '在“设置 → 数据与备份”中点击“删除所有数据”，即可清除全部设置、生词本、AI 服务商配置、API 密钥、ChatGPT 登录令牌、阅读器最近打开的文档、AI 回答缓存以及已下载的词频列表，并同时交还授予各 AI 服务的站点访问权限。',
         retentionP3:
           '你可以逐条删除生词、移除 AI 服务商及其保存的密钥、清空 AI 缓存，或使用扩展的数据重置功能。在重置数据或卸载扩展前，请先导出你想保留的学习记录。导出的文件由你自行保管，扩展不会自动删除它们。清除本地数据不会删除第三方服务商此前已经收到的数据。',
-        contactH2: '政策更新与联系方式',
+        contactH2: '政策更新<wbr>与联系方式',
         contactP1: '当 Captionary 的数据处理方式发生变更时，我们会更新本政策，并在发布新版本时修订页面顶部的更新日期。',
         contactP2: '公开支持与问题反馈：<a href="https://github.com/mxggle/captionary/issues">github.com/mxggle/captionary/issues</a>。',
       },
@@ -1234,7 +1240,7 @@
           'Captionary 是獨立開發的擴充功能，與 YouTube、Netflix、Apple 或 Dioco（Language Reactor）無隸屬或合作關係。相關產品名稱皆為各自所有者的商標。',
       },
       index: {
-        heroH1: '看劇遇到生詞，直接查<mark class="hl">整個片語</mark>。',
+        heroH1: '看劇<wbr>遇到生詞，直接查<wbr><mark class="hl">整個片語</mark>。',
         heroLead:
           'Captionary 是一款適用於 YouTube、Netflix 和 Apple TV+ 的免費 Chrome 擴充功能。它會在原文字幕下方顯示翻譯；點擊單字或拖曳選取整個片語，AI 助教就會結合前後文為你解說——可以直接用你的 ChatGPT 訂閱方案、你自己的 API 金鑰，或是在你電腦上執行的本機模型。',
         ctaHero: '免費加到 Chrome',
@@ -1245,7 +1251,7 @@
         demoEs: '西班牙語',
         demoJa: '日語',
         demoFigcaption: '上方是可直接互動的查詢卡片與範例回答。在擴充功能裡，這些解說由你連接的 AI 即時撰寫。',
-        phrasesH2: '有些意思，湊成片語才存在',
+        phrasesH2: '有些意思，湊成片語<wbr>才存在',
         phrasesP:
           '單查西語的 <i lang="es">cuenta</i>，字典會寫「帳單」。但在 <i lang="es">se dio cuenta</i> 裡，它的意思是「意識到」，拆開看哪一個字都看不出這層意思。各種語言裡的片語動詞、慣用語和固定搭配都是如此。',
         phrasesLi1: '直接用滑鼠拖曳選取多個字，或先點一個字再按住 Shift 點擊另一個字。',
@@ -1257,7 +1263,7 @@
         glossDd1: '他自己 · 給了 · 帳單',
         glossDt2: '作為片語',
         glossDd2: '<b lang="es">darse cuenta</b> · 意識到',
-        aiH2: '直接用你已經在付費的 AI',
+        aiH2: '直接用<wbr>你已經在付費的&nbsp;AI',
         aiP: 'Captionary 不賣 AI 點數，也不會把你綁死在某一個模型上。手邊有什麼服務就直接連上，隨時可以切換。',
         aiDt1: '使用 ChatGPT 帳號登入',
         aiDd1: '直接使用你的 ChatGPT Plus、Pro 或 Business 方案。不必設定 API 金鑰，也不必額外付費；請求會計入你方案的 Codex 使用額度。',
@@ -1280,7 +1286,7 @@
         aiRouteDt5: '主服務失敗時',
         aiRouteDd5: '改用 ChatGPT',
         aiFigcaption: '設定範例：同時連接三個服務，依任務挑選適合的模型。',
-        wordsH2: '單字本完全免費，資料永遠屬於你',
+        wordsH2: '單字本<wbr>完全免費，資料<wbr>永遠屬於你',
         wordsP:
           '把單字或片語標記為「學習中」或「已掌握」。Captionary 會一併留存原句、翻譯、影片來源與時間戳記。標記為「學習中」的字詞再次出現在字幕、字幕列表或閱讀器時，下方會加上虛線底線提醒你。',
         wordsLi1: '內建字卡複習功能。',
@@ -1300,6 +1306,7 @@
         compareP:
           'Language Reactor 是目前最知名的 Netflix 與 YouTube 外語學習工具，擁有兩百萬名 Chrome 使用者，許多功能做得相當完善。以下是兩者的主要差異。我們在 2026 年 10 月 18 日逐一核對了 Language Reactor 官方頁面上的每項細節。',
         compareFeatureSr: '功能項目',
+        compareTableAria: '比較表',
         compareR1Th: '一次查詢多個單字（片語）',
         compareR1Us: '<span class="mark yes">支援</span>滑鼠拖曳選取，或按住 Shift 點擊',
         compareR1Lr:
@@ -1336,10 +1343,10 @@
         fairLi3: '升級 Pro 後可用語音辨識產生字幕，包括為 Netflix 配音音軌產生字幕。',
         fairLi4: '內建影片、書籍與 Podcast 目錄，提供名為 Aria 的對話練習夥伴，以及測試版英語課程。',
         fairLi5: '它的 Anki 匯出包含畫面截圖與音訊；Captionary 匯出純文字（字詞、釋義和原句）。',
-        fairH3Both: '兩者皆具備的功能',
+        fairH3Both: '兩者皆具備的<wbr>功能',
         fairPBoth:
           '雙語字幕、字幕列表、每句自動暫停與單句重播、鍵盤快捷鍵、拼音／羅馬音轉寫、詞頻顏色標記、文字閱讀器、本機影片掛載字幕播放，以及 Anki 匯出。',
-        fairH3Pick: '該選哪一個',
+        fairH3Pick: '該選<wbr>哪一個',
         fairPPick:
           '如果你想整組查片語、自選 AI 模型，或是不想為了背單字付訂閱費，選 Captionary。如果你常在手機上學習、需要雲端帳號同步單字，或是常看沒有字幕的 Netflix 配音影集，選 Language Reactor。',
         src1: 'Language Reactor 論壇，2026 年 6 月 26 日官方人員回覆：<a href="https://forum.languagelearningwithnetflix.com/t/how-to-select-multiple-word-definitions/41477">How to select multiple word definitions?</a>',
@@ -1349,7 +1356,7 @@
         src5: '<a href="https://chromewebstore.google.com/detail/language-reactor/hoombieeljmmljlkjmnheibnpciblicm">Chrome 線上應用程式商店上的 Language Reactor</a>',
         compareFine:
           'Language Reactor 由 Dioco 開發。Captionary 為獨立專案，與其無任何關聯。若此處資訊有誤或已過時，歡迎<a href="https://github.com/mxggle/captionary/issues">開啟 Issue</a>，我們會盡快修正。',
-        toolkitH2: '其他實用工具',
+        toolkitH2: '其他<wbr>實用工具',
         tkDt1: '自然融入各家播放器',
         tkDd1: '開關按鈕直接嵌進影音網站原有的控制列，選單與查詢卡片也會配合該網站的外觀與字型。',
         tkDt2: '優先採用最佳翻譯來源',
@@ -1369,7 +1376,7 @@
         tkDd8: '貼上文章、開啟 .txt / .srt / .vtt 檔案，或在任何網頁按右鍵開啟閱讀器，像點選字幕一樣隨時查字。',
         tkDt9: '播放自己的影片檔',
         tkDd9: '直接播放電腦硬碟裡的影片與字幕檔，同樣享有雙語字幕、字幕列表與點擊查字功能。',
-        privacyH2: '你的金鑰與單字，都留在你自己的瀏覽器裡',
+        privacyH2: '你的金鑰與單字，都留在<wbr>你自己的<wbr>瀏覽器裡',
         privacyP:
           'Captionary 沒有帳號系統、不收集分析數據，也沒有廣告。所有原始碼都公開在 <a href="https://github.com/mxggle/captionary">GitHub</a> 上，你可以親自檢視。',
         privacyLi1:
@@ -1398,27 +1405,27 @@
         faqA6: '電腦版 Chrome 瀏覽器。不支援手機與平板電腦。',
         faqQ7: 'Captionary 與 YouTube、Netflix、Apple 或 Language Reactor 有關聯嗎？',
         faqA7: '沒有。Captionary 是獨立開發的擴充功能。觀看 Netflix 與 Apple TV+ 需自備該平台的訂閱，字幕有無則視個別影片而定。',
-        finalH2: '下次看影片時，直接試試看',
+        finalH2: '下次看影片時，直接<wbr>試試看',
         finalP: '簡短的設定引導會詢問你想學的語言，並幫你連接 AI 助教（也可以先略過）。',
         ctaFooter: '免費加到 Chrome',
       },
       privacyPage: {
-        h1: 'Captionary 隱私權政策',
+        h1: 'Captionary 隱私權<wbr>政策',
         updated: '最後更新日期：2026 年 10 月 18 日。',
         intro: 'Captionary 協助你透過影片字幕與閱讀材料學習外語。本政策說明擴充功能如何處理這些材料、你的學習資料以及選用的 AI 請求。',
-        storedH2: '儲存在瀏覽器中的資料',
+        storedH2: '儲存在<wbr>瀏覽器中的<wbr>資料',
         storedP1:
           'Captionary 會將設定、語言偏好、儲存的單字與片語、筆記、例句前後文、來源標題與網址、影片時間戳記、已設定的 AI 服務以及本機用量計數器儲存在瀏覽器的擴充功能本機儲存空間（extension storage）中。它也可能會在本機快取 AI 回答與已下載的詞頻列表。匯入的閱讀材料與側邊欄上下文會透過瀏覽器的工作階段儲存空間（session storage）在擴充功能頁面之間傳遞。閱讀器也會在本機儲存空間保留你最後開啟的文件（標題、網址、語言與內文），方便你隨時返回繼續閱讀；開啟另一份文件時會將其取代。',
         storedP2:
           '各服務商的 API 金鑰會單獨儲存在擴充功能的本機儲存空間中，不會包含在匯出的設定檔裡，僅在需要驗證請求時傳送給你所設定的服務商。一般網頁無法讀取擴充功能儲存空間，但本機儲存空間並非加密憑證保險箱，請妥善保護你的瀏覽器設定檔與裝置。',
         storedP3:
           'Captionary 不使用 Chrome 同步功能（Chrome Sync）同步上述資料。目前版本的擴充功能不包含由開發者營運的帳號服務、分析統計 SDK 或廣告整合。',
-        contentH2: '影片與閱讀內容',
+        contentH2: '影片<wbr>與閱讀內容',
         contentP1:
           '在支援的影音網站上，Captionary 會讀取字幕軌道與播放資訊，以顯示字幕、查詢字詞並提供學習控制功能。當你主動在閱讀器中開啟某個網頁時，它會讀取所選取或可擷取的頁面文字、標題、網址與語言。它不會讀取 Chrome 的瀏覽紀錄資料庫。來源資訊可能會隨你儲存的單字或匯入的閱讀材料一併保留。',
         contentP2:
           '本機影片與文字檔會在閱讀器或本機影片功能中開啟。Captionary 在播放過程中不會上傳你的影片檔案。若你針對本機檔案中的文字或字幕使用雲端 AI 功能，該段文字會傳送至你所設定的 AI 服務。',
-        requestsH2: '對其他服務發出的請求',
+        requestsH2: '對其他服務<wbr>發出的請求',
         requestsLi1: '影音平台及其字幕主機會收到取得你所學習之字幕所需的連線請求。',
         requestsLi2: '維基詞典（Wiktionary）查詢預設為開啟。開啟期間，你查詢的單字或片語會傳送至 Wiktionary 以取得定義。',
         requestsLi3: '啟用詞頻顏色標示時，Captionary 會從託管於 GitHub 的資料集下載對應語言的詞頻清單。',
@@ -1443,19 +1450,19 @@
           '此服務商的 AI 請求與模型清單請求僅會傳送至 chatgpt.com/backend-api/codex，並在請求標頭中附帶存取權杖與帳號識別碼，同時以「originator: captionary」標頭向 OpenAI 標示 Captionary（針對 OpenAI 標記為 FedRAMP 的帳號則會附帶相應標頭）。這些請求不會附帶瀏覽器 Cookie。當你連接 ChatGPT 或測試連線時，Captionary 會發送一則簡短的測試請求（「Reply with the single word OK」），這會像一般請求一樣計入你方案的使用量。回應請求會將 store 設為 false；此請求參數並不保證 OpenAI 整體的資料保留作法。適用 OpenAI 的帳號條款、可用性、用量限制與隱私權作法。',
         chatgptP5:
           '登出會刪除本機儲存的權杖與帳號中繼資料，並保留該服務商項目及其對 chatgpt.com 與 auth.openai.com 的網站存取權，方便你再次登入。移除該服務商則會一併刪除權杖並歸還網站存取權。這兩項操作都不會呼叫伺服器端的權杖撤銷端點，也不會抹除 OpenAI 端的紀錄；若要同時在 OpenAI 端結束工作階段，請在 ChatGPT 的安全性設定中登出所有裝置。你也可以在 Chrome 中管理擴充功能的網站權限。',
-        purposeH2: '資料用途與分享',
+        purposeH2: '資料用途<wbr>與分享',
         purposeP1:
           'Captionary 僅使用此處所述的資料來提供語言學習功能。目前的擴充功能沒有資料販售、廣告或信用評分功能，也不會將你的學習資料傳送至開發者營運的後端伺服器。資料僅會透過上述的服務請求，以及你主動選擇使用的匯出或外部連結離開你的裝置。',
         purposeP2: '從 Google API 收到的資訊之使用方式，將遵守《Chrome 線上應用程式商店使用者資料政策》（包含其中的「有限使用」規範）。',
-        retentionH2: '資料保留與你的控制權',
+        retentionH2: '資料保留<wbr>與你的控制權',
         retentionP1:
           '儲存的單字與設定會保留在本機儲存空間中，直到你將其刪除、重設擴充功能資料，或移除瀏覽器設定檔或擴充功能為止。快取的 AI 回答具有可設定的保留期限，並可在設定中清除。下載的詞頻資料可能會保留在本機快取中。本機用量計數器可以重設。',
         retentionP2:
           '「設定 → 資料與備份」底下的「刪除所有資料」會移除設定、儲存的單字、AI 服務商連線、API 金鑰、ChatGPT 登入權杖、閱讀器最後開啟的文件、快取的 AI 回答以及下載的詞頻清單，並歸還授予 AI 服務的網站存取權。',
         retentionP3:
           '你可以刪除個別單字項目、移除 AI 服務商連線及其儲存的金鑰、清除快取的 AI 回答，以及使用擴充功能的資料重設控制項。在重設或解除安裝前，請先匯出任何你想保留的學習資料。匯出的檔案由你自行控管，擴充功能不會自動刪除。移除本機資料並不會移除第三方服務已經收到的資料。',
-        contactH2: '政策變更與聯絡方式',
-        contactP1: '當 Captionary 的資料處理作法變更時會更新本政策，並在發布新版本時修訂日期。',
+        contactH2: '政策變更<wbr>與聯絡方式',
+        contactP1: '當 Captionary 的資料處理作法變更時，我們會更新本政策，並修訂上方的更新日期。',
         contactP2: '公開支援聯絡管道：<a href="https://github.com/mxggle/captionary/issues">github.com/mxggle/captionary/issues</a>。',
       },
     },
@@ -1484,7 +1491,7 @@
           'Captionary は独立した拡張機能であり、YouTube、Netflix、Apple、または Dioco（Language Reactor）とは提携・関係していません。製品名は各所有者の商標です。',
       },
       index: {
-        heroH1: '動画の中の<mark class="hl">フレーズをまるごと</mark>調べる。',
+        heroH1: '動画の中の<wbr><mark class="hl">フレーズを<wbr>まるごと</mark><wbr>調べる。',
         heroLead:
           'Captionary は YouTube、Netflix、Apple TV+ 対応の無料 Chrome 拡張機能です。元の字幕の下に翻訳を表示し、単語をクリックするかフレーズをドラッグして選択すると、文脈に沿った解説を表示します。AI は契約中の ChatGPT プラン、自分の API キー、またはパソコン上のローカルモデルから自由に選べます。',
         ctaHero: 'Chrome に追加（無料）',
@@ -1495,7 +1502,7 @@
         demoEs: 'スペイン語',
         demoJa: '日本語',
         demoFigcaption: '実際に動かせる辞書カードのデモ（回答はサンプルです）。拡張機能では、接続した AI が解説を作成します。',
-        phrasesH2: 'フレーズになって初めて生まれる意味がある',
+        phrasesH2: 'フレーズに<wbr>なって<wbr>初めて<wbr>生まれる<wbr>意味がある',
         phrasesP:
           'スペイン語の <i lang="es">cuenta</i> を単体で引くと「お会計・勘定」と出ます。しかし <i lang="es">se dio cuenta</i> の中では「気づいた」という意味になり、1語ずつ調べてもその意味には辿り着けません。句動詞やイディオム、決まり文句はどの言語でも同じ仕組みです。',
         phrasesLi1: '複数の単語をドラッグして選択するか、1つクリックしてから Shift+クリックで範囲を選べます。',
@@ -1509,7 +1516,7 @@
         glossDd1: '彼自身に · 与えた · 勘定',
         glossDt2: 'フレーズ全体',
         glossDd2: '<b lang="es">darse cuenta</b> · 気づく',
-        aiH2: 'すでに使っている AI をそのまま持ち込む',
+        aiH2: 'すでに<wbr>使っている AI&nbsp;を<wbr>そのまま<wbr>持ち込む',
         aiP: 'Captionary は独自の AI クレジットを販売したり、特定のモデルに縛ったりしません。手持ちのサービスをつないで、いつでも好きな時に切り替えられます。',
         aiDt1: 'ChatGPT でサインイン',
         aiDd1:
@@ -1533,7 +1540,7 @@
         aiRouteDt5: 'エラー時の予備',
         aiRouteDd5: 'ChatGPT を試す',
         aiFigcaption: '設定例：3つのプロバイダーを登録し、用途に合わせてモデルを割り当てています。',
-        wordsH2: '単語帳は無料で、ずっと自分の手元に',
+        wordsH2: '単語帳は<wbr>無料で、ずっと<wbr>自分の<wbr>手元に',
         wordsP:
           '単語やフレーズを「学習中」または「既知」として保存できます。Captionary は元の文、翻訳、動画のタイトル、タイムスタンプを一緒に記録します。「学習中」の語が再び現れると、字幕・字幕リスト・リーダーのどこでも点線の下線で知らせます。',
         wordsLi1: 'フラッシュカードで復習。',
@@ -1549,10 +1556,11 @@
         wordsBtnReview: '復習する',
         wordsBtnAnki: 'Anki に書き出す',
         wordsFigcaption: '単語帳の例。どの項目にも出会った時のセリフがそのまま残ります。',
-        compareH2: 'Captionary と Language Reactor の比較',
+        compareH2: 'Captionary&nbsp;と Language Reactor&nbsp;の<wbr>比較',
         compareP:
           'Language Reactor は Netflix や YouTube で語学を学ぶための最も有名なツールで、200万人の Chrome ユーザーに愛用されている優れた拡張機能です。ここでは両者の違いをまとめました。Language Reactor に関する記述はすべて、2026年10月18日時点で公式ページと照合しています。',
         compareFeatureSr: '機能',
+        compareTableAria: '比較表',
         compareR1Th: '複数の単語（フレーズ）をまとめて調べる',
         compareR1Us: '<span class="mark yes">対応</span>ドラッグ選択、または Shift+クリック',
         compareR1Lr:
@@ -1584,17 +1592,17 @@
         compareR8Us: '<span class="mark yes">無料</span>有料 API を使う場合のみ、利用分をプロバイダーへ直接支払い',
         compareR8Lr:
           '<span class="mark part">フリーミアム</span>Pro は月額・3か月・年額のサブスクリプション<a class="fn" href="#src-2" aria-label="出典 2">2</a>',
-        fairH3Ahead: 'Language Reactor が優れている点',
+        fairH3Ahead: 'Language Reactor&nbsp;が<wbr>優れている点',
         fairLi1: 'ウェブサイト版がスマートフォンやタブレットに対応しています。Captionary はデスクトップ版 Chrome 専用です。',
         fairLi2:
           '設定や保存した単語、チャット履歴がアカウントに保存され、端末間で同期されます。Captionary には同期機能がなく、JSON バックアップを手動で移動します。',
         fairLi3: 'Pro では音声認識による字幕生成に対応しており、Netflix の吹き替え音声からも字幕を作れます。',
         fairLi4: '動画・書籍・ポッドキャストのカタログや、会話パートナー Aria、ベータ版の英語コースがあります。',
         fairLi5: 'Anki エクスポートに画像と音声を含められます。Captionary が書き出すのはテキスト（語句、意味、例文）のみです。',
-        fairH3Both: '両方に備わっている機能',
+        fairH3Both: '両方に<wbr>備わっている<wbr>機能',
         fairPBoth:
           '二言語字幕、字幕リスト、1行ごとの自動一時停止とリピート、キーボードショートカット、読みがな・ローマ字表記、単語の出現頻度に応じた色分け、テキストリーダー、字幕ファイル付きのローカル動画再生、Anki エクスポート。',
-        fairH3Pick: 'どちらを選ぶべきか',
+        fairH3Pick: 'どちらを<wbr>選ぶべきか',
         fairPPick:
           'フレーズ単位で調べたい方、好きな AI を使いたい方、無料で単語帳を続けたい方には Captionary が向いています。スマホで学習する方、オンラインアカウントで単語を同期したい方、字幕のない Netflix 吹き替え作品を観る方には Language Reactor がおすすめです。',
         src1: 'Language Reactor フォーラム、2026年6月26日のスタッフ回答：<a href="https://forum.languagelearningwithnetflix.com/t/how-to-select-multiple-word-definitions/41477">How to select multiple word definitions?</a>',
@@ -1604,7 +1612,7 @@
         src5: '<a href="https://chromewebstore.google.com/detail/language-reactor/hoombieeljmmljlkjmnheibnpciblicm">Chrome ウェブストアの Language Reactor</a>',
         compareFine:
           'Language Reactor は Dioco の製品です。Captionary は独立したプロジェクトであり、同社とは一切関係ありません。記載内容に古い情報があれば、<a href="https://github.com/mxggle/captionary/issues">Issue にてお知らせください</a>。修正いたします。',
-        toolkitH2: 'その他の機能',
+        toolkitH2: 'その他の<wbr>機能',
         tkDt1: '各プレイヤーに馴染むデザイン',
         tkDd1:
           'Captionary のボタンは動画プレイヤー本来のコントロールバーに収まり、メニューや辞書カードもサイトの配色やフォントに合わせます。',
@@ -1628,7 +1636,7 @@
           'テキストの貼り付け、.txt / .srt / .vtt ファイルの読み込み、または任意のウェブページを右クリックして、単語をクリックして調べられるリーダーで読めます。',
         tkDt9: '手元の動画ファイル再生',
         tkDd9: 'パソコン内の動画ファイルと字幕ファイルを読み込み、動画サイトと同じオーバーレイ字幕、リスト、辞書検索を使って学習できます。',
-        privacyH2: 'API キーも単語帳も、あなたのブラウザの中に留まります',
+        privacyH2: 'API&nbsp;キーも<wbr>単語帳も、あなたの<wbr>ブラウザの<wbr>中に<wbr>留まります',
         privacyP:
           'Captionary にはアカウント登録も、アクセス解析も、広告もありません。ソースコードは <a href="https://github.com/mxggle/captionary">GitHub</a> で公開されており、誰でも仕組みを確認できます。',
         privacyLi1:
@@ -1638,7 +1646,7 @@
         privacyLi3: 'リクエストに含める文脈の範囲（単語のみ、その1文、前後の数行まで）や、動画タイトルを含めるかどうかを自分で選べます。',
         privacyLi4:
           'すべてのプロンプトで字幕テキストは信頼できない入力として区別され、AI の回答が外部画像や HTML を読み込むことはありません。',
-        faqH2: 'よくある質問',
+        faqH2: 'よくある<wbr>質問',
         faqQ1: 'Captionary は本当に無料ですか？',
         faqA1:
           'はい、拡張機能自体は無料です。従量課金の有料 API を接続した場合は、使った分だけそのプロバイダーから請求されます。ChatGPT サインイン、ローカルモデル、または Chrome 内蔵 AI を使う場合は、追加の支払いは一切ありません。',
@@ -1659,28 +1667,28 @@
         faqQ7: 'Captionary は YouTube、Netflix、Apple、Language Reactor と関係がありますか？',
         faqA7:
           'いいえ、Captionary は独立した拡張機能です。Netflix や Apple TV+ の視聴にはそれぞれのサブスクリプションが必要であり、字幕の有無は動画ごとに異なります。',
-        finalH2: '次に観る動画で、さっそく試してみませんか',
+        finalH2: '次に観る<wbr>動画で、さっそく<wbr>試して<wbr>みませんか',
         finalP: '短いセットアップ画面で学習中の言語を選び、AI チューターを接続できます（あとで設定することも可能です）。',
         ctaFooter: 'Chrome に追加（無料）',
       },
       privacyPage: {
-        h1: 'Captionary プライバシーポリシー',
+        h1: 'Captionary プライバシー<wbr>ポリシー',
         updated: '最終更新日：2026年10月18日',
         intro:
           'Captionary は、動画の字幕や読み物から言語を学ぶための拡張機能です。本ポリシーでは、当拡張機能がそれらの教材、学習データ、および任意の AI リクエストをどのように取り扱うかを説明します。',
-        storedH2: 'ブラウザ内に保存されるデータ',
+        storedH2: 'ブラウザ内に<wbr>保存される<wbr>データ',
         storedP1:
           'Captionary は、設定、言語設定、保存した単語やフレーズ、メモ、文脈の例文、出典のタイトルと URL、動画のタイムスタンプ、設定済みの AI サービス、およびローカルの利用カウンターをお使いのブラウザの拡張機能ストレージ（extension storage）に保存します。また、AI の回答やダウンロードした単語頻度リストをローカルにキャッシュする場合があります。インポートした読み物やサイドパネルの文脈情報は、ブラウザのセッションストレージ（session storage）を使って拡張機能のページ間で受け渡されます。リーダー機能は、最後に開いたドキュメント（タイトル、アドレス、言語、本文）をローカルの拡張機能ストレージに保持し、いつでも続きから読めるようにします（別のドキュメントを開くと上書きされます）。',
         storedP2:
           '各プロバイダーの API キーはローカルの拡張機能ストレージに個別に保存されます。設定のエクスポートには含まれず、リクエストの認証に必要な場合にのみ設定したプロバイダーへ送信されます。通常のウェブページから拡張機能ストレージを読み取ることはできませんが、ローカルストレージは暗号化された資格情報保管庫ではありません。ブラウザのプロファイルと端末の管理にはご注意ください。',
         storedP3:
           'Captionary はこれらのデータに Chrome 同期（Chrome Sync）を使用しません。現在の拡張機能には、開発者が運営するアカウントサービス、アクセス解析 SDK、広告の組み込みはありません。',
-        contentH2: '動画および読み物のコンテンツ',
+        contentH2: '動画および<wbr>読み物の<wbr>コンテンツ',
         contentP1:
           '対応する動画サイトにおいて、Captionary は字幕トラックと再生情報を読み取り、字幕の表示、単語の検索、学習用コントロールの提供を行います。リーダーで明示的にページを開いた場合は、選択されたテキストまたは読み取り可能な本文、タイトル、URL、言語を読み取ります。Chrome の閲覧履歴データベースを読み取ることはありません。出典情報は、保存した語彙やインポートした読み物とともに保持される場合があります。',
         contentP2:
           'ローカルの動画ファイルおよびテキストファイルは、リーダー機能またはローカル動画再生機能のために開かれます。再生に伴って Captionary が動画ファイルを外部へアップロードすることはありません。ローカルファイルのテキストや字幕に対してクラウド AI を使用した場合、そのテキストは設定した AI サービスへ送信されます。',
-        requestsH2: '外部サービスへのリクエスト',
+        requestsH2: '外部サービスへの<wbr>リクエスト',
         requestsLi1: '動画プラットフォームおよびその字幕配信サーバーには、学習する字幕を取得するために必要な通信リクエストが送信されます。',
         requestsLi2:
           'Wiktionary（ウィクショナリー）検索は初期設定でオンになっています。有効な間、調べた単語やフレーズは定義を取得するため Wiktionary に送信されます。',
@@ -1691,14 +1699,14 @@
           '発音の読み上げにはブラウザの音声合成（speech-synthesis）機能を使用します。一部の音声はオンラインサービスを利用する場合があり、処理方法は選択した音声とブラウザに依存します。',
         requestsP:
           'これらのサービスは IP アドレスなどの通常のネットワーク情報を受け取る可能性があり、各サービスのプライバシーポリシーが適用されます。',
-        aiH2: '任意の AI 機能',
+        aiH2: '任意の&nbsp;AI&nbsp;機能',
         aiP1: '初期設定ではクラウド AI プロバイダーは設定されていません。プロバイダーを追加して AI 機能を使用すると、Captionary は該当する単語、フレーズ、文、字幕テキスト、プロンプト、またはチャット内容をそのプロバイダーに送信します。リクエストには選択した言語や学習レベルも含まれる場合があります。タスクの種類やプライバシー設定に応じて、前後の字幕行、既存の翻訳、メディアのタイトルが含まれることがあります。タイトルの共有は初期設定でオンになっています（リーダーではウェブページのタイトルが該当します）。追加質問チャットには直近のやり取りが含まれ、字幕翻訳では字幕行がまとめて送信されます。',
         aiP2: '予備のプロバイダー（フォールバック）を設定している場合、メインのプロバイダーが応答できないリクエスト（障害、レート制限、利用上限など）は、同じ内容のまま予備のプロバイダーへ送信されます。',
         aiP3: 'Captionary は AI サービスを追加する際にそのサイトへのアクセス許可を Chrome に求め、サービスを削除すると（別の設定済みサービスが同じサイトを使用していない限り）そのアクセス権を返上します。',
         aiP4: '設定後、任意の自動解説や AI 字幕翻訳を有効にしていると、機能の利用に伴ってリクエストが発生します。プライベートな教材で学習する前に設定をご確認ください。意図しない限り、機密性の高い個人情報をプロバイダーへ送信しないようご注意ください。',
         aiP5: '解説に含める文脈の範囲やタイトル共有の設定の変更、別のプロバイダーへの切り替え、自動解説の無効化、またはローカル AI サービスの利用が可能です。対応する Chrome のオンデバイス AI および翻訳機能は端末上でタスクを処理します（初回セットアップ時にモデルや言語パックのダウンロードが必要な場合があります）。localhost プロバイダーはご自身が設定したローカルサービス経由で動作し、さらに外部へ通信するかどうかはそのサービス側の設定に依存します。',
         aiP6: 'データの保持、モデル学習への利用、アカウント管理、課金に関する運用は各クラウドプロバイダーが管理しています。プロバイダーがすでに受け取ったデータを Captionary から削除することはできません。各プロバイダーのポリシーとアカウント設定をご確認ください。',
-        chatgptH2: '任意の ChatGPT アカウントサインイン',
+        chatgptH2: '任意の ChatGPT&nbsp;アカウント<wbr>サインイン',
         chatgptP1:
           'ChatGPT サインインを選択すると、Captionary は PKCE を用いた OAuth 認可フローにより auth.openai.com の OpenAI 認証ページを開きます。これには OpenAI が Codex コマンドラインツール向けに公開しているパブリッククライアントを使用します。OpenAI はこのサインイン方式を他のアプリ向けに公式文書化していないため、仕様が変更されたり動作しなくなったりする可能性があります。Captionary は OpenAI と提携・承認関係になく、OpenAI のパスワードを知ることもありません。',
         chatgptP2:
@@ -1709,19 +1717,19 @@
           'このプロバイダー向けの AI リクエストおよびモデル一覧リクエストは chatgpt.com/backend-api/codex のみに送信され、リクエストヘッダーにアクセストークンとアカウント識別子を含めます。また、「originator: captionary」ヘッダーによって Captionary からの通信であることを OpenAI に示します（OpenAI が FedRAMP アカウントとしてマークしている場合はその旨のヘッダーも付与されます）。これらのリクエストにはブラウザの Cookie は含まれません。ChatGPT の接続時や接続テスト時には、短いテストリクエスト（「Reply with the single word OK」）を1回送信し、これも他のリクエストと同様にプランの利用枠にカウントされます。応答リクエストでは store パラメータを false に設定しますが、これは OpenAI 全体のデータ保持方針を保証するものではありません。OpenAI の利用規約、可用性、利用制限、プライバシー慣行が適用されます。',
         chatgptP5:
           'サインアウトするとローカルに保存されたトークンとアカウントメタデータが削除されますが、再度サインインできるようプロバイダー項目および chatgpt.com と auth.openai.com へのアクセス権は維持されます。プロバイダー自体を削除すると、トークンが削除されると同時にサイトへのアクセス権も返上されます。いずれの操作もサーバー側のトークン失効エンドポイントを呼び出したり OpenAI 側の記録を消去したりするものではありません。OpenAI 側でもセッションを終了するには、ChatGPT のセキュリティ設定からすべての端末でログアウトしてください。Chrome の拡張機能設定からサイトのアクセス権限を管理することもできます。',
-        purposeH2: 'データの利用目的と共有',
+        purposeH2: 'データの<wbr>利用目的と<wbr>共有',
         purposeP1:
           'Captionary はここに記載されたデータを語学学習機能の提供のためにのみ使用します。現在の拡張機能にはデータの販売、広告、信用スコアリング機能はなく、学習データを開発者が運営するバックエンドへ送信することもありません。データが端末の外に出るのは、上記のサービスリクエスト、およびご自身で選択したエクスポートや外部リンクを利用する場合に限られます。',
         purposeP2:
           'Google API から受け取った情報の利用は、Limited Use（限定使用）の要件を含め、Chrome ウェブストアのユーザーデータポリシーに準拠します。',
-        retentionH2: 'データの保持と管理方法',
+        retentionH2: 'データの<wbr>保持と<wbr>管理方法',
         retentionP1:
           '保存した語彙と設定は、削除するか、拡張機能データをリセットするか、ブラウザプロファイルまたは拡張機能を削除するまでローカルストレージに残ります。キャッシュされた AI の回答には保持期間を設定でき、設定画面からいつでも消去できます。ダウンロードした単語頻度データはローカルにキャッシュとして残る場合があります。ローカルの利用カウンターもリセット可能です。',
         retentionP2:
           '「設定 → データとバックアップ」にある「すべて削除」を実行すると、設定、保存した語彙、AI プロバイダー接続、API キー、ChatGPT サインイントークン、リーダーの最終ドキュメント、AI 回答キャッシュ、ダウンロード済みの単語頻度リストがすべて削除され、AI サービス用に付与されたサイトアクセス権も返上されます。',
         retentionP3:
           '保存した語彙の個別削除、AI プロバイダー接続と保存済みキーの削除、AI 回答キャッシュの消去、データリセット機能の利用が可能です。リセットやアンインストールの前に、残しておきたい学習データはエクスポートしてください。エクスポートしたファイルはご自身の管理下に置かれ、拡張機能が自動的に削除することはありません。ローカルデータを削除しても、第三者サービスがすでに受け取ったデータは削除されません。',
-        contactH2: '変更および連絡先',
+        contactH2: '変更および<wbr>連絡先',
         contactP1: 'Captionary のデータ取り扱いに変更があった場合は本ポリシーを更新し、新バージョンの公開時に更新日を改訂します。',
         contactP2: '公開サポート窓口：<a href="https://github.com/mxggle/captionary/issues">github.com/mxggle/captionary/issues</a>',
       },
@@ -1757,10 +1765,24 @@
       if (el && val) el.setAttribute('content', val);
     };
     setMeta('meta[name="description"]', isPrivacy ? pack.privacyDesc : pack.indexDesc);
-    if (!isPrivacy) {
-      setMeta('meta[property="og:title"]', pack.ogTitle);
-      setMeta('meta[property="og:description"]', pack.ogDesc);
+    setMeta('meta[property="og:title"]', isPrivacy ? pack.privacyTitle : pack.ogTitle);
+    setMeta('meta[property="og:description"]', isPrivacy ? pack.privacyDesc : pack.ogDesc);
+
+    // Each language's URL (?lang=, as in the hreflang links) is its own canonical page.
+    const canonical = document.querySelector('link[rel="canonical"]');
+    if (canonical) {
+      try {
+        const url = new URL(canonical.href);
+        if (validLang === 'en') url.searchParams.delete('lang');
+        else url.searchParams.set('lang', validLang);
+        canonical.href = url.href;
+        setMeta('meta[property="og:url"]', url.href);
+      } catch (_) {}
     }
+    setMeta('meta[property="og:locale"]', OG_LOCALES[validLang]);
+    document.querySelectorAll('meta[property="og:locale:alternate"]').forEach((el, i) => {
+      el.setAttribute('content', SUPPORTED.filter((l) => l !== validLang).map((l) => OG_LOCALES[l])[i]);
+    });
 
     const lookup = (key) => {
       if (key in pack.common) return pack.common[key];
@@ -1822,9 +1844,15 @@
     });
   }
 
+  // Show a page the <head> script hid (.i18n-pending) once the text is in. DOMContentLoaded comes
+  // after every deferred script, demo.js included, so the demo's own text is in by then too.
+  const reveal = () => document.documentElement.classList.remove('i18n-pending');
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
     init();
   }
+  if (document.readyState === 'complete') reveal();
+  else document.addEventListener('DOMContentLoaded', reveal);
 })();

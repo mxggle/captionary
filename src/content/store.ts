@@ -40,6 +40,8 @@ export interface PopupTarget {
    * when not inflected), which the entry is saved under.
    */
   base?: string;
+  /** Opened with a key (E, or Enter on a word): the look-up takes focus, and gives it back on closing. */
+  byKeyboard?: boolean;
 }
 
 export interface MediaInfo {

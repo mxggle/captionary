@@ -93,6 +93,19 @@ const ZH_OVERRIDES: Record<string, Record<string, string>> = {
   ja: { 'zh-CN': '中国語（簡体字）', 'zh-TW': '中国語（繁体字）', nb: 'ノルウェー語', fil: 'フィリピン語' },
 };
 
+/**
+ * A subtitle track's language as the UI says it, keeping the region a host tells tracks apart by
+ * ("Spanish (Latin America)", "Portuguese (Brazil)"); Chinese keeps its script names.
+ */
+export function regionalLanguageName(code: string, uiLocale: string): string {
+  if (/^(zh|cmn)/i.test(code) || !code.includes('-')) return languageName(code, uiLocale);
+  try {
+    return new Intl.DisplayNames([uiLocale], { type: 'language' }).of(code) ?? languageName(code, uiLocale);
+  } catch {
+    return languageName(code, uiLocale);
+  }
+}
+
 export function languageName(code: string, uiLocale?: string): string {
   const norm = normalizeLang(code);
   const found = LANGUAGES.find((l) => l.code === norm);

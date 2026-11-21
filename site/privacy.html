@@ -3,12 +3,59 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <script>
+      // Pick the page language before the first paint, the same way detectLang() in i18n.js does
+      // (?lang=, then the saved choice, then the browser's languages); keep the two in step. A
+      // non-English page stays hidden until i18n.js has put the text in (see .i18n-pending).
+      (() => {
+        const norm = (raw) => {
+          const s = String(raw || '').trim().toLowerCase();
+          if (s === 'en' || s.startsWith('en-')) return 'en';
+          if (s === 'ja' || s.startsWith('ja-')) return 'ja';
+          if (/^zh-(mo$|hant)|-tw|-hk/.test(s)) return 'zh-TW';
+          if (s === 'zh' || s.startsWith('zh-')) return 'zh-CN';
+          return null;
+        };
+        let lang = null;
+        try {
+          lang = norm(new URLSearchParams(location.search).get('lang')) || norm(localStorage.getItem('captionary-site-lang'));
+        } catch (_) {}
+        const navs = navigator.languages?.length ? navigator.languages : [navigator.language];
+        if (!lang) lang = navs.map(norm).find(Boolean) || 'en';
+        document.documentElement.lang = lang;
+        if (lang !== 'en') document.documentElement.classList.add('i18n-pending');
+      })();
+    </script>
     <title>Privacy policy · Captionary</title>
     <link rel="canonical" href="https://captionary.nihongo.day/privacy.html" />
+    <link rel="alternate" hreflang="en" href="https://captionary.nihongo.day/privacy.html" />
+    <link rel="alternate" hreflang="ja" href="https://captionary.nihongo.day/privacy.html?lang=ja" />
+    <link rel="alternate" hreflang="zh-CN" href="https://captionary.nihongo.day/privacy.html?lang=zh-CN" />
+    <link rel="alternate" hreflang="zh-TW" href="https://captionary.nihongo.day/privacy.html?lang=zh-TW" />
+    <link rel="alternate" hreflang="x-default" href="https://captionary.nihongo.day/privacy.html" />
     <meta name="description" content="How the Captionary Chrome extension handles subtitles, your study data and optional AI requests." />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Captionary" />
+    <meta property="og:title" content="Privacy policy · Captionary" />
+    <meta property="og:description" content="How the Captionary Chrome extension handles subtitles, your study data and optional AI requests." />
+    <meta property="og:url" content="https://captionary.nihongo.day/privacy.html" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale:alternate" content="ja_JP" />
+    <meta property="og:locale:alternate" content="zh_CN" />
+    <meta property="og:locale:alternate" content="zh_TW" />
+    <meta property="og:image" content="https://captionary.nihongo.day/og.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="The headline “Look up whole phrases in the shows you watch” beside a video player whose look-up card explains “cuenta” in a Spanish subtitle."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
     <meta name="color-scheme" content="light dark" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="icon-128.png" type="image/png" sizes="128x128" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <link rel="preload" href="fonts/BricolageGrotesque-latin.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="fonts/AtkinsonHyperlegibleNext-latin.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="styles.css" />
@@ -37,10 +84,10 @@
         </nav>
         <div class="head-end">
           <select class="lang-select" data-site-lang-select aria-label="Page language" data-i18n-aria="langAria">
-            <option value="en">English</option>
-            <option value="zh-CN">简体中文</option>
-            <option value="zh-TW">繁體中文</option>
-            <option value="ja">日本語</option>
+            <option value="en" lang="en">English</option>
+            <option value="zh-CN" lang="zh-CN">简体中文</option>
+            <option value="zh-TW" lang="zh-TW">繁體中文</option>
+            <option value="ja" lang="ja">日本語</option>
           </select>
           <a
             class="btn btn-primary btn-sm"
@@ -55,7 +102,7 @@
 
     <main id="main">
       <article class="wrap legal">
-        <h1 data-i18n="h1">Captionary Privacy Policy</h1>
+        <h1 data-i18n-html="h1">Captionary Privacy Policy</h1>
 
         <p class="updated" data-i18n="updated">Last updated October 18, 2026.</p>
 
@@ -63,7 +110,7 @@
           Captionary helps you learn languages from video subtitles and reading material. This policy describes how the extension handles
           that material, your study data, and optional AI requests.
         </p>
-        <h2 id="stored" data-i18n="storedH2">Data stored in your browser</h2>
+        <h2 id="stored" data-i18n-html="storedH2">Data stored in your browser</h2>
         <p data-i18n="storedP1">
           Captionary stores settings, language preferences, saved words and phrases, notes, context sentences, source titles and URLs, video
           timestamps, configured AI services, and local usage counters in your browser’s extension storage. It may cache AI answers and
@@ -80,7 +127,7 @@
           Captionary does not use Chrome Sync for this data. The current extension does not include a developer-operated account service,
           analytics SDK, or advertising integration.
         </p>
-        <h2 id="content" data-i18n="contentH2">Video and reading content</h2>
+        <h2 id="content" data-i18n-html="contentH2">Video and reading content</h2>
         <p data-i18n="contentP1">
           On supported video sites, Captionary reads subtitle tracks and playback information to display subtitles, look up words, and
           provide study controls. When you explicitly open a page in the reader, it reads the selected or readable page text, title, URL,
@@ -91,7 +138,7 @@
           Local video and text files are opened for the reader or local video feature. Captionary does not upload the video file as part of
           playback. If you use cloud AI on text or subtitles from a local file, that text can be sent to the configured AI service.
         </p>
-        <h2 id="requests" data-i18n="requestsH2">Requests to other services</h2>
+        <h2 id="requests" data-i18n-html="requestsH2">Requests to other services</h2>
         <ul class="plain">
           <li data-i18n="requestsLi1">
             Video platforms and their subtitle hosts receive the requests required to obtain the subtitles you study.
@@ -114,7 +161,7 @@
         <p data-i18n="requestsP">
           These services can receive ordinary network information, such as your IP address, and apply their own privacy policies.
         </p>
-        <h2 id="ai" data-i18n="aiH2">Optional AI features</h2>
+        <h2 id="ai" data-i18n-html="aiH2">Optional AI features</h2>
         <p data-i18n="aiP1">
           No cloud AI provider is configured by default. If you add one and use an AI feature, Captionary sends the relevant word, phrase,
           sentence, subtitle text, prompt, or chat to that provider. Requests can also contain your selected languages and learning level.
@@ -145,7 +192,7 @@
           Each cloud provider controls its own retention, training, account, and billing practices. Captionary cannot delete data that a
           provider has already received. Consult that provider’s policy and account controls.
         </p>
-        <h2 id="chatgpt" data-i18n="chatgptH2">Optional ChatGPT account sign-in</h2>
+        <h2 id="chatgpt" data-i18n-html="chatgptH2">Optional ChatGPT account sign-in</h2>
         <p data-i18n="chatgptP1">
           If you choose ChatGPT sign-in, Captionary opens OpenAI’s authentication page at auth.openai.com using an OAuth authorization flow
           with PKCE. It uses the public sign-in client that OpenAI publishes for its Codex command-line tool; OpenAI has not documented this
@@ -178,7 +225,7 @@
           action calls a server-side token revocation endpoint or erases OpenAI-side records; to end the session at OpenAI as well, log out
           of all devices in ChatGPT’s security settings. You can also manage the extension’s site permissions in Chrome.
         </p>
-        <h2 id="purpose" data-i18n="purposeH2">Purpose and sharing</h2>
+        <h2 id="purpose" data-i18n-html="purposeH2">Purpose and sharing</h2>
         <p data-i18n="purposeP1">
           Captionary uses the data described here to provide its language-learning features. The current extension has no data-sale,
           advertising, or credit-scoring feature. It does not send your study data to a developer-operated backend. Data can leave your
@@ -188,7 +235,7 @@
           The use of information received from Google APIs will adhere to the Chrome Web Store User Data Policy, including its Limited Use
           requirements.
         </p>
-        <h2 id="retention" data-i18n="retentionH2">Retention and your controls</h2>
+        <h2 id="retention" data-i18n-html="retentionH2">Retention and your controls</h2>
         <p data-i18n="retentionP1">
           Saved vocabulary and settings remain in local storage until you remove them, reset extension data, or remove the browser profile
           or extension. Cached AI answers have a configurable retention period and can be cleared in settings. Downloaded word-frequency
@@ -205,10 +252,8 @@
           under your control and are not automatically deleted by the extension. Removing local data does not remove data already received
           by third-party services.
         </p>
-        <h2 id="contact" data-i18n="contactH2">Changes and contact</h2>
-        <p data-i18n="contactP1">
-          Update this policy when Captionary’s data practices change, and revise the date when publishing a new version.
-        </p>
+        <h2 id="contact" data-i18n-html="contactH2">Changes and contact</h2>
+        <p data-i18n="contactP1">We’ll update this policy when Captionary’s data practices change and revise the date above.</p>
         <p data-i18n-html="contactP2">
           Public support contact: <a href="https://github.com/mxggle/captionary/issues">github.com/mxggle/captionary/issues</a>.
         </p>

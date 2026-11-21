@@ -1,10 +1,11 @@
 import { useEffect, useRef, type RefObject } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { getCurrentUILocale, getMessages, resolveUILocale } from '@/lib/i18n';
-import { languageName, sameLang } from '@/lib/languages';
-import { bg } from '@/lib/messaging';
+import { languageName, regionalLanguageName, sameLang } from '@/lib/languages';
+import { bg, type AIStatus } from '@/lib/messaging';
 import { toPlainText } from '@/lib/subtitles/parse';
 import type { TrackInfo, TranslationSource } from '@/lib/subtitles/types';
+import type { SessionController } from '../controller';
 import { useSession, type SessionState } from '../store';
 
 /** Everything the subtitle panel, the drawer and the menus read from the session. */
@@ -57,6 +58,25 @@ export interface TranslationChoice {
   source: TranslationSource;
   /** Listed first; the rest sit behind "Other subtitle tracks". */
   primary: boolean;
+  /** AI is not set up yet: picking this opens the setup instead (see {@link pickTranslation}). */
+  setup?: boolean;
+}
+
+/** AI translation cannot run yet: the tutor is turned off or has no provider (unknown status: assume it can). */
+export function aiNeedsSetup(aiStatus: AIStatus | null): boolean {
+  return !!aiStatus && !(aiStatus.enabled && aiStatus.configured);
+}
+
+/** Open where AI gets set up: the AI settings when it is turned off, else the setup guide's tutor step. */
+export function openAISetup(aiStatus: AIStatus | null) {
+  const off = !!aiStatus && !aiStatus.enabled;
+  void bg({ type: 'open.page', page: off ? 'options' : 'welcome', hash: off ? 'ai' : 'tutor' }).catch(() => undefined);
+}
+
+/** A translation picked in a menu: show it, or open the AI setup when that is what it still needs. */
+export function pickTranslation(controller: SessionController, choice: TranslationChoice, aiStatus: AIStatus | null) {
+  if (choice.setup) openAISetup(aiStatus);
+  else void controller.chooseTranslation(choice.source);
 }
 
 /** Translation sources for this video, the learner's language first. */
@@ -66,14 +86,15 @@ export function translationChoices(
   const locale = resolveUILocale(s.settings);
   const m = getMessages(locale);
   const native = s.settings.nativeLanguage;
-  const nativeName = languageName(native, locale);
-  const out: TranslationChoice[] = [];
+  // Off first, as in each host's own subtitle menu; then the learner's language, by where it comes
+  // from (the title's own subtitles, then translations into it); then tracks in other languages.
+  const out: TranslationChoice[] = [{ key: 'none', label: m.common.off, source: { type: 'none' }, primary: true }];
   const tracks = s.tracks.filter((t) => t.id !== s.originalTrackId && !t.forced);
   for (const t of tracks.filter((t) => sameLang(t.lang, native))) {
     out.push({
       key: `track:${t.id}`,
       label: trackLabel(t),
-      meta: m.content.subtitles.metaSubtitleTrack,
+      meta: m.content.subtitles.metaOfficial,
       source: { type: 'track', trackId: t.id },
       primary: true,
     });
@@ -81,35 +102,33 @@ export function translationChoices(
   if (s.site === 'youtube') {
     out.push({
       key: 'platform-mt',
-      label: nativeName,
-      meta: m.content.subtitles.metaAutoTranslate,
+      label: m.content.subtitles.choiceAutoTranslate,
       source: { type: 'platform-mt', lang: native },
       primary: true,
     });
   }
+  out.push({ key: 'chrome', label: m.content.subtitles.choiceOnDevice, source: { type: 'chrome', lang: native }, primary: true });
+  const setup = aiNeedsSetup(s.aiStatus);
   out.push({
-    key: 'chrome',
-    label: nativeName,
-    meta: m.content.subtitles.metaOnDevice,
-    source: { type: 'chrome', lang: native },
+    key: 'ai',
+    label: m.content.subtitles.choiceAi,
+    meta: setup ? m.content.subtitles.metaAiNeedsSetup : undefined,
+    source: { type: 'ai', lang: native },
     primary: true,
+    setup,
   });
-  out.push({ key: 'ai', label: nativeName, meta: m.content.subtitles.metaAi, source: { type: 'ai', lang: native }, primary: true });
-  out.push({ key: 'none', label: m.common.off, source: { type: 'none' }, primary: true });
   for (const t of tracks.filter((t) => !sameLang(t.lang, native))) {
-    out.push({
-      key: `track:${t.id}`,
-      label: trackLabel(t),
-      meta: m.content.subtitles.metaSubtitleTrack,
-      source: { type: 'track', trackId: t.id },
-      primary: false,
-    });
+    out.push({ key: `track:${t.id}`, label: trackLabel(t), source: { type: 'track', trackId: t.id }, primary: false });
   }
   return out;
 }
 
 export function trackLabel(t: TrackInfo): string {
-  const m = getMessages(getCurrentUILocale());
+  const locale = getCurrentUILocale();
+  const m = getMessages(locale);
+  if (t.namedByLang) {
+    return `${regionalLanguageName(t.lang, locale)}${t.auto ? m.content.subtitles.autoSuffix : ''}${t.cc ? ' (CC)' : ''}`;
+  }
   return `${t.label}${t.auto && !/auto/i.test(t.label) ? m.content.subtitles.autoSuffix : ''}`;
 }
 
@@ -127,10 +146,16 @@ export function languagePair(d: Pick<SubtitleData, 'lang' | 'translationSource' 
   const locale = resolveUILocale(d.settings);
   const m = getMessages(locale);
   const orig = languageName(d.lang, locale);
-  const src = d.translationSource;
-  if (src.type === 'none') return orig;
-  const trLang = src.type === 'track' ? (d.tracks.find((t) => t.id === src.trackId)?.lang ?? '') : src.lang;
+  if (d.translationSource.type === 'none') return orig;
+  const trLang = translationLang(d);
   return m.content.subtitles.pairTranslation(orig, trLang ? languageName(trLang, locale) : '', short);
+}
+
+/** Language of the translation lines: a subtitle track's own, else the language translated into. */
+export function translationLang(d: Pick<SubtitleData, 'translationSource' | 'tracks'>): string | undefined {
+  const src = d.translationSource;
+  if (src.type === 'none') return undefined;
+  return src.type === 'track' ? d.tracks.find((t) => t.id === src.trackId)?.lang : src.lang;
 }
 
 export function downloadText(name: string, content: string, type = 'text/plain') {
@@ -178,7 +203,8 @@ export function useFollowPlayback(
     if (!list || !row) return;
     const rowTop = row.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop;
     const target = align === 'center' ? rowTop - list.clientHeight / 2 + row.offsetHeight / 2 : rowTop - list.clientHeight / 3;
-    list.scrollTo({ top: target, behavior: Math.abs(list.scrollTop - target) > 2000 ? 'auto' : 'smooth' });
+    const smooth = Math.abs(list.scrollTop - target) <= 2000 && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    list.scrollTo({ top: target, behavior: smooth ? 'smooth' : 'auto' });
   }, [index, enabled, listRef, align]);
   return {
     onPointerEnter: () => void (hovering.current = true),

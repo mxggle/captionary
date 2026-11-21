@@ -16,6 +16,8 @@ import { ModeSwitch, type ReaderMode } from './mode';
 /** Plays a local video file with subtitle files the user picked. */
 class LocalAdapter implements SiteAdapter {
   readonly site = 'local' as const;
+  /** Chrome's own control bar with its timeline. */
+  readonly nativeControlsHeight = 72;
   video: HTMLVideoElement | null = null;
   tracks = new Map<string, Cue[]>();
   getVideo() {
@@ -53,7 +55,7 @@ async function readSubtitle(file: File, fallbackLang: string): Promise<SubFile> 
 }
 
 /** The reader's local video: the same captions, list, keys and look-ups as on the video sites. */
-export function VideoMode({ onMode }: { onMode: (m: ReaderMode) => void }) {
+export function VideoMode({ onMode, titleRef }: { onMode: (m: ReaderMode) => void; titleRef: React.Ref<HTMLHeadingElement> }) {
   const { m, locale } = useI18n();
   const [settings] = useSettings();
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -126,13 +128,23 @@ export function VideoMode({ onMode }: { onMode: (m: ReaderMode) => void }) {
   };
   const k = (key: string) => keyName(key) && <span className="cap-kbd">{keyName(key)}</span>;
 
+  // Cleared after reading, so picking the same file again still loads it.
+  const takeFile = (input: HTMLInputElement) => {
+    const file = input.files?.[0];
+    input.value = '';
+    return file;
+  };
+
+  // A full-width page without the app's side navigation: next to it the video would lose about a third of its width.
   return (
-    <div className="cap-video-page">
-      <div className="cap-row" style={{ gap: 12 }}>
-        <a href="/reader.html" className="cap-row" style={{ gap: 10, color: 'var(--ink)', textDecoration: 'none' }}>
+    <main className="cap-video-page">
+      <div className="cap-row cap-video-page__head">
+        <div className="cap-row cap-video-page__brand">
           <BrandMark />
-          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 19 }}>{m.reader.title}</span>
-        </a>
+          <h1 className="cap-video-page__title" ref={titleRef} tabIndex={-1}>
+            {m.reader.title}
+          </h1>
+        </div>
         <ModeSwitch mode="video" onMode={onMode} />
         <span className="cap-spacer" />
         <a className="cap-btn cap-btn--ghost" href="/vocab.html">
@@ -145,24 +157,24 @@ export function VideoMode({ onMode }: { onMode: (m: ReaderMode) => void }) {
 
       <div className="cap-card" style={{ padding: '12px 14px' }}>
         <div className="cap-row" style={{ gap: 10 }}>
-          <label className="cap-btn cap-file-btn">
+          <label className="cap-btn cap-file-btn" title={videoName || undefined}>
             <IconFilm className="cap-ico" />
-            {videoName || m.reader.video.chooseVideoFile}
+            <span className="cap-file-btn__name">{videoName || m.reader.video.chooseVideoFile}</span>
             <input
               type="file"
               accept="video/*,audio/*,.mkv"
               onChange={(e) => {
-                const file = e.target.files?.[0];
+                const file = takeFile(e.target);
                 if (!file) return;
                 setVideoUrl(URL.createObjectURL(file));
                 setVideoName(file.name.replace(/\.[^.]+$/, ''));
               }}
             />
           </label>
-          <label className="cap-btn cap-file-btn">
+          <label className="cap-btn cap-file-btn" title={original?.name}>
             <IconCaptions className="cap-ico" />
-            {original ? original.name : m.reader.video.subtitlesFile}
-            <input type="file" accept=".srt,.vtt,.ttml,.dfxp,.xml" onChange={(e) => void pickSub(e.target.files?.[0], 'original')} />
+            <span className="cap-file-btn__name">{original ? original.name : m.reader.video.subtitlesFile}</span>
+            <input type="file" accept=".srt,.vtt,.ttml,.dfxp,.xml" onChange={(e) => void pickSub(takeFile(e.target), 'original')} />
           </label>
           {original && (
             <LanguageSelect
@@ -174,10 +186,10 @@ export function VideoMode({ onMode }: { onMode: (m: ReaderMode) => void }) {
               style={{ height: 36 }}
             />
           )}
-          <label className="cap-btn cap-btn--ghost cap-file-btn">
+          <label className="cap-btn cap-btn--ghost cap-file-btn" title={translation?.name}>
             <IconCaptions className="cap-ico" />
-            {translation ? translation.name : m.reader.video.translationSubtitlesOptional}
-            <input type="file" accept=".srt,.vtt,.ttml,.dfxp,.xml" onChange={(e) => void pickSub(e.target.files?.[0], 'translation')} />
+            <span className="cap-file-btn__name">{translation ? translation.name : m.reader.video.translationSubtitlesOptional}</span>
+            <input type="file" accept=".srt,.vtt,.ttml,.dfxp,.xml" onChange={(e) => void pickSub(takeFile(e.target), 'translation')} />
           </label>
           <span className="cap-spacer" />
           <span className="cap-help">{m.reader.video.localVideoHelp(languageName(settings.nativeLanguage, locale))}</span>
@@ -247,6 +259,6 @@ export function VideoMode({ onMode }: { onMode: (m: ReaderMode) => void }) {
           {m.reader.video.emptyPrompt}
         </p>
       )}
-    </div>
+    </main>
   );
 }

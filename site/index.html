@@ -3,6 +3,29 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <script>
+      // Pick the page language before the first paint, the same way detectLang() in i18n.js does
+      // (?lang=, then the saved choice, then the browser's languages); keep the two in step. A
+      // non-English page stays hidden until i18n.js has put the text in (see .i18n-pending).
+      (() => {
+        const norm = (raw) => {
+          const s = String(raw || '').trim().toLowerCase();
+          if (s === 'en' || s.startsWith('en-')) return 'en';
+          if (s === 'ja' || s.startsWith('ja-')) return 'ja';
+          if (/^zh-(mo$|hant)|-tw|-hk/.test(s)) return 'zh-TW';
+          if (s === 'zh' || s.startsWith('zh-')) return 'zh-CN';
+          return null;
+        };
+        let lang = null;
+        try {
+          lang = norm(new URLSearchParams(location.search).get('lang')) || norm(localStorage.getItem('captionary-site-lang'));
+        } catch (_) {}
+        const navs = navigator.languages?.length ? navigator.languages : [navigator.language];
+        if (!lang) lang = navs.map(norm).find(Boolean) || 'en';
+        document.documentElement.lang = lang;
+        if (lang !== 'en') document.documentElement.classList.add('i18n-pending');
+      })();
+    </script>
     <title>Captionary: learn languages from YouTube, Netflix and Apple TV+</title>
     <meta
       name="description"
@@ -16,7 +39,16 @@
       content="Dual subtitles on YouTube, Netflix and Apple TV+, phrase look-up, and an AI tutor that runs on your ChatGPT plan, your own API key or a local model. Free."
     />
     <link rel="canonical" href="https://captionary.nihongo.day/" />
+    <link rel="alternate" hreflang="en" href="https://captionary.nihongo.day/" />
+    <link rel="alternate" hreflang="ja" href="https://captionary.nihongo.day/?lang=ja" />
+    <link rel="alternate" hreflang="zh-CN" href="https://captionary.nihongo.day/?lang=zh-CN" />
+    <link rel="alternate" hreflang="zh-TW" href="https://captionary.nihongo.day/?lang=zh-TW" />
+    <link rel="alternate" hreflang="x-default" href="https://captionary.nihongo.day/" />
     <meta property="og:url" content="https://captionary.nihongo.day/" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale:alternate" content="ja_JP" />
+    <meta property="og:locale:alternate" content="zh_CN" />
+    <meta property="og:locale:alternate" content="zh_TW" />
     <meta property="og:image" content="https://captionary.nihongo.day/og.png" />
     <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
@@ -29,6 +61,7 @@
     <meta name="color-scheme" content="light dark" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="icon-128.png" type="image/png" sizes="128x128" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <link rel="preload" href="fonts/BricolageGrotesque-latin.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="fonts/AtkinsonHyperlegibleNext-latin.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="styles.css" />
@@ -157,10 +190,10 @@
         </nav>
         <div class="head-end">
           <select class="lang-select" data-site-lang-select aria-label="Page language" data-i18n-aria="langAria">
-            <option value="en">English</option>
-            <option value="zh-CN">简体中文</option>
-            <option value="zh-TW">繁體中文</option>
-            <option value="ja">日本語</option>
+            <option value="en" lang="en">English</option>
+            <option value="zh-CN" lang="zh-CN">简体中文</option>
+            <option value="zh-TW" lang="zh-TW">繁體中文</option>
+            <option value="ja" lang="ja">日本語</option>
           </select>
           <a
             class="btn btn-primary btn-sm"
@@ -202,11 +235,9 @@
           <figure class="demo" id="demo">
             <div class="demo-bar">
               <p class="demo-hint" id="demo-hint">Try it. Click a word in the top line, or drag across a few words.</p>
-              <div class="seg" role="radiogroup" aria-label="Demo language" data-i18n-aria="demoLangAria">
-                <button type="button" role="radio" aria-checked="true" data-lang="es" id="demo-lang-es" data-i18n="demoEs">Spanish</button>
-                <button type="button" role="radio" aria-checked="false" data-lang="ja" id="demo-lang-ja" data-i18n="demoJa">
-                  Japanese
-                </button>
+              <div class="seg" role="group" aria-label="Demo language" data-i18n-aria="demoLangAria">
+                <button type="button" aria-pressed="true" data-lang="es" id="demo-lang-es" data-i18n="demoEs">Spanish</button>
+                <button type="button" aria-pressed="false" data-lang="ja" id="demo-lang-ja" data-i18n="demoJa">Japanese</button>
               </div>
             </div>
             <div class="player" id="player">
@@ -232,7 +263,8 @@
                 </div>
               </div>
             </div>
-            <div class="lk" id="lk" role="dialog" aria-label="Look-up" hidden></div>
+            <div class="lk" id="lk" role="region" aria-label="Look-up" hidden></div>
+            <p class="sr" id="lk-live" aria-live="polite"></p>
             <figcaption data-i18n="demoFigcaption">
               A working copy of the look-up card with sample answers. In the extension, the AI you connect writes them.
             </figcaption>
@@ -243,7 +275,7 @@
       <section class="band" id="phrases" aria-labelledby="phrases-h">
         <div class="wrap split">
           <div class="split-text">
-            <h2 id="phrases-h" data-i18n="phrasesH2">Some meanings only exist as phrases</h2>
+            <h2 id="phrases-h" data-i18n-html="phrasesH2">Some meanings only exist as phrases</h2>
             <p data-i18n-html="phrasesP">
               Look up <i lang="es">cuenta</i> and you get “bill”. In <i lang="es">se dio cuenta</i> it means “realized”, and no single word
               in the line tells you that. Phrasal verbs, idioms and set expressions work the same way in every language.
@@ -260,7 +292,7 @@
               <li data-i18n="phrasesLi4">Works in Chinese, Japanese and Thai too, where words aren’t separated by spaces.</li>
             </ul>
           </div>
-          <div class="gloss" aria-label="Word by word versus as a phrase" data-i18n-aria="glossAria">
+          <div class="gloss" role="group" aria-label="Word by word versus as a phrase" data-i18n-aria="glossAria">
             <p class="gloss-line" lang="es">mi hermano <mark class="hl">se dio cuenta</mark> de que…</p>
             <dl class="gloss-rows">
               <div>
@@ -279,7 +311,7 @@
       <section class="band" id="ai" aria-labelledby="ai-h">
         <div class="wrap split split-flip">
           <div class="split-text">
-            <h2 id="ai-h" data-i18n="aiH2">Bring the AI you already pay for</h2>
+            <h2 id="ai-h" data-i18n-html="aiH2">Bring the AI you already pay for</h2>
             <p data-i18n="aiP">
               Captionary doesn’t sell AI credits or lock you to one model. Connect what you have and switch whenever you like.
             </p>
@@ -350,7 +382,7 @@
       <section class="band" id="words" aria-labelledby="words-h">
         <div class="wrap split">
           <div class="split-text">
-            <h2 id="words-h" data-i18n="wordsH2">Your word list is free, and it stays yours</h2>
+            <h2 id="words-h" data-i18n-html="wordsH2">Your word list is free, and it stays yours</h2>
             <p data-i18n="wordsP">
               Save a word or phrase as learning or known. Captionary keeps the sentence, its translation, the video and the timestamp it
               came from. Learning words get a dotted underline wherever they turn up again: in subtitles, the subtitle list and the reader.
@@ -395,14 +427,14 @@
       <section class="band" id="compare" aria-labelledby="compare-h">
         <div class="wrap">
           <div class="section-head">
-            <h2 id="compare-h" data-i18n="compareH2">Captionary and Language Reactor compared</h2>
+            <h2 id="compare-h" data-i18n-html="compareH2">Captionary and Language Reactor compared</h2>
             <p data-i18n="compareP">
               Language Reactor is the best-known tool for learning from Netflix and YouTube, with two million Chrome users, and it does a
               lot well. This is where the two differ. We checked every Language Reactor detail against its own pages on October 18, 2026.
             </p>
           </div>
 
-          <div class="table-scroll" role="region" aria-labelledby="compare-h" tabindex="0">
+          <div class="table-scroll" role="region" aria-label="Comparison table" data-i18n-aria="compareTableAria" tabindex="0">
             <table class="compare">
               <thead>
                 <tr>
@@ -517,7 +549,7 @@
 
           <div class="fair">
             <div class="fair-col">
-              <h3 data-i18n="fairH3Ahead">Where Language Reactor is ahead</h3>
+              <h3 data-i18n-html="fairH3Ahead">Where Language Reactor is ahead</h3>
               <ul class="plain">
                 <li data-i18n="fairLi1">Its website works on phones and tablets. Captionary is desktop Chrome only.</li>
                 <li data-i18n="fairLi2">
@@ -534,12 +566,12 @@
               </ul>
             </div>
             <div class="fair-col">
-              <h3 data-i18n="fairH3Both">What both do</h3>
+              <h3 data-i18n-html="fairH3Both">What both do</h3>
               <p data-i18n="fairPBoth">
                 Dual subtitles, a subtitle list, auto-pause and line repeat, keyboard shortcuts, transliteration, word-frequency colors, a
                 text reader, local video files with your own subtitles, and Anki export.
               </p>
-              <h3 data-i18n="fairH3Pick">Which to pick</h3>
+              <h3 data-i18n-html="fairH3Pick">Which to pick</h3>
               <p data-i18n="fairPPick">
                 Pick Captionary if you want to look up phrases, choose your own AI, or keep a word list without paying. Pick Language
                 Reactor if you study on your phone, want your words in an online account, or watch dubbed Netflix shows that have no
@@ -576,7 +608,7 @@
       <section class="band" id="toolkit" aria-labelledby="toolkit-h">
         <div class="wrap">
           <div class="section-head">
-            <h2 id="toolkit-h" data-i18n="toolkitH2">The rest of the toolkit</h2>
+            <h2 id="toolkit-h" data-i18n-html="toolkitH2">The rest of the toolkit</h2>
           </div>
           <dl class="grid3">
             <div>
@@ -640,7 +672,7 @@
       <section class="band" id="privacy" aria-labelledby="privacy-h">
         <div class="wrap split">
           <div class="split-text">
-            <h2 id="privacy-h" data-i18n="privacyH2">Your keys and your words stay in your browser</h2>
+            <h2 id="privacy-h" data-i18n-html="privacyH2">Your keys and your words stay in your browser</h2>
             <p data-i18n-html="privacyP">
               There’s no Captionary account, no analytics and no ads. The code is
               <a href="https://github.com/mxggle/captionary">on GitHub</a>, so you can check all of this yourself.
@@ -667,7 +699,7 @@
 
       <section class="band" id="faq" aria-labelledby="faq-h">
         <div class="wrap faq-wrap">
-          <h2 id="faq-h" data-i18n="faqH2">Questions</h2>
+          <h2 id="faq-h" data-i18n-html="faqH2">Questions</h2>
           <div class="faq">
             <details>
               <summary data-i18n="faqQ1">Is Captionary really free?</summary>
@@ -723,7 +755,7 @@
 
       <section class="band final" aria-labelledby="final-h">
         <div class="wrap final-inner">
-          <h2 id="final-h" data-i18n="finalH2">Try it on the next thing you watch</h2>
+          <h2 id="final-h" data-i18n-html="finalH2">Try it on the next thing you watch</h2>
           <p data-i18n="finalP">
             A short setup guide asks which language you’re learning and helps you connect a tutor, or skip that for now.
           </p>

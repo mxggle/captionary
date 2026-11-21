@@ -1,5 +1,5 @@
 import { storage } from '#imports';
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useI18n } from '@/lib/i18n';
 import { languageName, normalizeLang, sameLang } from '@/lib/languages';
 import { bg } from '@/lib/messaging';
@@ -13,7 +13,7 @@ import { speak } from '@/lib/tts';
 import { removeVocab, saveVocab, vocabKey } from '@/lib/vocab';
 import type { PopupTarget } from '@/content/store';
 import { AppShell } from '@/ui/AppShell';
-import { Note, PageHead } from '@/ui/controls';
+import { Note } from '@/ui/controls';
 import { LanguageSelect, useSettings } from '@/ui/form';
 import { IconDocument, IconInfo, IconSpark, IconSpeaker, IconUpload } from '@/ui/icons';
 import { PaperLookup } from '@/ui/PaperLookup';
@@ -51,7 +51,7 @@ function placeLookup(rect: PopupTarget['rect'], wrap: HTMLElement | null): { sty
   return { style: { left, bottom: box.height - (rect.top - box.top) + 8, width }, maxHeight: Math.max(240, above), growsUp: true };
 }
 
-function TextMode({ onMode }: { onMode: (m: ReaderMode) => void }) {
+function TextMode({ onMode, titleRef }: { onMode: (m: ReaderMode) => void; titleRef: React.Ref<HTMLHeadingElement> }) {
   const { m, locale } = useI18n();
   const [settings] = useSettings();
   const aiStatus = useAIStatus();
@@ -215,9 +215,15 @@ function TextMode({ onMode }: { onMode: (m: ReaderMode) => void }) {
   if (!doc) {
     return (
       <AppShell current="reader" narrow>
-        <PageHead title={m.reader.title} lead={m.reader.lead}>
+        <div className="cap-pagehead">
+          <div className="cap-pagehead__text">
+            <h1 className="cap-h1 cap-reader__heading" ref={titleRef} tabIndex={-1}>
+              {m.reader.title}
+            </h1>
+            <p className="cap-lead">{m.reader.lead}</p>
+          </div>
           <ModeSwitch mode="text" onMode={onMode} />
-        </PageHead>
+        </div>
         <section
           className="cap-card"
           aria-label={m.reader.textToReadAria}
@@ -247,6 +253,8 @@ function TextMode({ onMode }: { onMode: (m: ReaderMode) => void }) {
                 accept=".txt,.md,.srt,.vtt,text/plain"
                 onChange={async (e) => {
                   const file = e.target.files?.[0];
+                  // Cleared, so picking the same file again still loads it.
+                  e.target.value = '';
                   if (file) await load(await readTextFile(file), file.name);
                 }}
               />
@@ -284,15 +292,14 @@ function TextMode({ onMode }: { onMode: (m: ReaderMode) => void }) {
       <div style={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: 22 }}>
         <div className="cap-pagehead" style={{ alignItems: 'center' }}>
           <div className="cap-pagehead__text">
-            <h1 className="cap-reader__title" lang={doc.lang}>
+            <h1 className="cap-reader__title" lang={doc.lang} ref={titleRef} tabIndex={-1}>
               {doc.title}
             </h1>
-            {doc.url ? (
+            {/* The language select beside the title already names the language. */}
+            {doc.url && (
               <a href={doc.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13 }}>
                 {m.reader.openedFromPage(source)}
               </a>
-            ) : (
-              <span className="cap-help">{languageName(doc.lang, locale)}</span>
             )}
           </div>
           <LanguageSelect variant="button" label={m.reader.languageOfText} value={doc.lang} onChange={(v) => setDoc({ ...doc, lang: v })} />
@@ -306,7 +313,14 @@ function TextMode({ onMode }: { onMode: (m: ReaderMode) => void }) {
               m.reader.translateTo(languageName(native, locale))
             )}
           </button>
-          <button className="cap-btn cap-btn--ghost" onClick={() => setDoc(null)}>
+          <button
+            className="cap-btn cap-btn--ghost"
+            onClick={() => {
+              setDoc(null);
+              // Forget it too, or switching modes or reloading brings the old text back.
+              void lastDoc.setValue(null);
+            }}
+          >
             {m.reader.newText}
           </button>
         </div>
@@ -376,8 +390,8 @@ function TextMode({ onMode }: { onMode: (m: ReaderMode) => void }) {
                   rank={popup.kind === 'word' && freq ? frequencyRank(freq, normalizeWord(popup.text, popup.lang)) : undefined}
                   onClose={() => setPopup(null)}
                   onSave={(status, entry) => {
-                    if (!status) return void removeVocab(vocabKey(entry.text, popup.lang).id);
-                    void saveVocab({
+                    if (!status) return removeVocab(vocabKey(entry.text, popup.lang).id);
+                    return saveVocab({
                       lang: popup.lang,
                       ...entry,
                       status,
@@ -396,11 +410,39 @@ function TextMode({ onMode }: { onMode: (m: ReaderMode) => void }) {
   );
 }
 
+function modeFromHash(): ReaderMode {
+  return location.hash === '#video' ? 'video' : 'text';
+}
+
 export function ReaderApp() {
   const { m } = useI18n();
-  const [mode, setMode] = useState<ReaderMode>(() => (location.hash === '#video' ? 'video' : 'text'));
+  const [mode, setMode] = useState<ReaderMode>(modeFromHash);
+  const current = useRef(mode);
+  current.current = mode;
+  // Set when the mode changes after load: the new page's heading takes focus from the removed one.
+  const switched = useRef(false);
+  const show = (next: ReaderMode) => {
+    if (next === current.current) return;
+    switched.current = true;
+    setMode(next);
+  };
   useEffect(() => {
     document.title = `${mode === 'video' ? m.reader.modeVideo : m.reader.title} · Captionary`;
   }, [mode, m]);
-  return mode === 'text' ? <TextMode onMode={setMode} /> : <VideoMode onMode={setMode} />;
+  // The mode lives in the address, so a reload or Back keeps it.
+  useEffect(() => {
+    const onHash = () => show(modeFromHash());
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+  const choose = (next: ReaderMode) => {
+    history.replaceState(null, '', next === 'video' ? '#video' : location.pathname + location.search);
+    show(next);
+  };
+  const titleRef = useCallback((el: HTMLHeadingElement | null) => {
+    if (!el || !switched.current) return;
+    switched.current = false;
+    el.focus();
+  }, []);
+  return mode === 'text' ? <TextMode onMode={choose} titleRef={titleRef} /> : <VideoMode onMode={choose} titleRef={titleRef} />;
 }

@@ -2,7 +2,7 @@ import { getCurrentUILocale, getMessages } from '@/lib/i18n';
 import { bg } from '@/lib/messaging';
 import { parseTtml, parseVttOrSrt } from '@/lib/subtitles/parse';
 import type { NetflixTrack } from '@/lib/subtitles/netflix';
-import type { Cue, TrackInfo } from '@/lib/subtitles/types';
+import { type Cue, type TrackInfo, SubtitleLoadError } from '@/lib/subtitles/types';
 import { FROM_MAIN, onMessageFrom, postToMain, requestMain } from '../bridge';
 import type { SiteAdapter } from '../controller';
 
@@ -118,20 +118,31 @@ export class NetflixAdapter implements SiteAdapter {
   }
 
   trackInfos(tracks: NetflixTrack[]): TrackInfo[] {
-    return tracks.map((t) => ({
-      id: t.id,
-      lang: t.lang,
-      label: `${t.label}${t.closedCaptions ? ' [CC]' : ''}`,
-      forced: t.forced,
-    }));
+    // Netflix can list the same language twice (one track per audio language); menus show it once.
+    const seen = new Set<string>();
+    return tracks
+      .filter((t) => {
+        const key = [t.lang.toLowerCase(), t.label, t.closedCaptions, t.forced].join('|');
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .map((t) => ({
+        id: t.id,
+        lang: t.lang,
+        label: `${t.label}${t.closedCaptions ? ' (CC)' : ''}`,
+        forced: t.forced,
+        cc: t.closedCaptions,
+        namedByLang: true,
+      }));
   }
 
   async loadTrack(trackId: string): Promise<Cue[]> {
     const track = this.tracks.get(trackId);
-    if (!track) throw new Error(getMessages(getCurrentUILocale()).content.errors.unknownSubtitleTrack);
+    if (!track) throw new SubtitleLoadError(getMessages(getCurrentUILocale()).content.errors.unknownSubtitleTrack);
     // Subtitle files live on Netflix's CDN; the background downloads them.
     if (track.vtt) return parseVttOrSrt(await bg({ type: 'fetch.text', url: track.vtt }));
     if (track.dfxp) return parseTtml(await bg({ type: 'fetch.text', url: track.dfxp }));
-    throw new Error(getMessages(getCurrentUILocale()).content.errors.netflixNoDownloadableFormat);
+    throw new SubtitleLoadError(getMessages(getCurrentUILocale()).content.errors.netflixNoDownloadableFormat);
   }
 }

@@ -6,7 +6,7 @@
 @font-face {
   font-family: 'Atkinson Hyperlegible Mono';
   font-style: normal;
-  font-weight: 400 500;
+  font-weight: 200 800;
   font-display: swap;
   src: url('/fonts/AtkinsonHyperlegibleMono-latin-ext.woff2') format('woff2');
   unicode-range:
@@ -18,7 +18,7 @@
 @font-face {
   font-family: 'Atkinson Hyperlegible Mono';
   font-style: normal;
-  font-weight: 400 500;
+  font-weight: 200 800;
   font-display: swap;
   src: url('/fonts/AtkinsonHyperlegibleMono-latin.woff2') format('woff2');
   unicode-range:

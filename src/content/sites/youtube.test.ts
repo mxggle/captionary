@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BridgeMessage } from '../bridge';
 import { YouTubeAdapter, type YtPlayerData } from './youtube';
+import { SubtitleLoadError } from '@/lib/subtitles/types';
 
 const bridge = vi.hoisted(() => ({
   listeners: [] as ((msg: BridgeMessage) => void)[],
@@ -89,7 +90,7 @@ describe('YouTubeAdapter caption token', () => {
     const onToken = vi.fn();
     adapter.onToken = onToken;
     const load = adapter.loadTrack('.en');
-    const failed = expect(load).rejects.toThrow('Press the CC button');
+    const failed = expect(load).rejects.toThrow(SubtitleLoadError);
     await vi.advanceTimersByTimeAsync(8_500);
     await failed;
 

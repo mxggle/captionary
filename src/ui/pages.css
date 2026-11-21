@@ -31,9 +31,8 @@ body.cap-root {
   text-decoration-color: currentColor;
 }
 
-/* Short labels in mono capitals (group names, stat and column labels). Never running text. */
+/* Short labels in mono capitals (group names, column labels). Never running text. */
 .cap-nav__group,
-.cap-stat__label,
 .cap-table th {
   font-family: var(--font-mono);
   font-size: 11px;
@@ -60,24 +59,54 @@ body.cap-root {
 .cap-main__inner {
   margin: 0 auto 0 0;
 }
+/* Hidden above the page until a keyboard user tabs onto it. */
+.cap-skip {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 50;
+  padding: 10px 14px;
+  border-radius: var(--radius-control);
+  background: var(--primary);
+  color: var(--on-primary);
+  font-weight: 600;
+  transform: translateY(-200%);
+}
+.cap-root .cap-skip:hover {
+  text-decoration: none;
+}
+.cap-skip:focus {
+  transform: none;
+}
 @media (max-width: 760px) {
   .cap-nav {
     position: static;
     flex: 1 1 100%;
     max-width: none;
     max-height: none;
-    flex-direction: row;
-    flex-wrap: wrap;
-    padding: 16px;
-    gap: 4px;
+    padding: 16px 0 4px;
+    gap: 0;
   }
   .cap-nav__brand {
-    flex: 1 1 100%;
-    padding-bottom: 8px;
+    padding: 0 26px 8px;
   }
   .cap-nav__group {
-    flex: 1 1 100%;
-    padding: 10px 12px 2px;
+    padding: 10px 28px 2px;
+  }
+  /* Each group is one row that scrolls sideways to the screen edge; the padding leaves room for the focus ring. */
+  .cap-nav__list {
+    flex-direction: row;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 4px 16px;
+    scroll-padding-inline: 16px;
+  }
+  .cap-nav__list::-webkit-scrollbar {
+    display: none;
+  }
+  .cap-nav__item {
+    flex: none;
+    white-space: nowrap;
   }
   .cap-main {
     padding: 24px 16px 48px;
@@ -89,21 +118,28 @@ body.cap-root {
 }
 
 /* ---------- toolbar pop-up ---------- */
+/* The body sets the pop-up's width. When content passes Chrome's 600px limit, the scrollbar takes its
+   room from the page, so nothing may scroll sideways. */
 body.cap-popup-page {
   width: 360px;
   min-height: 0;
+  overflow-x: hidden;
   background: var(--surface-raised);
 }
 .cap-popup__brand {
   font-family: var(--font-display);
   font-size: 19px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.015em;
 }
 .cap-popup__sentence {
   font-size: 15px;
   line-height: 2.1;
   color: var(--ink-muted);
+}
+/* Each connecting phrase stays whole, so "and I speak" or 「・母語」 never splits across lines. */
+.cap-popup__phrase {
+  white-space: nowrap;
 }
 .cap-golist {
   display: flex;
@@ -115,7 +151,7 @@ body.cap-popup-page {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 18px;
+  padding: 8px 18px;
   border: 0;
   border-top: 1px solid var(--line);
   background: none;
@@ -177,6 +213,43 @@ body.cap-popup-page {
   font-weight: 600;
   letter-spacing: -0.015em;
 }
+.cap-sidepanel__ask {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+}
+.cap-sidepanel__input {
+  min-height: 70px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+}
+.cap-sidepanel__label {
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+/* Stays at the right edge, also when a narrow panel puts it on a line of its own. */
+.cap-sidepanel__explain {
+  margin-left: auto;
+}
+.cap-sidepanel__source {
+  font-size: 12.5px;
+  color: var(--ink-subtle);
+}
+.cap-root button.cap-sidepanel__back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 100%;
+  align-self: flex-start;
+  font-size: 13.5px;
+}
+.cap-sidepanel__back > .cap-ico {
+  color: var(--ink-muted);
+}
+.cap-sidepanel__empty {
+  margin: 0;
+}
 
 /* ---------- welcome ---------- */
 .cap-steps {
@@ -234,6 +307,8 @@ body.cap-popup-page {
 /* ---------- settings ---------- */
 .cap-card {
   --card-inner-radius: calc(var(--radius-lg) - 1px);
+  /* A card scrolled into view (a provider just added) keeps a little room above it. */
+  scroll-margin-top: var(--space-4);
 }
 .cap-preview-frame {
   position: relative;
@@ -291,10 +366,23 @@ body.cap-popup-page {
   text-decoration: line-through;
 }
 .cap-key--legend {
-  width: 18px;
-  height: 18px;
-  border-bottom-width: 1px;
-  font-size: 0;
+  width: 20px;
+  height: 20px;
+  border-bottom-width: 2px;
+  font-size: 10px;
+}
+.cap-keymap__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  padding: 0 18px 14px;
+  font-size: 12.5px;
+  color: var(--ink-subtle);
+}
+.cap-keymap__legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 .cap-pick-grid {
   display: grid;
@@ -324,24 +412,31 @@ body.cap-popup-page {
   font-weight: 400;
   color: var(--ink-subtle);
 }
+/* An editable title: a border on hover and focus says it can be changed; the negative margin keeps the text in line. */
 .cap-card__title-input {
-  width: 100%;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-xs);
+  width: calc(100% + 14px);
+  margin: -3px -7px;
+  padding: 2px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--ink);
   font-family: var(--font-display);
   font-size: 17px;
   font-weight: 600;
 }
+.cap-card__title-input:hover {
+  border-color: var(--line-strong);
+}
 .cap-card__title-input:focus {
   outline: 2px solid transparent;
+  border-color: var(--line-strong);
   box-shadow: var(--focus-ring);
 }
+/* Two columns while one still fits the five reasoning-effort options, one column in a narrower card. */
 .cap-task {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
   gap: 14px 20px;
   padding: 16px 18px;
 }
@@ -351,15 +446,38 @@ body.cap-popup-page {
   width: 100%;
   max-width: none;
 }
-@media (max-width: 760px) {
-  .cap-task {
-    grid-template-columns: minmax(0, 1fr);
-  }
+/* Models per task without a provider: still readable, plainly not in use yet. */
+.cap-fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: inherit;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.cap-fieldset:disabled {
+  opacity: 0.55;
+}
+/* An input with its buttons: the buttons wrap under the input before the input gets too narrow. */
+.cap-inputrow > .cap-input {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.cap-account {
+  flex: 1 1 200px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .cap-stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px;
+}
+/* Stat labels are running text ("Answered from this computer today"), not the mono capitals of short labels. */
+.cap-stat__label {
+  font-size: 12.5px;
+  color: var(--ink-muted);
 }
 .cap-table-wrap {
   overflow-x: auto;
@@ -449,37 +567,82 @@ body.cap-popup-page {
   text-align: left;
   cursor: text;
 }
+/* The note in the row: two lines at most, the rest is one click away in the editor. */
 .cap-entry__notes {
-  margin-top: 8px;
-  padding: 10px 12px;
-  border-radius: var(--radius-md);
-  background: var(--surface-sunk);
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 6px;
   font-size: 13.5px;
+  line-height: 20px;
   color: var(--ink-muted);
+}
+.cap-entry__notes .cap-ico {
+  width: 13px;
+  height: 13px;
+  margin-top: 3px;
+  color: var(--ink-subtle);
+}
+.cap-entry__notes .cap-md {
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.cap-entry__confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 2px 4px 4px;
+}
+.cap-entry__confirm-text {
+  margin: 0;
+  padding: 4px 6px;
+  font-size: 13.5px;
+}
+.cap-entry__confirm-actions .cap-btn {
+  width: auto;
 }
 .cap-empty {
   padding: 40px 24px;
   text-align: center;
   color: var(--ink-muted);
 }
+.cap-empty__actions {
+  margin-top: 14px;
+}
 
 /* ---------- review ---------- */
 .cap-flash .cap-ctx {
   max-width: 520px;
+}
+.cap-flash__count {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--ink-muted);
+  white-space: nowrap;
 }
 
 /* ---------- reader ---------- */
 .cap-reader-wrap {
   position: relative;
   max-width: 700px;
+  /* With the main column's 40px padding, room for the sentence tools beside each sentence. */
+  margin-right: 16px;
 }
+/* Hidden with opacity rather than display, so Tab still reaches them; shown on hover and focus. */
 .cap-sent__tools {
-  display: none;
+  opacity: 0;
 }
 .cap-sent:hover .cap-sent__tools,
 .cap-sent.is-active .cap-sent__tools,
 .cap-sent:focus-within .cap-sent__tools {
-  display: flex;
+  opacity: 1;
+}
+/* Blurred translations clear on hover; keyboard focus in the sentence clears them too. */
+.cap-sent:has(:focus-visible) .cap-sent__tr.is-blurred {
+  filter: none;
 }
 .cap-reader__title {
   margin: 0;
@@ -494,12 +657,32 @@ body.cap-popup-page {
   border-color: var(--accent);
   color: var(--accent);
 }
+/* The page heading takes focus when the mode switches; it is not a control and draws no ring. */
+.cap-reader__heading:focus-visible,
+.cap-reader__title:focus-visible,
+.cap-video-page__title:focus-visible {
+  box-shadow: none;
+}
 .cap-video-page {
   display: flex;
   flex-direction: column;
   gap: 18px;
   min-height: 100vh;
   padding: 24px 32px 40px;
+}
+.cap-video-page__head {
+  gap: 12px;
+}
+.cap-video-page__brand {
+  gap: 10px;
+}
+.cap-video-page__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 19px;
+  line-height: 24px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
 }
 .cap-video-layout {
   display: flex;
@@ -527,8 +710,30 @@ body.cap-popup-page {
   max-width: 400px;
   height: min(560px, 72vh);
 }
+/* A file picker drawn as a button: the input stays focusable (keyboard opens the picker), the label shows the ring. */
+.cap-file-btn {
+  position: relative;
+  max-width: 100%;
+  min-width: 0;
+}
 .cap-file-btn input {
-  display: none;
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.cap-file-btn:has(input:focus-visible) {
+  box-shadow: var(--focus-ring);
+}
+/* A long file name shortens; the full name is in the title. */
+.cap-file-btn__name {
+  min-width: 0;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 @media (max-width: 760px) {
   .cap-video-page {
@@ -537,6 +742,22 @@ body.cap-popup-page {
   .cap-video-side {
     max-width: none;
   }
+  .cap-reader-wrap {
+    margin-right: 0;
+  }
+  /* No gutter beside the column: the tools open under the sentence while it is in use. */
+  .cap-sent__tools {
+    position: static;
+    flex-direction: row;
+    height: 0;
+    overflow: hidden;
+  }
+  .cap-sent.is-active .cap-sent__tools,
+  .cap-sent:focus-within .cap-sent__tools {
+    height: auto;
+    margin-top: 4px;
+    overflow: visible;
+  }
 }
 
 /* ---------- setup guide (welcome.html): one question per screen, Back and Continue pinned to the bottom ---------- */
@@ -544,6 +765,10 @@ body.cap-popup-page {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+/* Focus scrolls answers clear of the pinned bars (top bar 55px, bottom bar 73px). */
+html:has(.cap-wizard) {
+  scroll-padding: 72px 0 88px;
 }
 .cap-wizard__bar {
   position: sticky;
@@ -573,8 +798,7 @@ body.cap-popup-page {
   min-width: 0;
 }
 .cap-wizard__count,
-.cap-wizard__summary dt,
-.cap-wizard__legend {
+.cap-wizard__summary dt {
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 500;
@@ -583,15 +807,17 @@ body.cap-popup-page {
   color: var(--ink-subtle);
   white-space: nowrap;
 }
+/* Equal steps, each as wide as the longest label (「AIチューター」), never narrower than 76px. */
 .cap-wizard__track {
-  display: flex;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(76px, 1fr);
   gap: 4px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 .cap-wizard__track li {
-  width: 76px;
   display: flex;
   flex-direction: column;
   gap: 5px;
@@ -702,9 +928,19 @@ body.cap-popup-page {
   flex-direction: row;
   flex-wrap: wrap;
 }
+/* The question over a group of answers is a sentence: set as a small heading, not as a mono label. */
 .cap-wizard__legend {
   padding: 0;
   margin-bottom: 10px;
+  font-family: var(--font-display);
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.cap-wizard__panel .cap-wizard__legend {
+  font-size: 16px;
+  line-height: 22px;
 }
 .cap-choice {
   display: flex;
@@ -805,7 +1041,8 @@ body.cap-popup-page {
   flex-direction: column;
   gap: 16px;
   padding: 20px;
-  border-left: 3px solid var(--primary);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
   background: var(--surface-raised);
 }
 .cap-wizard__download {
@@ -1155,6 +1392,10 @@ body.cap-popup-page {
 }
 
 @media (max-width: 760px) {
+  /* The top bar wraps to two rows (83px), the bottom one is 69px. */
+  html:has(.cap-wizard) {
+    scroll-padding: 100px 0 84px;
+  }
   .cap-wizard__bar {
     flex-wrap: wrap;
     padding: 10px 16px;
@@ -1166,10 +1407,7 @@ body.cap-popup-page {
   }
   .cap-wizard__track {
     flex: 1;
-  }
-  .cap-wizard__track li {
-    flex: 1;
-    width: auto;
+    grid-auto-columns: minmax(0, 1fr);
   }
   .cap-wizard__track-label {
     display: none;

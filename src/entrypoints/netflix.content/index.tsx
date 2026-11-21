@@ -23,17 +23,22 @@ function OverlayGate({ controller }: { controller: SessionController }) {
 
 const sizeFrom = () => [document.querySelector(AUDIO_SUBTITLES)];
 
-/** The gap Netflix leaves between its control buttons (a spacer element before each wrapper). */
-function controlGap(): number {
-  const wrapper = document.querySelector(AUDIO_SUBTITLES)?.parentElement;
+/**
+ * Netflix's rhythm between control buttons: a spacer element, then a wrapper a little wider than the
+ * button it holds. Captionary's button takes the same spacer and wrapper width, so the row keeps its pitch.
+ */
+function controlSpacing(): { marginLeft: number; marginRight: number } {
+  const button = document.querySelector(AUDIO_SUBTITLES);
+  const wrapper = button?.parentElement;
   const spacer = wrapper?.previousElementSibling;
-  const w = spacer && !spacer.querySelector('button') ? spacer.getBoundingClientRect().width : 0;
-  return w > 0 && w < 80 ? w : 24;
+  const gap = spacer && !spacer.querySelector('button') ? spacer.getBoundingClientRect().width : 0;
+  const extra = button && wrapper ? wrapper.getBoundingClientRect().width - button.getBoundingClientRect().width : 0;
+  return { marginLeft: gap > 0 && gap < 80 ? gap : 24, marginRight: extra > 0 && extra < 40 ? extra : 0 };
 }
 
 function ButtonGate({ controller }: { controller: SessionController }) {
   if (!useActive()) return null;
-  return <PlayerButton controller={controller} sizeFrom={sizeFrom} style={{ marginLeft: controlGap() }} />;
+  return <PlayerButton controller={controller} sizeFrom={sizeFrom} style={controlSpacing()} />;
 }
 
 export default defineContentScript({

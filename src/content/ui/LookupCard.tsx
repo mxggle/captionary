@@ -13,6 +13,7 @@ import {
   IconClose,
   IconCopy,
   IconMore,
+  IconNote,
   IconPlay,
   IconRefresh,
   IconSpark,
@@ -23,7 +24,9 @@ import { Markdown } from '@/ui/Markdown';
 import { TokenizedText, type WordSelection } from '@/ui/TokenizedText';
 import { explainsAtOnce, rankBand, useLookup, type LookupInput } from '@/ui/useLookup';
 import { useVocabIndex } from '@/ui/vocab-index';
-import type { AnchorRect, PopupTarget } from '../store';
+import { toast } from '../controller';
+import { useSession, type AnchorRect, type PopupTarget } from '../store';
+import { deepActiveElement, focusQuietly, returnFocus } from './focus';
 import { useContainWheel } from './wheel';
 
 /** Where the card goes: absolute inside `bounds` (or fixed to the viewport), with its pointer. */
@@ -37,37 +40,63 @@ export interface Placement {
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
+/** The least height worth putting beside the caption line: the headword, its translation and the actions. */
+const MIN_CARD_HEIGHT = 120;
+
+/** Widths of the card: compact fits a saved word's actions (Learning · Known · Explain · More) in the host's font. */
+export const CARD_WIDTH = { compact: 330, expanded: 360 };
+
+/**
+ * How much larger the card is drawn than its CSS pixels. Netflix sizes its own player UI by the viewport
+ * height (its panels are designed at about 720px tall), so the card grows with it in fullscreen instead of
+ * staying a small popup beside large captions. Other hosts keep fixed sizes, as their menus do.
+ */
+export function cardZoom(theme: string | undefined, viewportHeight = window.innerHeight): number {
+  return theme === 'netflix' ? clamp(viewportHeight / 720, 1, 1.75) : 1;
+}
+
+/** A placement worked out in screen pixels, expressed in the card's own (zoomed) pixels. */
+function unzoom(p: Placement, zoom: number): Placement {
+  if (zoom === 1) return p;
+  const style = Object.fromEntries(Object.entries(p.style).map(([k, v]) => [k, typeof v === 'number' ? v / zoom : v]));
+  return { ...p, style, maxHeight: p.maxHeight / zoom, arrow: p.arrow && { ...p.arrow, x: p.arrow.x / zoom } };
+}
+
 /**
  * Put the card next to the word without covering `avoid` (the caption line): above it when there is
- * more room above, below otherwise; or beside `side` (the drawer) when the word is in the drawer.
+ * more room above, below otherwise; or beside `side` (the drawer) when the word is in the drawer. In a
+ * player too small for either, the card hangs from the top edge over the line, so its headword always shows.
  */
 export function placeCard(
   width: number,
   { anchor, avoid, bounds, side }: { anchor: AnchorRect; avoid: AnchorRect; bounds: AnchorRect; side?: AnchorRect | null },
 ): Placement {
   const w = Math.min(width, bounds.width - 16);
+  const limit = Math.max(0, bounds.height - 16);
   if (side) {
     const left = clamp(side.left - bounds.left - w - 12, 8, bounds.width - w - 8);
     const top = clamp(anchor.top - bounds.top - 24, 8, Math.max(8, bounds.height - 240));
-    return { style: { left, top, width: w }, maxHeight: Math.max(160, bounds.height - top - 8) };
+    return { style: { left, top, width: w }, maxHeight: Math.max(0, bounds.height - top - 8) };
   }
   const cx = anchor.left - bounds.left + anchor.width / 2;
   const left = clamp(cx - w / 2, 8, Math.max(8, bounds.width - w - 8));
   const x = clamp(cx - left, 16, w - 16);
-  const above = avoid.top - bounds.top;
-  const below = bounds.height - (avoid.top + avoid.height - bounds.top);
-  const limit = bounds.height - 16;
+  const above = avoid.top - bounds.top - 18;
+  const below = bounds.height - (avoid.top + avoid.height - bounds.top) - 18;
+  if (Math.max(above, below) < MIN_CARD_HEIGHT) {
+    return { style: { left, width: w, top: 8 }, maxHeight: limit };
+  }
   if (above >= below) {
     return {
-      style: { left, width: w, bottom: bounds.height - above + 10 },
-      maxHeight: clamp(above - 18, 120, limit),
+      style: { left, width: w, bottom: bounds.height - (above + 18) + 10 },
+      maxHeight: Math.min(above, limit),
       growsUp: true,
       arrow: { x, top: false },
     };
   }
   return {
     style: { left, width: w, top: avoid.top + avoid.height - bounds.top + 10 },
-    maxHeight: clamp(below - 18, 120, limit),
+    maxHeight: Math.min(below, limit),
     arrow: { x, top: true },
   };
 }
@@ -108,6 +137,7 @@ export function LookupCard(props: LookupCardProps) {
   const [view, setView] = useState<'compact' | 'explain' | 'more'>(isWord && !autoExplain ? 'compact' : 'explain');
   const [question, setQuestion] = useState('');
   const ref = useRef<HTMLElement>(null);
+  const theme = useSession((s) => s.theme);
   const index = useVocabIndex(vocab, target.lang);
   useContainWheel(ref);
 
@@ -124,8 +154,38 @@ export function LookupCard(props: LookupCardProps) {
     };
   }, [onClose]);
 
+  // A card fixed to the viewport (the side column's) stays where it opened, so once the page or the
+  // list under it scrolls, or the window resizes, its word has moved away: it closes.
+  useEffect(() => {
+    const card = ref.current;
+    if (!fixed || !card) return;
+    const onScroll = (e: Event) => {
+      if (!e.composedPath().includes(card)) onClose();
+    };
+    // Scrolling inside a shadow root (the panel's list) reaches its root, not the window.
+    const roots = [window, card.getRootNode()].filter((r, i, all) => all.indexOf(r) === i && r !== document);
+    roots.forEach((r) => r.addEventListener('scroll', onScroll, true));
+    window.addEventListener('resize', onClose);
+    return () => {
+      roots.forEach((r) => r.removeEventListener('scroll', onScroll, true));
+      window.removeEventListener('resize', onClose);
+    };
+  }, [fixed, onClose]);
+
+  // Opened with a key from inside Captionary (Enter on a caption word): focus moves to the card's first
+  // action, or the card itself, and back when it closes. E pressed while watching, and a click, leave
+  // focus with the player, so Space still plays and pauses.
+  useEffect(() => {
+    const card = ref.current;
+    const opener = deepActiveElement();
+    const fromCaptionary = !!opener?.closest('.cap-root');
+    if (target.byKeyboard && fromCaptionary && card) focusQuietly(card.querySelector('.cap-lookup__actions button') ?? card);
+    return () => returnFocus(opener, card);
+  }, []);
+
   const expanded = view !== 'compact';
-  const placement = place(expanded ? 360 : 300);
+  const zoom = cardZoom(theme);
+  const placement = unzoom(place((expanded ? CARD_WIDTH.expanded : CARD_WIDTH.compact) * zoom), zoom);
   const openSettings = () => void bg({ type: 'open.page', page: 'options', hash: 'ai' }).catch(() => undefined);
   const openSetup = () => void bg({ type: 'open.page', page: 'welcome', hash: 'tutor' }).catch(() => undefined);
   const explain = () => {
@@ -134,6 +194,7 @@ export function LookupCard(props: LookupCardProps) {
   };
   const ask = (e: FormEvent) => {
     e.preventDefault();
+    if (!question.trim() || lookup.chatting) return;
     lookup.ask(question);
     setQuestion('');
   };
@@ -150,8 +211,9 @@ export function LookupCard(props: LookupCardProps) {
     <section
       ref={ref}
       className={`cap-lookup cap-lookup--native${expanded ? ' is-expanded' : ''}${fixed ? ' is-fixed' : ''}`}
-      style={placement.style}
+      style={zoom === 1 ? placement.style : { ...placement.style, zoom }}
       role="dialog"
+      tabIndex={-1}
       aria-label={m.lookup.lookupAria(target.text)}
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
@@ -197,7 +259,11 @@ export function LookupCard(props: LookupCardProps) {
           )}
         </div>
         {lookup.romanized && view !== 'more' && <div className="cap-lookup__roman">{lookup.romanized}</div>}
-        {isWord && view !== 'more' && lookup.translation && <div className="cap-lookup__tr">{lookup.translation}</div>}
+        {isWord && view !== 'more' && lookup.translation && (
+          <div className="cap-lookup__tr" lang={settings.nativeLanguage}>
+            {lookup.translation}
+          </div>
+        )}
         {isWord && view !== 'more' && <ExplanationDefinition explanation={lookup.explanation} />}
         {isWord && view !== 'more' && suggestion && (
           <ChunkButton suggestion={suggestion} lang={target.lang} onPick={() => onSelectWord?.({ ...suggestion, rect: target.rect })} />
@@ -224,6 +290,15 @@ export function LookupCard(props: LookupCardProps) {
             </button>
           </div>
         )}
+        {/* Un-pressing Learning or Known removes the entry, notes and all; one press brings it back. */}
+        {isWord && view !== 'more' && lookup.removed && !saved && (
+          <p className="cap-lookup__note" role="status">
+            {m.lookup.removedFromWords}{' '}
+            <button className="cap-lookup__link" onClick={() => void lookup.undoRemove().then(() => toast(m.lookup.restored))}>
+              {m.lookup.undo}
+            </button>
+          </p>
+        )}
 
         {view === 'explain' && (
           <>
@@ -245,7 +320,7 @@ export function LookupCard(props: LookupCardProps) {
                   maxLength={500}
                   onChange={(e) => setQuestion(e.target.value)}
                 />
-                <button className="cap-picon" type="submit" aria-label={m.lookup.askButton} disabled={!question.trim()}>
+                <button className="cap-picon" type="submit" aria-label={m.lookup.askButton} disabled={!question.trim() || lookup.chatting}>
                   <IconArrowRight className="cap-ico" />
                 </button>
               </form>
@@ -284,7 +359,7 @@ export function LookupCard(props: LookupCardProps) {
                   </a>
                 ))}
                 {props.onOpenSidePanel && (
-                  <button className="cap-link" style={{ color: 'var(--link)', textDecoration: 'none' }} onClick={props.onOpenSidePanel}>
+                  <button className="cap-link" onClick={props.onOpenSidePanel}>
                     {m.lookup.openInSidePanel}
                   </button>
                 )}
@@ -292,7 +367,7 @@ export function LookupCard(props: LookupCardProps) {
             </div>
             <div className="cap-lookup__sep" />
             <div className="cap-lookup__actions">
-              <button className="cap-pbtn" onClick={() => lookup.copy(target.text)}>
+              <button className="cap-pbtn" onClick={() => copyWithToast(lookup, target.text, m)}>
                 <IconCopy className="cap-ico-lg" />
                 {m.common.copy}
               </button>
@@ -333,6 +408,13 @@ function TutorNative({
 }) {
   const { m } = useI18n();
   const { ai } = lookup;
+  if (lookup.aiPending) {
+    return (
+      <div className="cap-lookup__note" aria-busy="true">
+        <span className="cap-spinner" />
+      </div>
+    );
+  }
   if (!lookup.aiReady) {
     return (
       <div className="cap-lookup__note">
@@ -400,7 +482,7 @@ function TutorNative({
             style={SMALL}
             aria-label={m.lookup.copyExplanation}
             title={m.common.copy}
-            onClick={() => lookup.copy(lookup.answerText)}
+            onClick={() => copyWithToast(lookup, lookup.answerText, m)}
           >
             <IconCopy className="cap-ico" />
           </button>
@@ -409,9 +491,12 @@ function TutorNative({
             style={SMALL}
             aria-label={m.lookup.saveToNotes}
             title={m.lookup.saveToNotes}
-            onClick={lookup.saveNotes}
+            onClick={() => {
+              const added = !!lookup.saved;
+              void lookup.saveNotes().then(() => toast(added ? m.lookup.notesSaved : m.lookup.notesSavedNew));
+            }}
           >
-            <IconBookmark className="cap-ico" />
+            <IconNote className="cap-ico" />
           </button>
           <button className="cap-picon" style={SMALL} aria-label={m.lookup.regenerate} title={m.lookup.regenerate} onClick={lookup.explain}>
             <IconRefresh className="cap-ico" />
@@ -422,8 +507,11 @@ function TutorNative({
         <div key={i}>
           <p className="cap-lookup__q">{t.q}</p>
           {t.status === 'error' ? (
-            <div className="cap-lookup__error" style={{ padding: 0 }}>
-              {formatAIError({ code: 'unknown', message: t.error }, m).primary}
+            <div className="cap-lookup__error" style={{ padding: 0 }} role="alert">
+              {formatAIError(t.errorInfo ?? { code: 'unknown', message: t.error ?? '' }, m).primary}{' '}
+              <button className="cap-lookup__link" onClick={() => lookup.retryTurn(i)}>
+                {m.common.retry}
+              </button>
             </div>
           ) : t.a ? (
             <div className={t.status === 'streaming' ? 'cap-cursor' : undefined}>
@@ -439,3 +527,8 @@ function TutorNative({
 }
 
 const SMALL: CSSProperties = { width: 28, height: 28 };
+
+/** Copies and confirms over the video, the way the player's own actions do. */
+function copyWithToast(lookup: ReturnType<typeof useLookup>, text: string, m: ReturnType<typeof useI18n>['m']) {
+  void lookup.copy(text).then((ok) => toast(ok ? m.lookup.copied : m.lookup.copyFailed));
+}

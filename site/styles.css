@@ -82,17 +82,9 @@
   --player-warn: #f5c451;
   --caption-plate: #080808bf;
   --caption-selected: #ffffff40;
+  --player-focus: #8ea2ff;
 
-  --font-display:
-    'Bricolage Grotesque', 'Atkinson Hyperlegible Next', system-ui, -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
-    'PingFang TC', 'Hiragino Sans', 'Yu Gothic', 'Meiryo', sans-serif;
-  --font-sans:
-    'Atkinson Hyperlegible Next', system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'PingFang TC',
-    'Hiragino Sans', 'Yu Gothic', 'Meiryo', 'Noto Sans CJK JP', sans-serif;
   --font-mono: 'Atkinson Hyperlegible Mono', ui-monospace, 'SF Mono', Menlo, monospace;
-  --font-host:
-    system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
-    'PingFang TC', 'Hiragino Sans', 'Yu Gothic', 'Meiryo', sans-serif;
 
   --fs-h1: clamp(2.5rem, 1.35rem + 4.4vw, 4.4rem);
   --fs-h2: clamp(1.8rem, 1.3rem + 1.9vw, 2.7rem);
@@ -150,6 +142,33 @@
   color-scheme: dark;
 }
 
+/* CJK faces follow the language, so Japanese gets Japanese glyph forms and Traditional Chinese gets
+   TC, not whichever Chinese font comes first. The stacks are declared again on every [lang] element,
+   so an inline sample (a Japanese word on the English page) picks up its own language's face. */
+:root,
+:lang(zh-CN) {
+  --font-cjk: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC';
+}
+:lang(zh-TW) {
+  --font-cjk: 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans TC', 'Noto Sans CJK TC';
+}
+:lang(ja) {
+  --font-cjk: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', 'Yu Gothic', Meiryo, 'Noto Sans JP', 'Noto Sans CJK JP';
+}
+:root,
+[lang] {
+  --font-display: 'Bricolage Grotesque', 'Atkinson Hyperlegible Next', system-ui, -apple-system, 'Segoe UI', var(--font-cjk), sans-serif;
+  --font-sans: 'Atkinson Hyperlegible Next', system-ui, -apple-system, 'Segoe UI', var(--font-cjk), sans-serif;
+  --font-host: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, var(--font-cjk), sans-serif;
+}
+/* an inline sample sets its own stack, in the role of the text around it */
+:where([lang]:not(html)) {
+  font-family: var(--font-sans);
+}
+:where(.captions, .lk) :where([lang]) {
+  font-family: var(--font-host);
+}
+
 /* ---------- base ---------- */
 *,
 *::before,
@@ -169,7 +188,6 @@ body {
   font-size: var(--fs-body);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
 }
 h1,
 h2,
@@ -178,6 +196,31 @@ h3 {
   font-family: var(--font-display);
   font-weight: 600;
   text-wrap: balance;
+}
+/* CJK headings break only between phrases: at spaces, after punctuation and at the <wbr>s placed in
+   the strings (i18n.js), never inside a word. break-word is the last resort on very narrow screens. */
+:is(:lang(zh), :lang(ja)) :is(h1, h2, h3) {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+:lang(ja) {
+  line-break: strict;
+}
+/* no synthetic italics on CJK: emphasis in Chinese and Japanese is weight, not slant */
+:is(i, em):is(:lang(zh), :lang(ja)) {
+  font-style: normal;
+  font-weight: 600;
+}
+/* A non-English visitor's page stays hidden until i18n.js has put their language in (the inline
+   script in <head> sets the class), so they never see English swap out. Shown anyway after 2.5s. */
+.i18n-pending :is(.site-head, main, .site-foot) {
+  visibility: hidden;
+  animation: i18n-reveal 0s 2.5s forwards;
+}
+@keyframes i18n-reveal {
+  to {
+    visibility: visible;
+  }
 }
 p,
 ul,
@@ -250,11 +293,13 @@ kbd {
 }
 
 .wrap {
+  --pad-left: max(var(--gutter), env(safe-area-inset-left, 0px));
+  --pad-right: max(var(--gutter), env(safe-area-inset-right, 0px));
   width: 100%;
   max-width: calc(1120px + 2 * var(--gutter));
   margin-inline: auto;
-  padding-left: max(var(--gutter), env(safe-area-inset-left, 0px));
-  padding-right: max(var(--gutter), env(safe-area-inset-right, 0px));
+  padding-left: var(--pad-left);
+  padding-right: var(--pad-right);
 }
 
 /* the lime highlighter: only on what a learner would save */
@@ -358,6 +403,7 @@ kbd {
 .head-nav a {
   color: var(--ink-muted);
   text-decoration: none;
+  white-space: nowrap;
 }
 .head-nav a:hover {
   color: var(--ink);
@@ -458,9 +504,21 @@ kbd {
   color: var(--ink-muted);
   font-size: var(--fs-small);
 }
+/* On a phone or tablet the store button can't install anything: the note comes first and the
+   buttons step down to the quiet style. */
 @media (hover: none) and (pointer: coarse) {
   .phone-note {
     display: block;
+    order: 1;
+  }
+  .cta-row,
+  .cta-note {
+    order: 2;
+  }
+  .btn-primary[data-cta] {
+    border-color: var(--line-strong);
+    background: transparent;
+    color: var(--ink);
   }
 }
 
@@ -499,7 +557,7 @@ kbd {
   font-size: var(--fs-small);
   cursor: pointer;
 }
-.seg button[aria-checked='true'] {
+.seg button[aria-pressed='true'] {
   background: var(--ink);
   color: var(--paper);
 }
@@ -618,8 +676,12 @@ kbd {
   text-decoration: underline dotted var(--learn) 2px;
   text-underline-offset: 0.24em;
 }
+/* the page's focus blue is too dark on the player; this one keeps 3:1 on the video and the card */
+.w:focus-visible,
+.lk :focus-visible {
+  outline-color: var(--player-focus);
+}
 .w:focus-visible {
-  outline: 2px solid var(--learn);
   outline-offset: 1px;
 }
 .controls {
@@ -931,12 +993,10 @@ kbd {
   content: '';
   position: absolute;
   left: 0;
-  top: 0.55em;
-  width: 14px;
-  height: 7px;
-  border-radius: 2px;
-  background: var(--learn);
-  box-shadow: inset 0 0 0 1px var(--learn-edge);
+  top: calc(0.8em - 1px);
+  width: 12px;
+  height: 2px;
+  background: var(--line-strong);
 }
 .ticks-wide {
   gap: 18px;
@@ -1472,13 +1532,73 @@ kbd {
 }
 
 /* ---------- responsive ---------- */
+/* When the section links don't fit beside the brand they drop to a second row of the header, which
+   scrolls sideways. Japanese labels are longer, so Japanese switches at a wider width. */
 @media (max-width: 960px) {
-  .head-nav {
-    display: none;
+  html {
+    scroll-padding-top: 112px;
   }
   .head-row {
-    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0 16px;
+    height: auto;
   }
+  .brand,
+  .head-end {
+    min-height: 56px;
+  }
+  .head-end {
+    margin-left: auto;
+  }
+  .head-nav {
+    flex: 1 0 100%;
+    order: 1;
+    align-items: center;
+    gap: 22px;
+    height: 40px;
+    margin: 0 calc(-1 * var(--pad-right)) 0 calc(-1 * var(--pad-left));
+    padding-inline: var(--pad-left) var(--pad-right);
+    overflow-x: auto;
+    border-top: 1px solid var(--line);
+    scrollbar-width: none;
+  }
+  .head-nav::-webkit-scrollbar {
+    display: none;
+  }
+}
+@media (min-width: 961px) and (max-width: 1080px) {
+  html:lang(ja) {
+    scroll-padding-top: 112px;
+  }
+  :lang(ja) .head-row {
+    flex-wrap: wrap;
+    gap: 0 16px;
+    height: auto;
+  }
+  :lang(ja) :is(.brand, .head-end) {
+    min-height: 56px;
+  }
+  :lang(ja) .head-end {
+    margin-left: auto;
+  }
+  :lang(ja) .head-nav {
+    flex: 1 0 100%;
+    order: 1;
+    align-items: center;
+    gap: 22px;
+    height: 40px;
+    margin: 0 calc(-1 * var(--pad-right)) 0 calc(-1 * var(--pad-left));
+    padding-inline: var(--pad-left) var(--pad-right);
+    border-top: 1px solid var(--line);
+  }
+}
+/* below this the header's store button no longer fits; the hero's own button follows right after */
+@media (max-width: 439px) {
+  .head-end .btn {
+    display: none;
+  }
+}
+@media (max-width: 960px) {
   .split,
   .fair,
   .faq-wrap {
@@ -1496,7 +1616,7 @@ kbd {
     --gutter: 16px;
   }
   .head-row {
-    gap: 12px;
+    column-gap: 12px;
   }
   .head-end {
     gap: 8px;

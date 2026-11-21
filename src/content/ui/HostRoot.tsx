@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode, RefObject } from 'react';
+import { useI18n } from '@/lib/i18n';
 import { useSession } from '../store';
 
 /**
@@ -18,10 +19,13 @@ export function HostRoot({
 }) {
   const theme = useSession((s) => s.theme);
   const font = useSession((s) => s.hostFont);
+  // Captionary's own words are in the UI language, whatever the page's; lines in other languages say so.
+  const { locale } = useI18n();
   return (
     <div
       ref={rootRef}
       className={`cap-root cap-native ${className}`.trim()}
+      lang={locale}
       data-theme={theme}
       style={font ? ({ '--font-host': font, ...style } as CSSProperties) : style}
     >

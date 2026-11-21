@@ -18,7 +18,8 @@ export function useAIStatus(): AIStatus | null {
   useEffect(() => {
     void bg({ type: 'ai.status' })
       .then(setStatus)
-      .catch(() => undefined);
+      // No answer from the background: treat the tutor as not set up rather than loading forever.
+      .catch(() => setStatus((s) => s ?? { enabled: false, configured: false, autoExplain: false }));
   }, []);
   return status;
 }

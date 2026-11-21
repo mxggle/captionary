@@ -70,6 +70,6 @@ You can delete saved vocabulary entries, remove AI provider connections and thei
 
 ## Changes and contact
 
-Update this policy when Captionary's data practices change, and revise the date when publishing a new version.
+We'll update this policy when Captionary's data practices change and revise the date above.
 
 Public support contact: https://github.com/mxggle/captionary/issues

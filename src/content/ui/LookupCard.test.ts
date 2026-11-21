@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { placeCard } from './LookupCard';
+import { cardZoom, placeCard } from './LookupCard';
 
 const bounds = { left: 0, top: 0, width: 1280, height: 720 };
 const word = (top: number) => ({ left: 600, top, width: 60, height: 30 });
@@ -20,9 +20,35 @@ describe('placeCard', () => {
     expect(p.style.top).toBe(80 + 30 + 10);
   });
 
+  it('hangs the card from the top of a player too small to fit it beside the line', () => {
+    const small = { left: 0, top: 0, width: 400, height: 225 };
+    const line = { left: 180, top: 110, width: 40, height: 24 };
+    const p = placeCard(330, { anchor: line, avoid: line, bounds: small });
+    expect(p.style.top).toBe(8);
+    expect(p.maxHeight).toBe(225 - 16);
+    expect(p.arrow).toBeUndefined();
+  });
+
+  it('never lets a card above the line run past the top of the player', () => {
+    const small = { left: 0, top: 0, width: 640, height: 360 };
+    const line = word(250);
+    const p = placeCard(330, { anchor: line, avoid: line, bounds: small });
+    const top = small.height - (p.style.bottom as number) - p.maxHeight;
+    expect(top).toBeGreaterThanOrEqual(0);
+  });
+
   it('holds a card beside the drawer by its top edge', () => {
     const p = placeCard(360, { anchor: word(300), avoid: word(300), bounds, side: { left: 900, top: 0, width: 380, height: 720 } });
     expect(p.growsUp).toBeFalsy();
     expect(p.style.top).toBeDefined();
+  });
+});
+
+describe('cardZoom', () => {
+  it('grows the card with the viewport on Netflix only, within limits', () => {
+    expect(cardZoom('netflix', 1080)).toBe(1.5);
+    expect(cardZoom('netflix', 600)).toBe(1);
+    expect(cardZoom('netflix', 2160)).toBe(1.75);
+    expect(cardZoom('youtube-dark', 1080)).toBe(1);
   });
 });
