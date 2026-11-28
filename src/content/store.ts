@@ -2,6 +2,7 @@ import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
 import type { AIStatus } from '@/lib/messaging';
 import { DEFAULT_SETTINGS, type Settings } from '@/lib/settings';
+import type { RubySpan } from '@/lib/text/furigana';
 import type { Cue, TrackInfo, TranslationSource } from '@/lib/subtitles/types';
 import type { LineHints } from '@/lib/text/hints';
 import type { VocabItem } from '@/lib/vocab';
@@ -65,6 +66,8 @@ export interface SessionState {
   translations: (string | undefined)[];
   /** Romanized original lines (pinyin, romaji…), empty when not applicable. */
   romanizations: string[];
+  /** Japanese readings by cue (furigana over kanji), empty when not applicable. */
+  readings: RubySpan[][];
   /** Normalized word -> frequency rank (1 = most common) for the current language. */
   frequency: Map<string, number> | null;
   /**
@@ -115,6 +118,7 @@ export const sessionStore = createStore<SessionState>(() => ({
   cues: [],
   translations: [],
   romanizations: [],
+  readings: [],
   frequency: null,
   hints: {},
   status: 'idle',

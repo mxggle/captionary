@@ -1,6 +1,7 @@
 import { storage } from '#imports';
 import type { AISettings, AITask, TaskRoute } from './ai/types';
 import { normalizeLang } from './languages';
+import type { JapaneseReadingScript } from './text/furigana';
 import type { HintScale } from './text/hints';
 
 export type ShortcutAction =
@@ -55,6 +56,8 @@ export interface Settings {
     showTranslation: boolean;
     /** Pinyin / romaji / romanization line for non-Latin scripts. */
     showRomanization: boolean;
+    /** Japanese readings: furigana in hiragana or katakana over the kanji, or romaji over every word. */
+    japaneseReading: JapaneseReadingScript;
     /** Underline words by how rare they are (downloads a frequency list per language). */
     frequencyColors: boolean;
     /** A short translation under words that are difficult at the learner's vocabulary level. */
@@ -130,6 +133,7 @@ export const DEFAULT_SETTINGS: Settings = {
     showOriginal: true,
     showTranslation: true,
     showRomanization: true,
+    japaneseReading: 'hiragana',
     frequencyColors: false,
     definitionHints: false,
     hintLevels: {},

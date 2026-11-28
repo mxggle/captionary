@@ -325,6 +325,8 @@ export function SubtitlePanel({
                         index={index}
                         highlight={settings.subtitles.highlight}
                         freq={settings.subtitles.frequencyColors ? s.frequency : null}
+                        ruby={settings.subtitles.showRomanization ? s.readings[i] : undefined}
+                        rubyScript={settings.subtitles.japaneseReading}
                         selected={selected}
                         onSelect={(sel) =>
                           controller.openPopup({

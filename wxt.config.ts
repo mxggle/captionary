@@ -1,4 +1,10 @@
+import { readdirSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
 import { defineConfig } from 'wxt';
+
+// kuromoji's Japanese dictionary (IPAdic), read by the background to put readings over kanji.
+const jaDict = join(dirname(createRequire(import.meta.url).resolve('kuromoji/package.json')), 'dict');
 
 // See https://wxt.dev/api/config.html
 export default defineConfig({
@@ -28,6 +34,13 @@ export default defineConfig({
         suggested_key: { default: 'Alt+L' },
         description: '__MSG_commandToggleSidepanel__',
       },
+    },
+  },
+  hooks: {
+    'build:publicAssets': (_wxt, files) => {
+      for (const name of readdirSync(jaDict).filter((n) => n.endsWith('.dat.gz'))) {
+        files.push({ absoluteSrc: join(jaDict, name), relativeDest: `dict/ja/${name}` });
+      }
     },
   },
   vite: () => ({

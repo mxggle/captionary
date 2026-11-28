@@ -34,6 +34,7 @@ export type BgRequest =
   | { type: 'ai.test'; connectionId: string; model?: string }
   | { type: 'dict.lookup'; word: string; lang: string }
   | { type: 'text.romanize'; lang: string; lines: string[] }
+  | { type: 'text.furigana'; lines: string[] }
   | { type: 'freq.list'; lang: string }
   | { type: 'fetch.text'; url: string }
   | { type: 'open.page'; page: 'options' | 'vocab' | 'reader' | 'welcome'; hash?: string }
@@ -58,6 +59,8 @@ export interface BgResponseMap {
   'ai.test': import('./ai/gateway').TestResult;
   'dict.lookup': DictionaryResult;
   'text.romanize': string[];
+  /** Japanese readings per line, in hiragana (see `RubySpan`). */
+  'text.furigana': import('./text/furigana').RubySpan[][];
   'freq.list': string[] | null;
   'fetch.text': string;
   'open.page': void;

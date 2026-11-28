@@ -11,6 +11,8 @@ import { getCurrentUILocale, getMessages, resolveUILocale, syncUILocaleFromSetti
 import { baseLang } from '@/lib/languages';
 import { setupProgress } from '@/lib/onboarding';
 import { guessLanguage } from '@/lib/text/detect';
+import { lineFurigana, lineReading } from '@/lib/text/furigana';
+import { createJapaneseTokenizer, fetchGzip, JA_DICT_DIR, type JapaneseTokenizer } from '@/lib/text/kuromoji';
 import { romanizeLine } from '@/lib/text/romanize';
 import { romanizeChinese } from '@/lib/text/romanize-zh';
 import { selectionKind } from '@/lib/text/selection-kind';
@@ -20,6 +22,18 @@ import { aiSettingsItem, getAISettings, getSettings, watchSettings, type Setting
 
 /** Hosts the background will fetch text from on behalf of content scripts (no open proxy). */
 const FETCH_ALLOWLIST = [/\.nflxvideo\.net$/, /^www\.netflix\.com$/, /^vod-[a-z0-9-]+\.tv\.apple\.com$/];
+
+/** The Japanese dictionary (about 18 MB packed) loads on first use and stays while the worker lives. */
+let jaTokenizer: Promise<JapaneseTokenizer> | null = null;
+function japaneseTokenizer(): Promise<JapaneseTokenizer> {
+  // The files are copied in at build time (see wxt.config.ts), so they are not among the typed public paths.
+  const url = browser.runtime.getURL as (path: string) => string;
+  jaTokenizer ??= createJapaneseTokenizer((name) => fetchGzip(url(`/${JA_DICT_DIR}/${name}`))).catch((e) => {
+    jaTokenizer = null;
+    throw e;
+  });
+  return jaTokenizer;
+}
 
 async function aiStatus(): Promise<AIStatus> {
   const ai = await getAISettings();
@@ -94,8 +108,20 @@ async function handle(msg: BgRequest, sender: { tab?: { id?: number; windowId?: 
       return lookupWiktionary(msg.word, msg.lang);
     case 'freq.list':
       return getFrequencyList(msg.lang);
-    case 'text.romanize':
-      return msg.lines.slice(0, 5000).map((l) => (baseLang(msg.lang) === 'zh' ? romanizeChinese(l) : romanizeLine(l, msg.lang)));
+    case 'text.romanize': {
+      const lines = msg.lines.slice(0, 5000);
+      if (baseLang(msg.lang) === 'zh') return lines.map(romanizeChinese);
+      if (baseLang(msg.lang) === 'ja') {
+        const [tk, settings] = await Promise.all([japaneseTokenizer().catch(() => null), getSettings()]);
+        const script = settings.subtitles.japaneseReading;
+        if (tk) return lines.map((l) => (/[\u3040-\u30ff\u3400-\u9fff]/.test(l) ? lineReading(tk.tokenize(l), script) : ''));
+      }
+      return lines.map((l) => romanizeLine(l, msg.lang));
+    }
+    case 'text.furigana': {
+      const tk = await japaneseTokenizer();
+      return msg.lines.slice(0, 5000).map((l) => lineFurigana(tk.tokenize(l)));
+    }
     case 'fetch.text':
       return fetchText(msg.url);
     case 'open.page': {

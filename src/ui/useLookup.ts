@@ -148,7 +148,7 @@ export function useLookup({ target, settings, aiStatus, vocab, mediaTitle, autoE
     return () => {
       alive = false;
     };
-  }, [target.text, target.lang, settings.subtitles.showRomanization]);
+  }, [target.text, target.lang, settings.subtitles.showRomanization, settings.subtitles.japaneseReading]);
 
   // ---- dictionary ----
   const [dict, setDict] = useState<DictionaryResult | null>(null);

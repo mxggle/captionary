@@ -17,6 +17,7 @@ export function useSubtitleData() {
       cues: st.cues,
       translations: st.translations,
       romanizations: st.romanizations,
+      readings: st.readings,
       frequency: st.frequency,
       activeIndex: st.activeIndex,
       lastIndex: st.lastIndex,
