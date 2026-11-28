@@ -4,11 +4,13 @@ import { AppShell, SETTINGS_PAGES, type SettingsPageId } from '@/ui/AppShell';
 import { PageTitleFocus } from '@/ui/controls';
 import { AIProvidersSection } from './AIProviders';
 import { AIPrivacySection, AITasksSection, PromptsSection } from './AISections';
+import { LanguageSection } from './LanguageSections';
 import { DataSection, GeneralSection, ShortcutsSection, SubtitlesSection, WelcomeSection } from './GeneralSections';
 
 const SECTIONS: Record<SettingsPageId, () => ReactNode> = {
   welcome: () => <WelcomeSection />,
   general: () => <GeneralSection />,
+  language: () => <LanguageSection />,
   subtitles: () => <SubtitlesSection />,
   shortcuts: () => <ShortcutsSection />,
   ai: () => <AIProvidersSection />,

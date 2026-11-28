@@ -10,6 +10,7 @@ export type AppPage =
   | 'tutor'
   | 'welcome'
   | 'general'
+  | 'language'
   | 'subtitles'
   | 'shortcuts'
   | 'ai'
@@ -23,6 +24,7 @@ export type SettingsPageId = Exclude<AppPage, 'vocab' | 'review' | 'reader' | 't
 export const SETTINGS_PAGES: { id: SettingsPageId; label: string }[] = [
   { id: 'welcome', label: 'Get started' },
   { id: 'general', label: 'General' },
+  { id: 'language', label: 'Language features' },
   { id: 'subtitles', label: 'Subtitles & playback' },
   { id: 'shortcuts', label: 'Keyboard shortcuts' },
   { id: 'ai', label: 'AI providers' },
