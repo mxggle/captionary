@@ -1785,6 +1785,26 @@ textarea.cap-input {
 .cap-lyric__text .cap-w {
   white-space: nowrap;
 }
+/* Japanese readings (furigana or romaji) over the words, in the line's own colour but quieter. */
+.cap-furi {
+  ruby-position: over;
+  ruby-align: center;
+}
+.cap-furi__text {
+  padding-bottom: 0.08em;
+  font-size: max(10px, 0.5em);
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: 0;
+  white-space: nowrap;
+  opacity: 0.82;
+  user-select: none;
+}
+.cap-cap .cap-furi__text,
+.cap-lyric .cap-furi__text {
+  color: var(--caption-roman);
+  opacity: 1;
+}
 /* Definition hints: a short gloss under a difficult word, set as ruby under the word. */
 .cap-hint {
   ruby-position: under;

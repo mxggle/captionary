@@ -115,6 +115,7 @@ export function Overlay({ controller }: { controller: SessionController }) {
       cues: st.cues,
       translations: st.translations,
       romanizations: st.romanizations,
+      readings: st.readings,
       frequency: st.frequency,
       hints: st.hints,
       activeIndex: st.activeIndex,
@@ -301,6 +302,8 @@ export function Overlay({ controller }: { controller: SessionController }) {
                 highlight={subtitles.highlight}
                 freq={subtitles.frequencyColors ? s.frequency : null}
                 hints={hintsApply(s) ? s.hints[s.activeIndex] : undefined}
+                ruby={subtitles.showRomanization ? s.readings[s.activeIndex] : undefined}
+                rubyScript={subtitles.japaneseReading}
                 selected={selected}
                 spaceIsPlayback
                 onSelect={(sel) =>

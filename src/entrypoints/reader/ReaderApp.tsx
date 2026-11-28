@@ -1,11 +1,12 @@
 import { storage } from '#imports';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useI18n } from '@/lib/i18n';
-import { languageName, normalizeLang, sameLang } from '@/lib/languages';
+import { baseLang, languageName, normalizeLang, sameLang } from '@/lib/languages';
 import { bg } from '@/lib/messaging';
 import { readerImport } from '@/lib/session-items';
 import { parseSubtitleFile, toPlainText } from '@/lib/subtitles/parse';
 import { buildRankMap, frequencyRank } from '@/lib/text/frequency-map';
+import type { RubySpan } from '@/lib/text/furigana';
 import { canRomanize } from '@/lib/text/romanize';
 import { normalizeWord, splitSentences } from '@/lib/text/tokenize';
 import { chromeTranslatorState, detectLanguage, translateLines } from '@/lib/translate';
@@ -62,6 +63,7 @@ function TextMode({ onMode, titleRef }: { onMode: (m: ReaderMode) => void; title
   const [translations, setTranslations] = useState<Record<number, string>>({});
   const [translating, setTranslating] = useState<{ done: boolean; error?: string } | null>(null);
   const [romanized, setRomanized] = useState<string[]>([]);
+  const [readings, setReadings] = useState<RubySpan[][]>([]);
   const [freq, setFreq] = useState<Map<string, number> | null>(null);
   const [dragging, setDragging] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -118,11 +120,20 @@ function TextMode({ onMode, titleRef }: { onMode: (m: ReaderMode) => void; title
   }, [wantFreq, doc]);
   useEffect(() => {
     setRomanized([]);
+    setReadings([]);
     if (!showRoman || !doc) return;
     let alive = true;
-    bg({ type: 'text.romanize', lang: doc.lang, lines: sentences.map((s) => s.text) })
-      .then((out) => alive && setRomanized(out))
-      .catch(() => undefined);
+    const lines = sentences.map((s) => s.text);
+    const romanize = () =>
+      bg({ type: 'text.romanize', lang: doc.lang, lines })
+        .then((out) => alive && setRomanized(out))
+        .catch(() => undefined);
+    // Japanese readings go over the words; without the dictionary, romanized kana on a line of its own.
+    if (baseLang(doc.lang) === 'ja')
+      bg({ type: 'text.furigana', lines })
+        .then((out) => alive && setReadings(out))
+        .catch(romanize);
+    else void romanize();
     return () => {
       alive = false;
     };
@@ -337,6 +348,8 @@ function TextMode({ onMode, titleRef }: { onMode: (m: ReaderMode) => void; title
                       index={index}
                       highlight={settings.subtitles.highlight}
                       freq={freq}
+                      ruby={readings[s.i]}
+                      rubyScript={settings.subtitles.japaneseReading}
                       selected={popup?.sentenceIndex === s.i && popup.kind === 'word' ? popup.tokenRange : undefined}
                       onSelect={(sel) => openPopup('word', sel.text, s.i, sel.rect, sel.range)}
                     />{' '}

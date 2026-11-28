@@ -119,6 +119,8 @@ export function SubtitleDrawer({ controller, width, bottom = 0 }: { controller: 
                     index={index}
                     highlight={settings.subtitles.highlight}
                     freq={settings.subtitles.frequencyColors ? s.frequency : null}
+                    ruby={settings.subtitles.showRomanization ? s.readings[i] : undefined}
+                    rubyScript={settings.subtitles.japaneseReading}
                     selected={selected}
                     spaceIsPlayback
                     onSelect={(sel) =>

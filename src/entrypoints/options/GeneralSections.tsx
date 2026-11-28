@@ -38,6 +38,7 @@ import {
 import { HINT_SCALES, hintLevelFor, hintScaleFor, type HintScale } from '@/lib/text/hints';
 import { getChromeTranslator } from '@/lib/translate';
 import { LanguageSelect, useSettings } from '@/ui/form';
+import { JapaneseReadingRow } from './JapaneseReadingRow';
 import { IconExternal, IconUpload } from '@/ui/icons';
 
 const HINT_SCALE_ORDER: HintScale[] = ['cefr', 'jlpt', 'hsk', 'topik'];
@@ -305,6 +306,7 @@ export function SubtitlesSection() {
             />
           )}
         </SettingRow>
+        <JapaneseReadingRow settings={s} set={set} />
         <SettingRow title={t.blurTranslation} help={t.blurTranslationHelp}>
           {(id) => (
             <Switch labelledBy={id} checked={sub.blurTranslation} onChange={(v) => set((st) => void (st.subtitles.blurTranslation = v))} />

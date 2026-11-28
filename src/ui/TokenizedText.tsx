@@ -2,6 +2,7 @@ import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useI18n } from '@/lib/i18n';
 import { isRtl } from '@/lib/languages';
 import type { WordStatusHighlight } from '@/lib/settings';
+import { rubyPieces, type JapaneseReadingScript, type RubySpan } from '@/lib/text/furigana';
 import { frequencyClass, frequencyRank } from '@/lib/text/frequency-map';
 import type { LineHints } from '@/lib/text/hints';
 import { findPhrases, normalizeWord, tokenize } from '@/lib/text/tokenize';
@@ -38,6 +39,9 @@ interface Props {
    * whole of a phrase.
    */
   hints?: LineHints;
+  /** Japanese readings over the words (furigana, or romaji), written in `rubyScript`. */
+  ruby?: RubySpan[];
+  rubyScript?: JapaneseReadingScript;
 }
 
 function unionRect(a: DOMRect, b: DOMRect): AnchorRect {
@@ -66,6 +70,8 @@ export const TokenizedText = memo(function TokenizedText({
   selected,
   spaceIsPlayback,
   hints,
+  ruby,
+  rubyScript = 'hiragana',
 }: Props) {
   const { m } = useI18n();
   const tokens = useMemo(() => tokenize(text, lang), [text, lang]);
@@ -157,6 +163,24 @@ export const TokenizedText = memo(function TokenizedText({
   const lo = drag ? Math.min(drag.start, drag.end) : (selected?.[0] ?? -1);
   const hi = drag ? Math.max(drag.start, drag.end) : (selected?.[1] ?? -1);
 
+  // A word's text with its reading over it, where there is one.
+  const reading = (t: (typeof tokens)[number]): React.ReactNode => {
+    // No readings loaded: plain text. Romaji reads kana too, so a line without kanji still gets it.
+    if (!ruby || (!ruby.length && rubyScript !== 'romaji')) return t.text;
+    const pieces = rubyPieces(text, t.index, t.index + t.text.length, ruby, rubyScript);
+    if (pieces.every((p) => !p.reading)) return t.text;
+    return pieces.map((p, k) =>
+      p.reading ? (
+        <ruby key={k} className="cap-furi">
+          {p.text}
+          <rt className="cap-furi__text">{p.reading}</rt>
+        </ruby>
+      ) : (
+        p.text
+      ),
+    );
+  };
+
   const nodes = tokens.map((t, i) => {
     const inPhrase = phraseOf.get(i);
     if (!t.word) {
@@ -209,11 +233,11 @@ export const TokenizedText = memo(function TokenizedText({
       >
         {gloss ? (
           <ruby className="cap-hint">
-            {t.text}
+            {reading(t)}
             <rt className="cap-hint__text">{gloss}</rt>
           </ruby>
         ) : (
-          t.text
+          reading(t)
         )}
       </span>
     );

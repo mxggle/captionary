@@ -1,5 +1,5 @@
 import { getMessages, resolveUILocale, syncUILocaleFromSettings } from '@/lib/i18n';
-import { normalizeLang, sameLang } from '@/lib/languages';
+import { baseLang, normalizeLang, sameLang } from '@/lib/languages';
 import { bg } from '@/lib/messaging';
 import {
   getSettings,
@@ -13,6 +13,7 @@ import {
 } from '@/lib/settings';
 import { alignTracks, cueIndexAt, cueIndexBefore } from '@/lib/subtitles/parse';
 import { buildRankMap } from '@/lib/text/frequency-map';
+import type { RubySpan } from '@/lib/text/furigana';
 import { canRomanize } from '@/lib/text/romanize';
 import { SubtitleLoadError, type Cue, type TrackInfo, type TranslationSource } from '@/lib/subtitles/types';
 import { chromeTranslatorState, translateLines } from '@/lib/translate';
@@ -689,6 +690,7 @@ export class SessionController {
       cues: [],
       translations: [],
       romanizations: [],
+      readings: [],
       activeIndex: -1,
       lastIndex: -1,
       popup: null,
@@ -722,6 +724,7 @@ export class SessionController {
       cues: [],
       translations: [],
       romanizations: [],
+      readings: [],
       activeIndex: -1,
     });
     // Nothing is fetched while Captionary is off; turning it on loads this track.
@@ -780,8 +783,23 @@ export class SessionController {
 
   /** Pinyin / romanization for the whole track, computed in the background. */
   async loadRomanizations(gen: number) {
-    const { cues, lang, settings, romanizations } = getSession();
+    const { cues, lang, settings, romanizations, readings } = getSession();
     if (!settings.subtitles.showRomanization || !cues.length || !canRomanize(lang) || romanizations.length) return;
+    // Japanese readings sit over the words (furigana), not on a line of their own.
+    if (baseLang(lang) === 'ja') {
+      if (readings.length) return;
+      try {
+        const out: RubySpan[][] = [];
+        for (let i = 0; i < cues.length; i += 500) {
+          out.push(...(await bg({ type: 'text.furigana', lines: cues.slice(i, i + 500).map((c) => c.text) })));
+          if (gen !== this.generation) return;
+        }
+        setSession({ readings: out });
+        return;
+      } catch {
+        // No dictionary: fall back to romanizing the kana on a line below.
+      }
+    }
     try {
       const out: string[] = [];
       for (let i = 0; i < cues.length; i += 500) {
