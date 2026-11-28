@@ -387,7 +387,7 @@ function TextMode({ onMode, titleRef }: { onMode: (m: ReaderMode) => void; title
                   growsUp={place.growsUp}
                   mediaTitle={doc.title}
                   rankKnown={!!freq}
-                  rank={popup.kind === 'word' && freq ? frequencyRank(freq, normalizeWord(popup.text, popup.lang)) : undefined}
+                  rank={popup.kind === 'word' && freq ? frequencyRank(freq, normalizeWord(popup.text, popup.lang), popup.lang) : undefined}
                   onClose={() => setPopup(null)}
                   onSave={(status, entry) => {
                     if (!status) return removeVocab(vocabKey(entry.text, popup.lang).id);

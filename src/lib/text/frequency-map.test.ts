@@ -18,6 +18,17 @@ describe('frequency lists', () => {
     expect(frequencyRank(ranks, "i've")).toBe(3);
     expect(frequencyRank(ranks, 'zzz')).toBeUndefined();
   });
+  it('ranks a chunk cut differently from the list by its listed pieces, without spaces only', () => {
+    const ranks = buildRankMap(['の', 'に', 'う', '言', '本当', 'た', 'よ', '台無し'], 'ja');
+    expect(frequencyRank(ranks, '本当に', 'ja')).toBe(5);
+    expect(frequencyRank(ranks, '言う', 'ja')).toBe(4);
+    expect(frequencyRank(ranks, 'たよ', 'ja')).toBe(7);
+    // A listed chunk keeps its own rank; one with an unlisted part stays unknown.
+    expect(frequencyRank(ranks, '台無し', 'ja')).toBe(8);
+    expect(frequencyRank(ranks, '邂逅', 'ja')).toBeUndefined();
+    expect(frequencyRank(ranks, '本当に')).toBeUndefined();
+    expect(frequencyRank(buildRankMap(['the', 'cat'], 'en'), 'thecat', 'en')).toBeUndefined();
+  });
   it('assigns rarity bands', () => {
     expect(frequencyClass(10)).toBe('');
     expect(frequencyClass(5000)).toBe('f-mid');

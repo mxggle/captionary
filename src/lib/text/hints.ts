@@ -147,8 +147,8 @@ export function pickHintTokens(tokens: Token[], opts: HintOptions): number[] {
     const capitalised = CASED.test(t.text) && t.text[0] !== t.text[0].toLocaleLowerCase() && t.text.length > 1;
     // German capitalises every noun, so there a capital says nothing; unlisted names are still left out below.
     if (capitalised && !atStart && !NOUNS_CAPITALISED.has(baseLang(opts.lang))) continue;
-    const rank = frequencyRank(opts.ranks, key);
-    // Unlisted: a name, or (without spaces) a chunk the segmenter cut differently from the list.
+    const rank = frequencyRank(opts.ranks, key, opts.lang);
+    // Unlisted: a name, or (without spaces) a chunk not made of listed pieces.
     if (rank === undefined && (capitalised || isSpaceless(opts.lang))) continue;
     const r = rank ?? Infinity;
     if (r <= cutoff) continue;
