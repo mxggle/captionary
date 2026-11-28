@@ -60,3 +60,10 @@ describe('Japanese line readings', () => {
     expect(rubyPieces(text, 1, 2, spans, 'hiragana')).toEqual([{ text: 'は' }]);
   });
 });
+
+describe('kana-only lines', () => {
+  it('still get romaji', () => {
+    expect(rubyPieces('ありがとう', 0, 5, [], 'romaji')).toEqual([{ text: 'ありがとう', reading: 'arigatou' }]);
+    expect(rubyPieces('ありがとう', 0, 5, [], 'hiragana')).toEqual([{ text: 'ありがとう' }]);
+  });
+});

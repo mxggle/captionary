@@ -165,7 +165,8 @@ export const TokenizedText = memo(function TokenizedText({
 
   // A word's text with its reading over it, where there is one.
   const reading = (t: (typeof tokens)[number]): React.ReactNode => {
-    if (!ruby?.length) return t.text;
+    // No readings loaded: plain text. Romaji reads kana too, so a line without kanji still gets it.
+    if (!ruby || (!ruby.length && rubyScript !== 'romaji')) return t.text;
     const pieces = rubyPieces(text, t.index, t.index + t.text.length, ruby, rubyScript);
     if (pieces.every((p) => !p.reading)) return t.text;
     return pieces.map((p, k) =>
