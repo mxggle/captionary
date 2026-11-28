@@ -38,6 +38,11 @@ interface Props {
    * whole of a phrase.
    */
   hints?: LineHints;
+  /**
+   * Definition hints are on for this line: an underline then promises a meaning, so only words with a
+   * hint are underlined (by rarity), and none while the line's hints are still loading.
+   */
+  hintsOn?: boolean;
 }
 
 function unionRect(a: DOMRect, b: DOMRect): AnchorRect {
@@ -66,6 +71,7 @@ export const TokenizedText = memo(function TokenizedText({
   selected,
   spaceIsPlayback,
   hints,
+  hintsOn,
 }: Props) {
   const { m } = useI18n();
   const tokens = useMemo(() => tokenize(text, lang), [text, lang]);
@@ -176,9 +182,10 @@ export const TokenizedText = memo(function TokenizedText({
       inPhrase ?? (highlight === 'none' ? undefined : highlight === 'learning' && wordStatus !== 'learning' ? undefined : wordStatus);
     // Rarity underline, unless the learner already tracks this word.
     const flaggable = !!freq && !wordStatus && !inPhrase && !/^\p{N}+$/u.test(key);
-    const rank = flaggable ? frequencyRank(freq, key) : undefined;
-    const freqCls = flaggable ? frequencyClass(rank) : '';
+    const rank = flaggable ? frequencyRank(freq, key, lang) : undefined;
     const gloss = wordStatus === 'known' ? undefined : hints?.words[key];
+    // With hints on, an underline comes with the word's meaning under it (a phrase's hint has its own rule).
+    const freqCls = !flaggable ? '' : !hintsOn ? frequencyClass(rank) : gloss ? frequencyClass(rank) || 'f-mid' : '';
     const cls = ['cap-w', status ? STATUS_CLASS[status] : freqCls, i >= lo && i <= hi ? 'is-selected' : '', gloss ? 'has-hint' : '']
       .filter(Boolean)
       .join(' ');

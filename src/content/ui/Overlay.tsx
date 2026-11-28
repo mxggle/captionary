@@ -301,6 +301,7 @@ export function Overlay({ controller }: { controller: SessionController }) {
                 highlight={subtitles.highlight}
                 freq={subtitles.frequencyColors ? s.frequency : null}
                 hints={hintsApply(s) ? s.hints[s.activeIndex] : undefined}
+                hintsOn={hintsApply(s)}
                 selected={selected}
                 spaceIsPlayback
                 onSelect={(sel) =>

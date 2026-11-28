@@ -75,6 +75,14 @@ describe('definition hints', () => {
     expect(words(text, 'ja', picked)).toEqual(['探知']);
   });
 
+  it('ranks a chunk made of listed pieces by them, without spaces', () => {
+    // 本当に is no list entry, but 本当 and に are common: no hint. 台無し is listed and rare.
+    const ja = buildRankMap(['に', 'は', '本当', 'なっ', 'た', '台無し'], 'ja');
+    const tokens = tokenize('本当に台無し', 'ja');
+    const picked = pickHintTokens(tokens, { lang: 'ja', ranks: ja, cutoff: 4 });
+    expect(picked.map((i) => tokens[i].text)).toEqual(['台無し']);
+  });
+
   it('uses each language’s own level scale', () => {
     expect(hintScaleFor('ja')).toBe('jlpt');
     expect(hintScaleFor('zh-TW')).toBe('hsk');
